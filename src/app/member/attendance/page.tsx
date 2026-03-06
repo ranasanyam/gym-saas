@@ -118,18 +118,33 @@ import { useToast } from "@/hooks/use-toast"
 
 export default function MemberAttendancePage() {
   const { toast } = useToast()
-  const [records, setRecords] = useState<any[]>([])
-  const [total, setTotal]     = useState(0)
-  const [page, setPage]       = useState(1)
-  const [pages, setPages]     = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [checkingIn, setCheckingIn] = useState(false)
+  const [records, setRecords]         = useState<any[]>([])
+  const [total, setTotal]             = useState(0)
+  const [page, setPage]               = useState(1)
+  const [pages, setPages]             = useState(1)
+  const [loading, setLoading]         = useState(true)
+  const [checkingIn, setCheckingIn]   = useState(false)
+  const [checkedInToday, setCheckedInToday] = useState(false)
+
+  const todayStr = new Date().toDateString() // e.g. "Fri Mar 06 2026"
 
   const load = (p: number) => {
     setLoading(true)
     fetch(`/api/member/attendance?page=${p}`)
       .then(r => r.json())
-      .then(d => { setRecords(d.records ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1) })
+      .then(d => {
+        const recs = d.records ?? []
+        setRecords(recs)
+        setTotal(d.total ?? 0)
+        setPages(d.pages ?? 1)
+        // Check if first record (most recent) is from today
+        if (recs.length > 0) {
+          const latest = new Date(recs[0].checkInTime).toDateString()
+          setCheckedInToday(latest === todayStr)
+        } else {
+          setCheckedInToday(false)
+        }
+      })
       .finally(() => setLoading(false))
   }
 
@@ -168,11 +183,22 @@ export default function MemberAttendancePage() {
             <span className="text-white font-semibold text-sm">{total}</span>
             <span className="text-white/40 text-xs">total</span>
           </div>
-          <button onClick={checkIn} disabled={checkingIn}
-            className="flex items-center gap-2 bg-gradient-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50">
-            {checkingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Check In Today
-          </button>
+
+          {checkedInToday ? (
+            <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold px-4 py-2.5 rounded-xl">
+              <CheckCircle2 className="w-4 h-4" />
+              Checked In Today
+            </div>
+          ) : (
+            <button
+              onClick={checkIn}
+              disabled={checkingIn}
+              className="flex items-center gap-2 bg-gradient-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {checkingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Check In Today
+            </button>
+          )}
         </div>
       </div>
 
@@ -194,27 +220,31 @@ export default function MemberAttendancePage() {
               </div>
               <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl divide-y divide-white/4 overflow-hidden">
                 {recs.map((r: any) => {
-                  const checkIn  = new Date(r.checkInTime)
-                  const checkOut = r.checkOutTime ? new Date(r.checkOutTime) : null
-                  const durationMin = checkOut ? Math.round((checkOut.getTime() - checkIn.getTime()) / 60000) : null
+                  const ci  = new Date(r.checkInTime)
+                  const co  = r.checkOutTime ? new Date(r.checkOutTime) : null
+                  const dur = co ? Math.round((co.getTime() - ci.getTime()) / 60000) : null
+                  const isToday = ci.toDateString() === todayStr
                   return (
                     <div key={r.id} className="flex items-center gap-4 px-5 py-4">
-                      <div className="w-9 h-9 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
-                        <CheckCircle2 className="w-4 h-4 text-green-400" />
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isToday ? "bg-primary/15" : "bg-green-500/10"}`}>
+                        <CheckCircle2 className={`w-4 h-4 ${isToday ? "text-primary" : "text-green-400"}`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-white/80 text-sm font-medium">{r.gym?.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-white/80 text-sm font-medium">{r.gym?.name}</p>
+                          {isToday && <span className="text-[10px] bg-primary/15 text-primary px-2 py-0.5 rounded-full font-medium">Today</span>}
+                        </div>
                         <p className="text-white/35 text-xs">
-                          {checkIn.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                          {ci.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
                           {" · "}
-                          {checkIn.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-                          {checkOut && ` → ${checkOut.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`}
+                          {ci.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                          {co && ` → ${co.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`}
                         </p>
                       </div>
-                      {durationMin !== null && (
+                      {dur !== null && (
                         <span className="text-white/30 text-xs flex items-center gap-1 shrink-0">
                           <Clock className="w-3 h-3" />
-                          {durationMin >= 60 ? `${Math.floor(durationMin/60)}h ${durationMin%60}m` : `${durationMin}m`}
+                          {dur >= 60 ? `${Math.floor(dur/60)}h ${dur%60}m` : `${dur}m`}
                         </span>
                       )}
                     </div>

@@ -506,12 +506,12 @@ export default function SelectRolePage() {
           <div className="p-2.5 bg-gradient-primary rounded-xl shadow-lg">
             <Dumbbell className="w-6 h-6 text-white" />
           </div>
-          <span className="text-2xl font-display font-bold text-white tracking-tight">FitHub</span>
+          <span className="text-2xl font-display font-bold text-white tracking-tight">GymStack</span>
         </div>
 
         {/* Heading */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-display font-bold text-white mb-3">How will you use FitHub?</h1>
+          <h1 className="text-3xl font-display font-bold text-white mb-3">How will you use GymStack?</h1>
           <p className="text-white/50 text-sm">Choose your role to get started with the right experience</p>
         </div>
 

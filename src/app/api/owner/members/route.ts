@@ -120,13 +120,13 @@ async function sendPasswordSetupEmail(
   // import { Resend } from "resend"
   // const resend = new Resend(process.env.RESEND_API_KEY)
   // await resend.emails.send({
-  //   from: "FitHub <noreply@yourdomain.com>",
+  //   from: "GymStack <noreply@yourdomain.com>",
   //   to: email,
-  //   subject: `You've been added to ${gymName} on FitHub`,
+  //   subject: `You've been added to ${gymName} on GymStack`,
   //   html: `
   //     <h2>Hi ${fullName},</h2>
   //     <p><strong>${ownerName}</strong> has added you as a member at <strong>${gymName}</strong>.</p>
-  //     <p>Click the button below to set your password and access your gym benefits on FitHub.</p>
+  //     <p>Click the button below to set your password and access your gym benefits on GymStack.</p>
   //     <a href="${resetLink}" style="background:#f97316;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0;">Set My Password</a>
   //     <p style="color:#888;font-size:12px;">This link expires in 24 hours. If you didn't expect this email, you can safely ignore it.</p>
   //   `,
@@ -279,12 +279,12 @@ export async function POST(req: NextRequest) {
     } else {
       // ── CASE 1: Brand new user — create profile with null passwordHash ──
       const resolvedEmail = email?.trim().toLowerCase()
-        || `${mobileNumber.trim().replace(/\D/g, "")}@fithub.local`
+        || `${mobileNumber.trim().replace(/\D/g, "")}@gymstack.local`
 
       // Guard placeholder collision
       const emailTaken = await prisma.profile.findUnique({ where: { email: resolvedEmail } })
       const finalEmail = emailTaken
-        ? `${mobileNumber.trim().replace(/\D/g, "")}_${Date.now()}@fithub.local`
+        ? `${mobileNumber.trim().replace(/\D/g, "")}_${Date.now()}@gymstack.local`
         : resolvedEmail
 
       const newProfile = await prisma.$transaction(async (tx) => {

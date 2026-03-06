@@ -362,7 +362,7 @@ export default function AddTrainerPage() {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             fullName: form.fullName, mobileNumber: form.mobileNumber,
-            email: form.email || `${form.mobileNumber.replace(/\D/g,"")}@fithub.local`,
+            email: form.email || `${form.mobileNumber.replace(/\D/g,"")}@gymstack.local`,
             password: crypto.randomUUID(), // temp password, they'll reset via email
             city: form.city || "Unknown",
             gender: form.gender || null,

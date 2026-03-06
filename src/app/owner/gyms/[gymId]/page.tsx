@@ -458,7 +458,7 @@
 // src/app/owner/gyms/[gymId]/page.tsx
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
@@ -471,6 +471,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { MultiImageUpload } from "@/components/ui/MultiUpload"
+import { Avatar } from "@/components/ui/Avatar"
 
 interface Plan {
   id: string; name: string; price: number; durationMonths: number
@@ -498,16 +499,6 @@ const SERVICES   = ["Weight Training","Cardio","Yoga","Zumba","CrossFit","Boxing
 const FACILITIES = ["Locker Room","Shower","Parking","AC","WiFi","Cafeteria","Steam Room","Sauna","Pro Shop","Child Care","Changing Room","Water Cooler","First Aid","CCTV","Music System"]
 const TABS = ["Details","Members","Trainers","Facilities","Services","Plans","Photos"]
 
-function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
-  const initials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
-  const style = { width: size, height: size, borderRadius: "9999px", flexShrink: 0 }
-  if (url) return <img src={url} alt={name} className="object-cover" style={style} />
-  return (
-    <div style={{ ...style, background: "linear-gradient(135deg,#f97316,#ea580c)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <span style={{ color: "white", fontWeight: "bold", fontSize: size * 0.35 }}>{initials}</span>
-    </div>
-  )
-}
 
 export default function GymDetailPage() {
   const { gymId } = useParams<{ gymId: string }>()
@@ -523,6 +514,15 @@ export default function GymDetailPage() {
   const [saving, setSaving]   = useState(false)
 
   const [carouselIdx, setCarouselIdx] = useState(0)
+  const carouselTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const startCarousel = useCallback((total: number) => {
+    if (carouselTimer.current) clearInterval(carouselTimer.current)
+    if (total < 2) return
+    carouselTimer.current = setInterval(() => {
+      setCarouselIdx(i => (i + 1) % total)
+    }, 3500)
+  }, [])
 
   const [showPlanForm, setShowPlanForm] = useState(false)
   const [editingPlan, setEditingPlan]   = useState<Plan | null>(null)
@@ -545,9 +545,15 @@ export default function GymDetailPage() {
     setEditForm({ ...gymData, gymImages: gymData.gymImages ?? [] })
     setStats({ monthRevenue: payData.monthTotal ?? 0, totalRevenue: payData.total ?? 0 })
     setLoading(false)
-  }, [gymId])
+    startCarousel((gymData.gymImages ?? []).length)
+  }, [gymId, startCarousel])
 
   useEffect(() => { load() }, [load])
+
+  // Cleanup carousel on unmount
+  useEffect(() => {
+    return () => { if (carouselTimer.current) clearInterval(carouselTimer.current) }
+  }, [])
 
   useEffect(() => {
     if (tab !== "Members") return
@@ -651,8 +657,8 @@ export default function GymDetailPage() {
         <div className="relative rounded-2xl overflow-hidden bg-black" style={{ height: 220 }}>
           <img src={images[carouselIdx]} alt="Gym" className="w-full h-full object-cover opacity-90" />
           {images.length > 1 && <>
-            <button onClick={() => setCarouselIdx(i => (i - 1 + images.length) % images.length)} className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 rounded-full text-white hover:bg-black/70"><ChevronLeft className="w-4 h-4" /></button>
-            <button onClick={() => setCarouselIdx(i => (i + 1) % images.length)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 rounded-full text-white hover:bg-black/70"><ChevronRight className="w-4 h-4" /></button>
+            <button onClick={() => { setCarouselIdx(i => (i - 1 + images.length) % images.length); startCarousel(images.length) }} className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 rounded-full text-white hover:bg-black/70"><ChevronLeft className="w-4 h-4" /></button>
+            <button onClick={() => { setCarouselIdx(i => (i + 1) % images.length); startCarousel(images.length) }} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 rounded-full text-white hover:bg-black/70"><ChevronRight className="w-4 h-4" /></button>
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
               {images.map((_: string, i: number) => <button key={i} onClick={() => setCarouselIdx(i)} className={`h-1.5 rounded-full transition-all ${i === carouselIdx ? "bg-white w-4" : "bg-white/40 w-1.5"}`} />)}
             </div>

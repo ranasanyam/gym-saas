@@ -126,9 +126,9 @@
 //       // import { Resend } from "resend"
 //       // const resend = new Resend(process.env.RESEND_API_KEY)
 //       // await resend.emails.send({
-//       //   from: "FitHub <noreply@yourdomain.com>",
+//       //   from: "GymStack <noreply@yourdomain.com>",
 //       //   to: profile.email,
-//       //   subject: "Reset your FitHub password",
+//       //   subject: "Reset your GymStack password",
 //       //   html: `
 //       //     <h2>Hi ${profile.fullName},</h2>
 //       //     <p>Click the link below to reset your password. This link expires in 1 hour.</p>
@@ -218,9 +218,9 @@ export async function POST(req: NextRequest) {
       // import { Resend } from "resend"
       // const resend = new Resend(process.env.RESEND_API_KEY)
       // await resend.emails.send({
-      //   from: "FitHub <noreply@yourdomain.com>",
+      //   from: "GymStack <noreply@yourdomain.com>",
       //   to: profile.email,
-      //   subject: "Reset your FitHub password",
+      //   subject: "Reset your GymStack password",
       //   html: `
       //     <h2>Hi ${profile.fullName},</h2>
       //     <p>Click the link below to reset your password. This link expires in 1 hour.</p>
