@@ -87,6 +87,7 @@
 // }
 
 
+// src/app/api/profile/me/route.ts
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
@@ -109,6 +110,7 @@ export async function GET() {
         mobileNumber: true,
         city: true,
         gender: true,
+        dateOfBirth: true,
         role: true,
         wallet: {
           select: { balance: true },
@@ -156,6 +158,7 @@ export async function GET() {
       mobileNumber: profile.mobileNumber,
       city: profile.city,
       gender: profile.gender,
+      dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.toISOString() : null,
       role: profile.role,
       wallet: profile.wallet
         ? { balance: Number(profile.wallet.balance) }

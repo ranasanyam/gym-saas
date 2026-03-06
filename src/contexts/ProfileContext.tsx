@@ -1,3 +1,4 @@
+// src/contexts/ProfileContext.tsx
 "use client"
 
 import {
@@ -28,6 +29,7 @@ export interface ProfileData {
   mobileNumber: string | null
   city: string | null
   gender: string | null
+  dateOfBirth: string | null
   role: UserRole
   wallet: { balance: number } | null
   referralCode: string | null
