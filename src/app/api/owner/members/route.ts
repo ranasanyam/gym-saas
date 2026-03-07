@@ -82,7 +82,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
-
+import {  sendMemberWelcomeEmail } from "@/lib/email";
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function generateReferralCode(name: string): string {
@@ -99,38 +99,44 @@ function addMonths(date: Date, months: number): Date {
   return d
 }
 
-async function sendPasswordSetupEmail(
-  email: string,
-  fullName: string,
-  gymName: string,
-  ownerName: string,
-  resetLink: string
-) {
-  if (process.env.NODE_ENV === "development") {
-    console.log("\n──────────────────────────────────────────")
-    console.log(`📧 MEMBER SETUP EMAIL (dev only) → ${email}`)
-    console.log(`   ${ownerName} added ${fullName} to ${gymName}`)
-    console.log(`   Set password link: ${resetLink}`)
-    console.log("──────────────────────────────────────────\n")
-    return
-  }
+// async function sendPasswordSetupEmail(
+//   email: string,
+//   fullName: string,
+//   gymName: string,
+//   ownerName: string,
+//   resetLink: string
+// ) {
+//   if (process.env.NODE_ENV === "development") {
+//     console.log("\n──────────────────────────────────────────")
+//     console.log(`📧 MEMBER SETUP EMAIL (dev only) → ${email}`)
+//     console.log(`   ${ownerName} added ${fullName} to ${gymName}`)
+//     console.log(`   Set password link: ${resetLink}`)
+//     console.log("──────────────────────────────────────────\n")
+//     return
+//   }
 
-  // TODO: Replace with your email provider (e.g. Resend)
-  // Example:
-  // import { Resend } from "resend"
-  // const resend = new Resend(process.env.RESEND_API_KEY)
-  // await resend.emails.send({
-  //   from: "GymStack <noreply@yourdomain.com>",
-  //   to: email,
-  //   subject: `You've been added to ${gymName} on GymStack`,
-  //   html: `
-  //     <h2>Hi ${fullName},</h2>
-  //     <p><strong>${ownerName}</strong> has added you as a member at <strong>${gymName}</strong>.</p>
-  //     <p>Click the button below to set your password and access your gym benefits on GymStack.</p>
-  //     <a href="${resetLink}" style="background:#f97316;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0;">Set My Password</a>
-  //     <p style="color:#888;font-size:12px;">This link expires in 24 hours. If you didn't expect this email, you can safely ignore it.</p>
-  //   `,
-  // })
+//   // TODO: Replace with your email provider (e.g. Resend)
+//   // Example:
+//   // import { Resend } from "resend"
+//   // const resend = new Resend(process.env.RESEND_API_KEY)
+//   // await resend.emails.send({
+//   //   from: "GymStack <noreply@yourdomain.com>",
+//   //   to: email,
+//   //   subject: `You've been added to ${gymName} on GymStack`,
+//   //   html: `
+//   //     <h2>Hi ${fullName},</h2>
+//   //     <p><strong>${ownerName}</strong> has added you as a member at <strong>${gymName}</strong>.</p>
+//   //     <p>Click the button below to set your password and access your gym benefits on GymStack.</p>
+//   //     <a href="${resetLink}" style="background:#f97316;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0;">Set My Password</a>
+//   //     <p style="color:#888;font-size:12px;">This link expires in 24 hours. If you didn't expect this email, you can safely ignore it.</p>
+//   //   `,
+//   // })
+// }
+async function sendPasswordSetupEmail(
+  email: string, fullName: string, gymName: string,
+  ownerName: string, resetLink: string
+) {
+  await sendMemberWelcomeEmail({ to: email, fullName, gymName, ownerName, setupLink: resetLink })
 }
 
 async function createPasswordSetupToken(profileId: string): Promise<string> {

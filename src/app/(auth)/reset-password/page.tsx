@@ -289,7 +289,7 @@ export default function ResetPasswordPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Failed to reset password")
       setSuccess(true)
-      setTimeout(() => router.push("/login"), 3000)
+      // setTimeout(() => router.push("/login"), 3000)
     } catch (err: any) {
       toast({ variant: "destructive", title: "Reset failed", description: err.message ?? "Please request a new reset link." })
     } finally {

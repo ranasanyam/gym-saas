@@ -228,12 +228,24 @@ export default function LoginPage() {
         return
       }
 
+
+      // poll /api/profile/me until the session is ready (max 3 attempts)
+      let profile: any = null
+      for(let i=0;i<3;i++) {
+        await new Promise(r => setTimeout(r, 300));
+        const profileRes = await fetch('/api/profile/me')
+        if(profileRes.ok) {
+          profile = await profileRes.json()
+          break
+        }
+      }
       // Refresh profile context then redirect based on role
       await refresh()
-      const profileRes = await fetch("/api/profile/me")
-      const profile = await profileRes.json()
+      // const profileRes = await fetch("/api/profile/me")
+      // const profile = await profileRes.json()
       router.push(getRolePath(profile?.role ?? null))
-    } catch {
+    } catch (error) {
+      console.log('error', error)
       toast({
         variant: "destructive",
         title: "Something went wrong",

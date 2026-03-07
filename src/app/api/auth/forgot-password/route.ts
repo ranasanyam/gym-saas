@@ -154,6 +154,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
+import { sendPasswordResetEmail } from "@/lib/email";
+
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -206,29 +209,36 @@ export async function POST(req: NextRequest) {
     // ── Send email ─────────────────────────────────────────────────────────
     // In development: log the link to terminal
     // In production: integrate Resend (recommended) or Nodemailer
-    if (process.env.NODE_ENV === "development") {
-      console.log("\n──────────────────────────────────────────")
-      console.log("🔑 PASSWORD RESET LINK (dev only):")
-      console.log(resetLink)
-      console.log("──────────────────────────────────────────\n")
-    } else {
-      // TODO: Replace with your email provider
-      // Example with Resend:
-      //
-      // import { Resend } from "resend"
-      // const resend = new Resend(process.env.RESEND_API_KEY)
-      // await resend.emails.send({
-      //   from: "GymStack <noreply@yourdomain.com>",
-      //   to: profile.email,
-      //   subject: "Reset your GymStack password",
-      //   html: `
-      //     <h2>Hi ${profile.fullName},</h2>
-      //     <p>Click the link below to reset your password. This link expires in 1 hour.</p>
-      //     <a href="${resetLink}" style="...">Reset Password</a>
-      //     <p>If you didn't request this, ignore this email.</p>
-      //   `,
-      // })
-    }
+    // if (process.env.NODE_ENV === "development") {
+    //   console.log("\n──────────────────────────────────────────")
+    //   console.log("🔑 PASSWORD RESET LINK (dev only):")
+    //   console.log(resetLink)
+    //   console.log("──────────────────────────────────────────\n")
+    // } else {
+    //   // TODO: Replace with your email provider
+    //   // Example with Resend:
+    //   //
+    //   // import { Resend } from "resend"
+    //   // const resend = new Resend(process.env.RESEND_API_KEY)
+    //   // await resend.emails.send({
+    //   //   from: "GymStack <noreply@yourdomain.com>",
+    //   //   to: profile.email,
+    //   //   subject: "Reset your GymStack password",
+    //   //   html: `
+    //   //     <h2>Hi ${profile.fullName},</h2>
+    //   //     <p>Click the link below to reset your password. This link expires in 1 hour.</p>
+    //   //     <a href="${resetLink}" style="...">Reset Password</a>
+    //   //     <p>If you didn't request this, ignore this email.</p>
+    //   //   `,
+    //   // })
+    // }
+
+
+    await sendPasswordResetEmail({
+      to: profile.email,
+      fullName: profile.fullName,
+      resetLink,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

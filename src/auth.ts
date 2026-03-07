@@ -290,6 +290,7 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   pages: {
     signIn: "/login",
     error: "/login",
@@ -304,10 +305,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
+        // if (!credentials?.email || !credentials?.password) return null
+        const email = (credentials?.email as string | undefined)?.trim().toLowerCase()
+        const password = (credentials?.password as string | undefined)
+
+        if(!email || !password) return null;
 
         const profile = await prisma.profile.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
           select: {
             id: true,
             email: true,
@@ -321,7 +326,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!profile || !profile.passwordHash) return null
 
         const isValid = await bcrypt.compare(
-          credentials.password as string,
+          password,
           profile.passwordHash
         )
 
@@ -361,6 +366,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user && account?.provider === "credentials") {
         token.profileId = user.id
         token.role = (user as any).role ?? null
+        return token
       }
 
       // Google OAuth — always look up profile.id from DB by email
@@ -374,10 +380,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.profileId = profile.id
           token.role = profile.role
         }
+        return token
+      }
+
+
+      if(!token.profileId && token.sub) {
+        token.profileId = token.sub
       }
 
       // Re-fetch role when session.update() is called (e.g. after set-role)
-      if (trigger === "update" && token.profileId) {
+      if ((trigger === "update" || !token.role) && token.profileId) {
         const profile = await prisma.profile.findUnique({
           where: { id: token.profileId as string },
           select: { role: true },
