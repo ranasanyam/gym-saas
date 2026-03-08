@@ -118,6 +118,7 @@ import { CreditCard, TrendingUp, Plus, X, Loader2, Search, CheckCircle2, Clock, 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Avatar } from "@/components/ui/Avatar"
 
 interface Payment {
   id: string; amount: number; status: string; createdAt: string; paymentDate: string | null
@@ -137,11 +138,6 @@ function fmt(n: number) {
   if (n >= 100000) return `₹${(n/100000).toFixed(1)}L`
   if (n >= 1000)   return `₹${(n/1000).toFixed(1)}K`
   return `₹${n.toLocaleString("en-IN")}`
-}
-function Avatar({ name, url }: { name: string; url?: string | null }) {
-  const initials = name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
-  if (url) return <img src={url} alt={name} className="w-8 h-8 rounded-full object-cover shrink-0" />
-  return <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
 }
 
 export default function PaymentsPage() {

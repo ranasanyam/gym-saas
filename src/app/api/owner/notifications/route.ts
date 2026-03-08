@@ -69,47 +69,82 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { gymId, title, body, targetRole, expiresAt } = await req.json()
-  if (!gymId || !title || !body)
-    return NextResponse.json({ error: "gymId, title and body are required" }, { status: 400 })
+  try {
+    const { gymId, title, body, targetRole, expiresAt } = await req.json()
 
-  const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
-  if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
+    if (!gymId || !title?.trim() || !body?.trim())
+      return NextResponse.json({ error: "gymId, title and body are required" }, { status: 400 })
 
-  // 1. Create announcement (owner's record)
-  const announcement = await prisma.announcement.create({
-    data: {
-      gymId,
-      authorId: session.user.id,
-      title,
-      body,
-      targetRole: targetRole || null,
-      publishedAt: new Date(),
-      expiresAt: expiresAt ? new Date(expiresAt) : null,
-    },
-  })
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
+    if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
 
-  // 2. Push individual Notification to every active member of this gym
-  //    so it shows up in their notification bell / page
-  const gymMembers = await prisma.gymMember.findMany({
-    where: { gymId, status: "ACTIVE" },
-    select: { profileId: true },
-  })
-
-  if (gymMembers.length > 0) {
-    await prisma.notification.createMany({
-      data: gymMembers.map(m => ({
-        profileId: m.profileId,
+    // ── 1. Create the announcement record ──────────────────────────────────
+    const announcement = await prisma.announcement.create({
+      data: {
         gymId,
-        title,
-        message: body,
-        type: "ANNOUNCEMENT" as const,
-      })),
-      skipDuplicates: true,
+        authorId: session.user.id,
+        title: title.trim(),
+        body: body.trim(),
+        targetRole: targetRole || null,
+        publishedAt: new Date(),
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+      },
     })
-  }
 
-  return NextResponse.json(announcement, { status: 201 })
+    // ── 2. Collect recipient profileIds ────────────────────────────────────
+    const recipientIds: string[] = []
+
+    const sendToMembers  = !targetRole || targetRole === "MEMBER"
+    const sendToTrainers = !targetRole || targetRole === "TRAINER"
+
+    if (sendToMembers) {
+      const members = await prisma.gymMember.findMany({
+        where:  { gymId, status: "ACTIVE" },
+        select: { profileId: true },
+      })
+      members.forEach(m => {
+        if (!recipientIds.includes(m.profileId)) recipientIds.push(m.profileId)
+      })
+    }
+
+    if (sendToTrainers) {
+      const trainers = await prisma.gymTrainer.findMany({
+        where:  { gymId },
+        select: { profileId: true },
+      })
+      trainers.forEach(t => {
+        if (!recipientIds.includes(t.profileId)) recipientIds.push(t.profileId)
+      })
+    }
+
+    // ── 3. Create one Notification row per recipient ───────────────────────
+    let notifCount = 0
+    if (recipientIds.length > 0) {
+      // Use individual creates in a transaction to avoid createMany issues
+      await prisma.$transaction(
+        recipientIds.map(profileId =>
+          prisma.notification.create({
+            data: {
+              profileId,
+              gymId,
+              title: title.trim(),
+              message: body.trim(),
+              type: "ANNOUNCEMENT",
+            },
+          })
+        )
+      )
+      notifCount = recipientIds.length
+    }
+
+    return NextResponse.json(
+      { ...announcement, recipientCount: notifCount },
+      { status: 201 }
+    )
+  } catch (error) {
+    console.error("Notification send error:", error)
+    return NextResponse.json({ error: "Failed to send notification" }, { status: 500 })
+  }
 }
 
 export async function DELETE(req: NextRequest) {

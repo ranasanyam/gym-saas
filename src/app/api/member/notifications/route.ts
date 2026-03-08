@@ -1,4 +1,4 @@
-// src/app/api/member/payments/route.ts
+// src/app/api/member/notifications/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
@@ -8,27 +8,51 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
+  const unreadOnly = searchParams.get("unreadOnly") === "true"
   const page  = parseInt(searchParams.get("page") ?? "1")
   const limit = 20
 
-  const memberships = await prisma.gymMember.findMany({
-    where: { profileId: session.user.id },
-    select: { id: true },
-  })
-  const memberIds = memberships.map(m => m.id)
+  const where = {
+    profileId: session.user.id,
+    ...(unreadOnly ? { isRead: false } : {}),
+  }
 
-  const [payments, total] = await Promise.all([
-    prisma.payment.findMany({
-      where: { memberId: { in: memberIds } },
+  const [notifications, total, unreadCount] = await Promise.all([
+    prisma.notification.findMany({
+      where,
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit, take: limit,
-      include: {
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        title: true,
+        message: true,
+        type: true,
+        isRead: true,
+        createdAt: true,
         gym: { select: { name: true } },
-        membershipPlan: { select: { name: true } },
       },
     }),
-    prisma.payment.count({ where: { memberId: { in: memberIds } } }),
+    prisma.notification.count({ where }),
+    prisma.notification.count({ where: { profileId: session.user.id, isRead: false } }),
   ])
 
-  return NextResponse.json({ payments, total, pages: Math.ceil(total / limit) })
+  return NextResponse.json({ notifications, total, pages: Math.ceil(total / limit), unreadCount })
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await auth()
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const body = await req.json().catch(() => ({}))
+
+  await prisma.notification.updateMany({
+    where: {
+      profileId: session.user.id,
+      ...(body.id ? { id: body.id } : {}),
+    },
+    data: { isRead: true },
+  })
+
+  return NextResponse.json({ success: true })
 }

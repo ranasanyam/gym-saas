@@ -407,7 +407,7 @@
 //   )
 // }
 
-// updated code
+
 
 // src/app/(auth)/select-role/page.tsx
 "use client"
@@ -455,12 +455,14 @@ export default function SelectRolePage() {
   const [selected, setSelected] = useState<Role | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // If role is already set, redirect to the correct dashboard
+  // Redirect only if the user has already explicitly chosen a role.
+  // null role = fresh signup (credentials or OAuth) — must stay and pick.
   useEffect(() => {
     if (!profile) return
-    if (profile.role === "owner")   router.replace("/owner/dashboard")
-    else if (profile.role === "trainer") router.replace("/trainer/dashboard")
-    else if (profile.role === "member")  router.replace("/member/dashboard")
+    if (profile.role === "owner")   { router.replace("/owner/dashboard");   return }
+    if (profile.role === "trainer") { router.replace("/trainer/dashboard"); return }
+    if (profile.role === "member")  { router.replace("/member/dashboard");  return }
+    // role === null → stay on this page so user can pick
   }, [profile, router])
 
   const handleContinue = async () => {
@@ -495,8 +497,8 @@ export default function SelectRolePage() {
 
   return (
     <div className="min-h-screen bg-gradient-hero flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-[-15%] right-[-10%] w-150 h-150 rounded-full bg-primary/8 blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-[-15%] left-[-10%] w-125 h-125 rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-15%] right-[-10%] w-[600px] h-[600px] rounded-full bg-primary/8 blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-[-15%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }} className="w-full max-w-3xl relative z-10">
@@ -506,12 +508,12 @@ export default function SelectRolePage() {
           <div className="p-2.5 bg-gradient-primary rounded-xl shadow-lg">
             <Dumbbell className="w-6 h-6 text-white" />
           </div>
-          <span className="text-2xl font-display font-bold text-white tracking-tight">GymStack</span>
+          <span className="text-2xl font-display font-bold text-white tracking-tight">FitHub</span>
         </div>
 
         {/* Heading */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-display font-bold text-white mb-3">How will you use GymStack?</h1>
+          <h1 className="text-3xl font-display font-bold text-white mb-3">How will you use FitHub?</h1>
           <p className="text-white/50 text-sm">Choose your role to get started with the right experience</p>
         </div>
 
@@ -525,7 +527,7 @@ export default function SelectRolePage() {
                 transition={{ delay: 0.1 + i * 0.1 }} onClick={() => setSelected(role.id)}
                 className={`relative text-left rounded-2xl p-6 border transition-all duration-300 overflow-hidden ${
                   isSelected
-                    ? `${role.borderColor} bg-linear-to-br ${role.bgGradient} shadow-xl`
+                    ? `${role.borderColor} bg-gradient-to-br ${role.bgGradient} shadow-xl`
                     : "border-white/10 bg-white/5 hover:bg-white/8 hover:border-white/20"
                 }`}>
                 <AnimatePresence>
@@ -548,7 +550,7 @@ export default function SelectRolePage() {
                 <ul className="space-y-2">
                   {role.perks.map((perk) => (
                     <li key={perk} className="flex items-center gap-2.5">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? "bg-primary" : "bg-white/30"}`} />
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isSelected ? "bg-primary" : "bg-white/30"}`} />
                       <span className="text-xs text-white/60">{perk}</span>
                     </li>
                   ))}

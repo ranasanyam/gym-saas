@@ -101,6 +101,7 @@ import { CalendarCheck, Clock, Plus, X, Loader2, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Avatar } from "@/components/ui/Avatar"
 
 interface AttendanceRecord {
   id: string; checkInTime: string; checkOutTime: string | null
@@ -119,11 +120,6 @@ function dur(ci: string, co: string | null) {
   return m < 60 ? `${m}m` : `${Math.floor(m/60)}h ${m%60}m`
 }
 
-function Avatar({ name, url }: { name: string; url?: string | null }) {
-  const initials = name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
-  if (url) return <img src={url} alt={name} className="w-8 h-8 rounded-full object-cover shrink-0" />
-  return <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
-}
 
 export default function AttendancePage() {
   const { toast } = useToast()

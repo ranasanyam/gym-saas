@@ -90,11 +90,16 @@ export default function NotificationsPage() {
       }),
     })
     if (res.ok) {
-      toast({ variant: "success", title: "Notification sent!" })
+      const data = await res.json()
+      const count = data.recipientCount ?? 0
+      toast({ variant: "success", title: "Notification sent!", description: `Delivered to ${count} recipient${count !== 1 ? "s" : ""}` })
       setShowForm(false)
       setForm(p => ({ ...p, title: "", body: "", targetRole: "", category: "General", expiresAt: "" }))
       load()
-    } else toast({ variant: "destructive", title: "Failed to send" })
+    } else {
+      const data = await res.json()
+      toast({ variant: "destructive", title: data.error ?? "Failed to send" })
+    }
     setSaving(false)
   }
 

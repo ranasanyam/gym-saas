@@ -298,7 +298,8 @@ interface Member {
   profile: { fullName: string; email: string; mobileNumber: string | null; city: string | null; gender: string | null; dateOfBirth: string | null; avatarUrl: string | null }
   gym: { id: string; name: string }
   membershipPlan: { id: string; name: string; durationMonths: number; price: number } | null
-  assignedTrainer: { id: string; profile: { fullName: string } } | null
+  assignedTrainer: { id: string; profile: { fullName: string; avatarUrl: string | null } } | null
+  gymTrainers: { id: string; profile: { fullName: string; avatarUrl: string | null } }[]
   attendance: { id: string; checkInTime: string; checkOutTime: string | null }[]
   payments: { id: string; amount: number; status: string; createdAt: string; planNameSnapshot: string | null }[]
 }
@@ -445,6 +446,7 @@ export default function MemberDetailPage() {
   const [saving,  setSaving]  = useState(false)
   const [showRenew, setShowRenew] = useState(false)
   const [editForm, setEditForm]   = useState<any>({})
+  const [assigningTrainer, setAssigningTrainer] = useState(false)
 
   const load = () => {
     fetch(`/api/owner/members/${memberId}`)
@@ -562,7 +564,47 @@ export default function MemberDetailPage() {
               <InfoRow icon={Phone}    label="Mobile"      value={member.profile.mobileNumber} />
               <InfoRow icon={Calendar} label="Start Date"  value={new Date(member.startDate).toLocaleDateString("en-IN")} />
               <InfoRow icon={Calendar} label="Expiry Date" value={member.endDate ? new Date(member.endDate).toLocaleDateString("en-IN") : "No expiry"} />
-              <InfoRow icon={Calendar} label="Trainer"     value={member.assignedTrainer?.profile.fullName ?? "Not assigned"} />
+              {/* Trainer assignment */}
+              <div className="flex items-start gap-3">
+                <div className="w-4 h-4 mt-0.5 shrink-0 text-white/30 flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white/35 text-xs mb-1">Assigned Trainer</p>
+                  <div className="flex items-center gap-2">
+                    {member.assignedTrainer ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Avatar name={member.assignedTrainer.profile.fullName} url={member.assignedTrainer.profile.avatarUrl} size={22} />
+                        <span className="text-white/80 text-sm truncate">{member.assignedTrainer.profile.fullName}</span>
+                      </div>
+                    ) : (
+                      <span className="text-white/35 text-sm italic">Not assigned</span>
+                    )}
+                    <select
+                      value={member.assignedTrainer?.id ?? ""}
+                      disabled={assigningTrainer}
+                      onChange={async (e) => {
+                        const trainerId = e.target.value || null
+                        setAssigningTrainer(true)
+                        const res = await fetch(`/api/owner/members/${member.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ assignedTrainerId: trainerId }),
+                        })
+                        if (res.ok) { load(); toast({ variant: "success", title: trainerId ? "Trainer assigned" : "Trainer removed" }) }
+                        else toast({ variant: "destructive", title: "Failed to update trainer" })
+                        setAssigningTrainer(false)
+                      }}
+                      className="ml-auto text-xs bg-white/5 border border-white/10 text-white/70 rounded-lg px-2 py-1 focus:outline-none focus:border-primary disabled:opacity-50"
+                    >
+                      <option value="">— No trainer —</option>
+                      {(member.gymTrainers ?? []).map((t: any) => (
+                        <option key={t.id} value={t.id}>{t.profile.fullName}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

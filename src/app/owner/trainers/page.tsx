@@ -5,16 +5,13 @@ import Link from "next/link"
 import { PageHeader } from "@/components/owner/PageHeader"
 import { EmptyState } from "@/components/owner/EmptyState"
 import { UserCheck, Star, Users, Plus } from "lucide-react"
+import { Avatar } from "@/components/ui/Avatar"
 
 interface Trainer {
   id: string; specializations: string[]; rating: number; isAvailable: boolean
   experienceYears: number; _count: { assignedMembers: number }
   profile: { fullName: string; email: string; avatarUrl: string | null }
   gym: { name: string }
-}
-
-function getInitials(name: string) {
-  return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
 }
 
 export default function TrainersPage() {
@@ -44,9 +41,7 @@ export default function TrainersPage() {
             <Link key={t.id} href={`/owner/trainers/${t.id}`}
               className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5 hover:border-white/12 transition-all group">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold shrink-0">
-                  {getInitials(t.profile.fullName)}
-                </div>
+                <Avatar name={t.profile.fullName} url={t.profile.avatarUrl} size={44} />
                 <div className="min-w-0">
                   <p className="text-white font-semibold group-hover:text-primary transition-colors truncate">{t.profile.fullName}</p>
                   <p className="text-white/35 text-xs truncate">{t.gym.name}</p>

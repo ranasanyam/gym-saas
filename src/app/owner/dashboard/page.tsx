@@ -1,3 +1,4 @@
+// src/app/owner/dashboard/page.tsx
 "use client"
 
 import { useEffect, useState } from "react"
@@ -8,6 +9,7 @@ import {
   UserPlus, ClipboardList, BarChart3, Calendar,
   ArrowRight, Loader2, TrendingUp
 } from "lucide-react"
+import { Avatar } from "@/components/ui/Avatar"
 
 interface DashboardData {
   totalMembers: number
@@ -44,10 +46,6 @@ function timeAgo(dateStr: string) {
   if (days > 0) return `${days}d ago`
   if (hours > 0) return `${hours}h ago`
   return `${mins}m ago`
-}
-
-function getInitials(name: string) {
-  return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
 }
 
 function StatCard({ icon: Icon, label, value, sub, subColor = "text-primary" }: {
@@ -177,9 +175,7 @@ export default function OwnerDashboardPage() {
             <div className="space-y-2">
               {data?.recentMembers.map((m) => (
                 <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/3 transition-colors">
-                  <div className="w-9 h-9 rounded-full bg-gradient-primary flex items-center justify-center text-white text-xs font-bold shrink-0">
-                    {getInitials(m.profile.fullName)}
-                  </div>
+                  <Avatar name={m.profile.fullName} url={m.profile.avatarUrl} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-medium truncate">{m.profile.fullName}</p>
                     <p className="text-white/35 text-xs">Joined {timeAgo(m.createdAt)}</p>
@@ -221,9 +217,7 @@ export default function OwnerDashboardPage() {
               <div className="space-y-2">
                 {data?.todayCheckins.slice(0, 4).map((c) => (
                   <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/3 transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {getInitials(c.member.profile.fullName)}
-                    </div>
+                    <Avatar name={c.member.profile.fullName} url={c.member.profile.avatarUrl} size={32} />
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm truncate">{c.member.profile.fullName}</p>
                       <p className="text-white/35 text-xs">{new Date(c.checkInTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</p>

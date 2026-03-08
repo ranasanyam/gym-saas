@@ -6,16 +6,13 @@ import { PageHeader } from "@/components/owner/PageHeader"
 import { EmptyState } from "@/components/owner/EmptyState"
 import { Users, Search, Filter, Plus, ChevronLeft, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Avatar } from "@/components/ui/Avatar"
 
 interface Member {
   id: string; status: string; startDate: string; endDate: string | null
   profile: { fullName: string; email: string; mobileNumber: string | null; avatarUrl: string | null }
   gym: { name: string }
   membershipPlan: { name: string; durationMonths: number } | null
-}
-
-function getInitials(name: string) {
-  return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
 }
 
 export default function MembersPage() {
@@ -80,9 +77,7 @@ export default function MembersPage() {
                 <Link key={m.id} href={`/owner/members/${m.id}`}
                   className="grid grid-cols-[1fr_1fr_1fr_1fr_100px] gap-4 px-5 py-4 hover:bg-white/3 transition-colors items-center">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {getInitials(m.profile.fullName)}
-                    </div>
+                    <Avatar name={m.profile.fullName} url={m.profile.avatarUrl} size={32} />
                     <div className="min-w-0">
                       <p className="text-white text-sm font-medium truncate">{m.profile.fullName}</p>
                       <p className="text-white/35 text-xs truncate">{m.profile.email}</p>

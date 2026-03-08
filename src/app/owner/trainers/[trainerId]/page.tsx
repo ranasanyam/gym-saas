@@ -8,12 +8,9 @@ import { Users, Star, Mail, Phone, Edit, Save, X, Loader2, Award } from "lucide-
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Avatar } from "@/components/ui/Avatar"
 
 const SPECIALIZATIONS = ["Weight Training","Cardio","Yoga","Zumba","CrossFit","Boxing","HIIT","Pilates","Nutrition","Swimming"]
-
-function getInitials(name: string) {
-  return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
-}
 
 export default function TrainerDetailPage() {
   const { trainerId } = useParams<{ trainerId: string }>()
@@ -88,9 +85,7 @@ export default function TrainerDetailPage() {
         <div className="space-y-4">
           <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
             <div className="flex items-center gap-4 mb-5">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-primary flex items-center justify-center text-white font-bold text-xl">
-                {getInitials(trainer.profile.fullName)}
-              </div>
+              <Avatar name={trainer.profile.fullName} url={trainer.profile.avatarUrl} size={56} rounded="lg" />
               <div>
                 <h3 className="text-white font-semibold">{trainer.profile.fullName}</h3>
                 <p className="text-white/40 text-sm">{trainer.gym.name}</p>
@@ -161,9 +156,7 @@ export default function TrainerDetailPage() {
               <div className="space-y-2">
                 {trainer.assignedMembers?.slice(0,5).map((m: any) => (
                   <div key={m.id} className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-gradient-primary flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {getInitials(m.profile.fullName)}
-                    </div>
+                    <Avatar name={m.profile.fullName} url={m.profile.avatarUrl} size={28} />
                     <span className="text-white/65 text-sm">{m.profile.fullName}</span>
                   </div>
                 ))}

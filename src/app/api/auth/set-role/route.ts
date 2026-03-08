@@ -56,13 +56,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 })
     }
 
-    // ── Role is permanent — block if already set ──────────────────────────
+    // ── Role is permanent — block if already set (non-null) ─────────────────
+    // Fresh signups (credentials or OAuth) have role=null until they pick here.
     const profile = await prisma.profile.findUnique({
-      where: { id: session.user.id },
+      where:  { id: session.user.id },
       select: { role: true },
     })
 
-    if (profile?.role) {
+    if (profile?.role !== null && profile?.role !== undefined) {
       return NextResponse.json(
         { error: "Role has already been set and cannot be changed." },
         { status: 403 }

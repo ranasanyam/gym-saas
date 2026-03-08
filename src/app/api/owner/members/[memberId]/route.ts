@@ -21,13 +21,21 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ member
       profile: { select: { fullName: true, email: true, mobileNumber: true, avatarUrl: true, city: true, gender: true, dateOfBirth: true } },
       gym: { select: { name: true, id: true } },
       membershipPlan: true,
-      assignedTrainer: { include: { profile: { select: { fullName: true } } } },
+      assignedTrainer: { include: { profile: { select: { fullName: true, avatarUrl: true } } } },
       attendance: { orderBy: { checkInTime: "desc" }, take: 10 },
       payments: { orderBy: { createdAt: "desc" }, take: 5 },
     },
   })
   if (!member) return NextResponse.json({ error: "Member not found" }, { status: 404 })
-  return NextResponse.json(member)
+
+  // Fetch trainers in the same gym for the assign-trainer dropdown
+  const gymTrainers = await prisma.gymTrainer.findMany({
+    where:   { gymId: member.gymId },
+    select:  { id: true, profile: { select: { fullName: true, avatarUrl: true } } },
+    orderBy: { createdAt: "desc" },
+  })
+
+  return NextResponse.json({ ...member, gymTrainers })
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
