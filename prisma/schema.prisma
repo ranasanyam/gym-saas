@@ -539,6 +539,8 @@ model GymMember {
   medicalNotes          String?      @map("medical_notes")
   emergencyContactName  String?      @map("emergency_contact_name")
   emergencyContactPhone String?      @map("emergency_contact_phone")
+  workoutStartTime      String?      @map("workout_start_time")       // e.g. "05:00"
+  workoutEndTime        String?      @map("workout_end_time")         // e.g. "06:00"
   isActive              Boolean      @default(true) @map("is_active")
   // History tracking
   expiredAt             DateTime?    @map("expired_at")               // set when membership is confirmed expired — drives plan visibility

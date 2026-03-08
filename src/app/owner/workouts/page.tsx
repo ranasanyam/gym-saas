@@ -331,8 +331,9 @@ interface Plan {
   id: string; title: string; description: string | null; goal: string | null
   difficulty: string; durationWeeks: number; isTemplate: boolean; isGlobal: boolean
   weekStartDate: string | null; createdAt: string; planData: any
-  assignedMember: { id: string; profile: { fullName: string } } | null
+  assignedMember: { id: string; profile: { fullName: string; avatarUrl: string | null } } | null
   creator: { fullName: string }
+  gym: { name: string }
 }
 
 const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]

@@ -12,8 +12,9 @@ interface DietPlan {
   id: string; title: string; description: string | null; goal: string | null
   caloriesTarget: number | null; proteinG: number | null; carbsG: number | null; fatG: number | null
   isGlobal: boolean; createdAt: string; planData: any
-  assignedMember: { id: string; profile: { fullName: string } } | null
+  assignedMember: { id: string; profile: { fullName: string; avatarUrl: string | null } } | null
   creator: { fullName: string }
+  gym: { name: string }
 }
 
 const DAYS      = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
@@ -34,6 +35,7 @@ export default function TrainerDietsPage() {
   const [activeDay, setActiveDay]   = useState("Monday")
   const [activeMeal, setActiveMeal] = useState("Breakfast")
   const [dayMeals, setDayMeals]     = useState<DayMeals>({})
+  const [mealTimes, setMealTimes]   = useState<Record<string, string>>({}) // key: mealName → "HH:MM" 
 
   const blankForm = {
     memberId: "", freeForAll: false,
@@ -62,7 +64,7 @@ export default function TrainerDietsPage() {
 
   const openCreate = () => {
     setEditingPlan(null); setForm(blankForm); setDayMeals({})
-    setActiveDay("Monday"); setActiveMeal("Breakfast"); setFormMode("create")
+    setMealTimes({}); setActiveDay("Monday"); setActiveMeal("Breakfast"); setFormMode("create")
   }
 
   const openEdit = (plan: DietPlan) => {
@@ -80,11 +82,12 @@ export default function TrainerDietsPage() {
       weekStartDate: plan.planData?.weekStartDate ?? new Date().toISOString().split("T")[0],
     })
     setDayMeals(plan.planData?.meals ?? {})
+    setMealTimes(plan.planData?.mealTimes ?? {})
     setActiveDay("Monday"); setActiveMeal("Breakfast"); setFormMode("edit")
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const handleCancel = () => { setFormMode(null); setEditingPlan(null); setDayMeals({}); setForm(blankForm) }
+  const handleCancel = () => { setFormMode(null); setEditingPlan(null); setDayMeals({}); setMealTimes({}); setForm(blankForm) }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -96,7 +99,7 @@ export default function TrainerDietsPage() {
       proteinG: form.proteinG || null, carbsG: form.carbsG || null, fatG: form.fatG || null,
       isGlobal: form.freeForAll,
       assignedToMemberId: (!form.freeForAll && form.memberId) ? form.memberId : null,
-      planData: { weekStartDate: form.weekStartDate, meals: dayMeals },
+      planData: { weekStartDate: form.weekStartDate, meals: dayMeals, mealTimes },
     }
     const isEdit = formMode === "edit" && editingPlan
     const res = await fetch(
@@ -309,11 +312,12 @@ export default function TrainerDietsPage() {
                   ) : null)}
                 </div>
               )}
-              <div className="text-xs text-white/35 border-t border-white/5 pt-3">
-                {p.assignedMember
-                  ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span>
-                  : <span>Unassigned</span>
-                }
+              <div className="border-t border-white/5 pt-3 space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-white/35">
+                  <span className="flex items-center gap-1">🏋️ {p.gym?.name ?? "—"}</span>
+                  {p.assignedMember ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span> : <span>Unassigned</span>}
+                </div>
+                <p className="text-xs text-white/25">By {p.creator.fullName}</p>
               </div>
               <div className="flex gap-2 pt-3 mt-1 border-t border-white/5">
                 <button onClick={() => openEdit(p)}

@@ -12,8 +12,9 @@ interface Plan {
   id: string; title: string; description: string | null; goal: string | null
   difficulty: string; durationWeeks: number; isGlobal: boolean
   weekStartDate: string | null; createdAt: string; planData: any
-  assignedMember: { id: string; profile: { fullName: string } } | null
+  assignedMember: { id: string; profile: { fullName: string; avatarUrl: string | null } } | null
   creator: { fullName: string }
+  gym: { name: string }
 }
 
 const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
@@ -286,12 +287,15 @@ export default function TrainerWorkoutsPage() {
               <h3 className="text-white font-semibold mb-1">{p.title}</h3>
               {p.goal && <p className="text-primary/70 text-xs mb-2">Goal: {p.goal}</p>}
               {p.weekStartDate && <p className="text-white/30 text-xs mb-2">Week of {new Date(p.weekStartDate).toLocaleDateString("en-IN")}</p>}
-              <div className="flex items-center justify-between text-xs text-white/35 border-t border-white/5 pt-3 mt-3">
-                <span>Created by {p.creator.fullName}</span>
-                {p.assignedMember
-                  ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span>
-                  : <span className="text-white/25">Unassigned</span>
-                }
+              <div className="border-t border-white/5 pt-3 mt-3 space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-white/35">
+                  <span className="flex items-center gap-1">🏋️ {p.gym?.name ?? "—"}</span>
+                  {p.assignedMember
+                    ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span>
+                    : <span className="text-white/25">Unassigned</span>
+                  }
+                </div>
+                <p className="text-xs text-white/25">By {p.creator.fullName}</p>
               </div>
               <div className="flex gap-2 pt-3 mt-1 border-t border-white/5">
                 <button onClick={() => openEdit(p)}

@@ -376,8 +376,9 @@ interface DietPlan {
   id: string; title: string; description: string | null; goal: string | null
   caloriesTarget: number | null; proteinG: number | null; carbsG: number | null; fatG: number | null
   isTemplate: boolean; isGlobal: boolean; createdAt: string; planData: any
-  assignedMember: { id: string; profile: { fullName: string } } | null
+  assignedMember: { id: string; profile: { fullName: string; avatarUrl: string | null } } | null
   creator: { fullName: string }
+  gym: { name: string }
 }
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
@@ -399,6 +400,7 @@ export default function DietsPage() {
   const [activeDay, setActiveDay]   = useState("Monday")
   const [activeMeal, setActiveMeal] = useState("Breakfast")
   const [dayMeals, setDayMeals]     = useState<DayMeals>({})
+  const [mealTimes, setMealTimes]   = useState<Record<string, string>>({})
 
   const blankForm = { gymId: "", allGyms: false, memberId: "", freeForAll: false, title: "", description: "", goal: "", caloriesTarget: "", proteinG: "", carbsG: "", fatG: "", isTemplate: false, weekStartDate: new Date().toISOString().split("T")[0] }
   const [form, setForm] = useState(blankForm)
@@ -454,6 +456,7 @@ export default function DietsPage() {
       weekStartDate: plan.planData?.weekStartDate ?? new Date().toISOString().split("T")[0],
     })
     setDayMeals(plan.planData?.meals ?? {})
+    setMealTimes(plan.planData?.mealTimes ?? {})
     setActiveDay("Monday"); setActiveMeal("Breakfast")
     setFormMode("edit")
     window.scrollTo({ top: 0, behavior: "smooth" })
@@ -476,7 +479,7 @@ export default function DietsPage() {
       isTemplate: form.isTemplate,
       isGlobal: form.allGyms || form.freeForAll,
       assignedToMemberId: (!form.freeForAll && !form.allGyms && form.memberId) ? form.memberId : null,
-      planData: { weekStartDate: form.weekStartDate, meals: dayMeals },
+      planData: { weekStartDate: form.weekStartDate, meals: dayMeals, mealTimes },
     }
     const isEdit = formMode === "edit" && editingPlan
     const res = await fetch(
@@ -614,6 +617,17 @@ export default function DietsPage() {
                   )
                 })}
               </div>
+              {/* Meal time picker */}
+              <div className="flex items-center gap-3 p-3 bg-white/4 rounded-xl border border-white/6">
+                <span className="text-white/50 text-xs shrink-0">⏰ {activeMeal} time:</span>
+                <input type="time" value={mealTimes[activeMeal] ?? ""}
+                  onChange={e => setMealTimes(p => ({ ...p, [activeMeal]: e.target.value }))}
+                  className="bg-transparent border-none text-white/80 text-sm focus:outline-none focus:text-white" />
+                {mealTimes[activeMeal] && (
+                  <button type="button" onClick={() => setMealTimes(p => { const n = {...p}; delete n[activeMeal]; return n })}
+                    className="text-white/25 hover:text-white/60 text-xs ml-auto">Clear</button>
+                )}
+              </div>
               <div className="space-y-2">
                 {(dayMeals[mealKey] ?? []).length === 0 ? (
                   <div className="text-center py-8 text-white/25">
@@ -699,8 +713,12 @@ export default function DietsPage() {
                   ) : null)}
                 </div>
               )}
-              <div className="text-xs text-white/35 border-t border-white/5 pt-3">
-                {p.assignedMember ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span> : <span>Unassigned</span>}
+              <div className="border-t border-white/5 pt-3 space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-white/35">
+                  <span className="flex items-center gap-1">🏋️ {p.gym?.name ?? "—"}</span>
+                  {p.assignedMember ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span> : <span>Unassigned</span>}
+                </div>
+                <p className="text-xs text-white/25">By {p.creator.fullName}</p>
               </div>
               {/* Edit / Archive */}
               <div className="flex gap-2 pt-3 mt-1 border-t border-white/5">
