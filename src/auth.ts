@@ -283,14 +283,25 @@
 // }
 
 
-import NextAuth from "next-auth"
+// src/auth.ts
+// src/auth.ts
+import NextAuth, { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 
+// Custom typed errors — code is passed through to signIn()'s res.error on the client
+class OAuthAccountError extends CredentialsSignin {
+  code = "oauth_account" // account exists but was created via Google
+}
+class InvalidCredentialsError extends CredentialsSignin {
+  code = "invalid_credentials"
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+
   pages: {
     signIn: "/login",
     error: "/login",
@@ -301,44 +312,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
     Credentials({
       credentials: {
-        email: { label: "Email", type: "email" },
+        email:    { label: "Email",    type: "email"    },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // if (!credentials?.email || !credentials?.password) return null
-        const email = (credentials?.email as string | undefined)?.trim().toLowerCase()
+        const email    = (credentials?.email    as string | undefined)?.trim().toLowerCase()
         const password = (credentials?.password as string | undefined)
 
-        if(!email || !password) return null;
+        if (!email || !password) return null
 
         const profile = await prisma.profile.findUnique({
-          where: { email },
-          select: {
-            id: true,
-            email: true,
-            fullName: true,
-            avatarUrl: true,
-            passwordHash: true,
-            role: true,
-          },
+          where:  { email },
+          select: { id: true, passwordHash: true, role: true },
         })
 
-        if (!profile || !profile.passwordHash) return null
+        // No account at all
+        if (!profile) throw new InvalidCredentialsError()
 
-        const isValid = await bcrypt.compare(
-          password,
-          profile.passwordHash
-        )
+        // Account exists but was created via Google — no password set
+        if (!profile.passwordHash) throw new OAuthAccountError()
 
-        if (!isValid) return null
+        const isValid = await bcrypt.compare(password, profile.passwordHash)
+        if (!isValid) throw new InvalidCredentialsError()
 
-        return {
-          id: profile.id,
-          email: profile.email,
-          name: profile.fullName,
-          image: profile.avatarUrl,
-          role: profile.role,
-        }
+        // Return only what we need — NOT email/name/image
+        // Those are fetched fresh from /api/profile/me on every page load
+        return { id: profile.id, role: profile.role } as any
       },
     }),
   ],
@@ -348,9 +347,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === "google") {
         try {
           await handleOAuthSignIn({
-            email: user.email!,
-            name: user.name!,
-            image: user.image,
+            email:       user.email!,
+            name:        user.name!,
+            image:       user.image,
             providerUid: account.providerAccountId,
           })
         } catch (err) {
@@ -362,36 +361,47 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async jwt({ token, user, account, trigger }) {
-      // Credentials login — user.id is already our profile.id
+      // ── First sign-in: credentials ────────────────────────────────────────
+      // user.id is profile.id (returned directly from authorize above)
       if (user && account?.provider === "credentials") {
-        token.profileId = user.id
-        token.role = (user as any).role ?? null
-        return token
+        return {
+          sub:       user.id,
+          profileId: user.id,
+          role:      (user as any).role ?? null,
+        }
       }
 
-      // Google OAuth — always look up profile.id from DB by email
-      // (user.id here is the Google provider ID, not our profile.id)
+      // ── First sign-in: Google OAuth ───────────────────────────────────────
+      // token.email is available here; look up our DB profile id by email
       if (account?.provider === "google" && token.email) {
         const profile = await prisma.profile.findUnique({
-          where: { email: token.email },
+          where:  { email: token.email },
           select: { id: true, role: true },
         })
         if (profile) {
-          token.profileId = profile.id
-          token.role = profile.role
+          return {
+            sub:       token.sub,
+            profileId: profile.id,
+            role:      profile.role,
+          }
         }
         return token
       }
 
+      // ── Subsequent requests ───────────────────────────────────────────────
+      // user + account are undefined here — work from existing token fields
 
-      if(!token.profileId && token.sub) {
+      // Safety: recover profileId from sub if somehow missing
+      if (!token.profileId && token.sub) {
         token.profileId = token.sub
       }
 
-      // Re-fetch role when session.update() is called (e.g. after set-role)
+      // Re-fetch role when:
+      //   • session.update() is called (e.g. after role is assigned)
+      //   • role is missing from the token (e.g. first request after deploy)
       if ((trigger === "update" || !token.role) && token.profileId) {
         const profile = await prisma.profile.findUnique({
-          where: { id: token.profileId as string },
+          where:  { id: token.profileId as string },
           select: { role: true },
         })
         if (profile) token.role = profile.role
@@ -401,7 +411,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async session({ session, token }) {
-      if (token.profileId) session.user.id = token.profileId as string
+      const profileId = (token.profileId ?? token.sub) as string | undefined
+      if (profileId) session.user.id = profileId
       if (token.role) session.user.role = token.role as string
       return session
     },
@@ -410,13 +421,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
 })
 
+// ── OAuth helper ──────────────────────────────────────────────────────────────
+
 async function handleOAuthSignIn({
   email, name, image, providerUid,
 }: {
   email: string; name: string; image?: string | null; providerUid: string
 }) {
   const existing = await prisma.profile.findUnique({
-    where: { email },
+    where:  { email },
     select: { id: true },
   })
 
@@ -436,7 +449,7 @@ async function handleOAuthSignIn({
 }
 
 function generateReferralCode(name: string): string {
-  const base = name.split(" ")[0].toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6)
+  const base   = name.split(" ")[0].toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6)
   const suffix = Math.floor(1000 + Math.random() * 9000)
   return `${base}${suffix}`
 }

@@ -176,6 +176,7 @@
 
 
 
+// src/app/(auth)/login/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -220,32 +221,37 @@ export default function LoginPage() {
       })
 
       if (res?.error) {
-        toast({
-          variant: "destructive",
-          title: "Login failed",
-          description: "Invalid email or password.",
-        })
+        // res.code contains our typed error code from authorize()
+        if (res.code === "oauth_account") {
+          toast({
+            variant: "destructive",
+            title: "Use Google to sign in",
+            description: "This account was created with Google. Click \"Continue with Google\" below.",
+          })
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Login failed",
+            description: "Invalid email or password.",
+          })
+        }
         return
       }
 
-
-      // poll /api/profile/me until the session is ready (max 3 attempts)
+      // Poll /api/profile/me until the session is ready (max 3 attempts)
       let profile: any = null
-      for(let i=0;i<3;i++) {
-        await new Promise(r => setTimeout(r, 300));
-        const profileRes = await fetch('/api/profile/me')
-        if(profileRes.ok) {
+      for (let i = 0; i < 3; i++) {
+        await new Promise(r => setTimeout(r, 300))
+        const profileRes = await fetch("/api/profile/me")
+        if (profileRes.ok) {
           profile = await profileRes.json()
           break
         }
       }
-      // Refresh profile context then redirect based on role
+
       await refresh()
-      // const profileRes = await fetch("/api/profile/me")
-      // const profile = await profileRes.json()
       router.push(getRolePath(profile?.role ?? null))
-    } catch (error) {
-      console.log('error', error)
+    } catch {
       toast({
         variant: "destructive",
         title: "Something went wrong",
@@ -257,7 +263,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to continue to GymStack">
+    <AuthLayout title="Welcome back" subtitle="Sign in to continue to FitHub">
       <form onSubmit={handleSubmit} className="space-y-5">
 
         {/* Email */}

@@ -151,12 +151,10 @@
 // updated code
 
 // src/app/api/auth/forgot-password/route.ts
+// src/app/api/auth/forgot-password/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
-import { sendPasswordResetEmail } from "@/lib/email";
-
-
 
 export async function POST(req: NextRequest) {
   try {
@@ -168,20 +166,27 @@ export async function POST(req: NextRequest) {
 
     const profile = await prisma.profile.findUnique({
       where: { email: email.toLowerCase().trim() },
-      select: { id: true, fullName: true, email: true, passwordHash: true },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        passwordHash: true,
+        oauthAccounts: { select: { provider: true } },
+      },
     })
 
-    // Always return success — never reveal if email exists (security)
+    // No account found — tell user to sign up
     if (!profile) {
-      return NextResponse.json({ success: true })
+      return NextResponse.json({ error: "no_account" }, { status: 404 })
     }
 
-    // Both null-password profiles (owner-created members) and
-    // credentials users can set/reset their password via this flow.
-    // OAuth-only users who never had a password are the only exception,
-    // but since we always store a passwordHash for credentials users and
-    // null means "not set yet", we allow null through intentionally.
+    // Account exists but is Google-only (signed up via Google, never set a password)
+    const isGoogleOnly = !profile.passwordHash && profile.oauthAccounts.length > 0
+    if (isGoogleOnly) {
+      return NextResponse.json({ error: "oauth_account" }, { status: 400 })
+    }
 
+    // ── Generate reset token ──────────────────────────────────────────────────
     // Clean up any existing unused reset tokens for this profile
     await prisma.refreshToken.deleteMany({
       where: {
@@ -191,7 +196,6 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Generate a secure random token
     const rawToken = crypto.randomBytes(32).toString("hex")
     const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex")
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
@@ -206,39 +210,16 @@ export async function POST(req: NextRequest) {
 
     const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${rawToken}`
 
-    // ── Send email ─────────────────────────────────────────────────────────
-    // In development: log the link to terminal
-    // In production: integrate Resend (recommended) or Nodemailer
-    // if (process.env.NODE_ENV === "development") {
-    //   console.log("\n──────────────────────────────────────────")
-    //   console.log("🔑 PASSWORD RESET LINK (dev only):")
-    //   console.log(resetLink)
-    //   console.log("──────────────────────────────────────────\n")
-    // } else {
-    //   // TODO: Replace with your email provider
-    //   // Example with Resend:
-    //   //
-    //   // import { Resend } from "resend"
-    //   // const resend = new Resend(process.env.RESEND_API_KEY)
-    //   // await resend.emails.send({
-    //   //   from: "GymStack <noreply@yourdomain.com>",
-    //   //   to: profile.email,
-    //   //   subject: "Reset your GymStack password",
-    //   //   html: `
-    //   //     <h2>Hi ${profile.fullName},</h2>
-    //   //     <p>Click the link below to reset your password. This link expires in 1 hour.</p>
-    //   //     <a href="${resetLink}" style="...">Reset Password</a>
-    //   //     <p>If you didn't request this, ignore this email.</p>
-    //   //   `,
-    //   // })
-    // }
-
-
-    await sendPasswordResetEmail({
-      to: profile.email,
-      fullName: profile.fullName,
-      resetLink,
-    })
+    // ── Send email ────────────────────────────────────────────────────────────
+    if (process.env.NODE_ENV === "development") {
+      console.log("\n──────────────────────────────────────────")
+      console.log("🔑 PASSWORD RESET LINK (dev only):")
+      console.log(resetLink)
+      console.log("──────────────────────────────────────────\n")
+    } else {
+      // TODO: plug in your email provider here
+      // await sendPasswordResetEmail({ to: profile.email, fullName: profile.fullName, resetLink })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
