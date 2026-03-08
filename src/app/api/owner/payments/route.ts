@@ -1,3 +1,5 @@
+
+
 // // src/app/api/owner/payments/route.ts
 // import { NextRequest, NextResponse } from "next/server"
 // import { auth } from "@/auth"
@@ -35,6 +37,46 @@
 
 //   return NextResponse.json({ payments, total, pages: Math.ceil(total / 20), monthTotal: Number(monthTotal._sum?.amount ?? 0) })
 // }
+
+// export async function POST(req: NextRequest) {
+//   const session = await auth()
+//   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+//   const { gymId, memberId, membershipPlanId, amount, paymentMethod, paymentDate, notes } = await req.json()
+//   if (!gymId || !memberId || !amount) return NextResponse.json({ error: "gymId, memberId and amount are required" }, { status: 400 })
+
+//   const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
+//   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
+
+//   const member = await prisma.gymMember.findFirst({ where: { id: memberId, gymId } })
+//   if (!member) return NextResponse.json({ error: "Member not found" }, { status: 404 })
+
+//   let planName: string | null = null
+//   if (membershipPlanId) {
+//     const plan = await prisma.membershipPlan.findUnique({ where: { id: membershipPlanId }, select: { name: true } })
+//     planName = plan?.name ?? null
+//   }
+
+//   const payment = await prisma.payment.create({
+//     data: {
+//       gymId,
+//       memberId,
+//       membershipPlanId: membershipPlanId || null,
+//       amount:           parseFloat(amount),
+//       paymentMethod:    paymentMethod || "CASH",
+//       status:           "COMPLETED",
+//       paymentDate:      paymentDate ? new Date(paymentDate) : new Date(),
+//       planNameSnapshot: planName,
+//     },
+//     include: {
+//       member: { include: { profile: { select: { fullName: true } } } },
+//       gym:    { select: { name: true } },
+//     },
+//   })
+
+//   return NextResponse.json(payment, { status: 201 })
+// }
+
 
 // src/app/api/owner/payments/route.ts
 import { NextRequest, NextResponse } from "next/server"

@@ -8,7 +8,7 @@ import { signOut } from "next-auth/react"
 import { useProfile } from "@/contexts/ProfileContext"
 import {
   Dumbbell, LayoutDashboard, Users, CalendarCheck,
-  ClipboardList, UtensilsCrossed, Bell, UserCircle,
+  ClipboardList, UtensilsCrossed, Bell, UserCircle, Gift,
   LogOut, Menu, X, Loader2
 } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
@@ -19,6 +19,7 @@ const navItems = [
   { label: "Workout Plans", href: "/trainer/workouts",        icon: ClipboardList },
   { label: "Diet Plans",    href: "/trainer/diets",           icon: UtensilsCrossed },
   { label: "Attendance",    href: "/trainer/attendance",      icon: CalendarCheck },
+  { label: "Refer & Earn",  href: "/trainer/referral",        icon: Gift },
   { label: "Notifications", href: "/trainer/notifications",   icon: Bell },
   { label: "My Profile",    href: "/trainer/profile",         icon: UserCircle },
 ]
