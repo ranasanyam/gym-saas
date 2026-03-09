@@ -14,14 +14,28 @@ export async function GET() {
 
   const now = new Date()
 
-  // Last 6 months revenue
+  // Last 6 months revenue (membership + supplements)
   const revenueData = await Promise.all(
-    Array.from({ length: 6 }, (_, i) => {
+    Array.from({ length: 6 }, async (_, i) => {
       const d = subMonths(now, 5 - i)
-      return prisma.payment.aggregate({
-        where: { gymId: { in: gymIds }, status: "COMPLETED", paymentDate: { gte: startOfMonth(d), lte: endOfMonth(d) } },
-        _sum: { amount: true },
-      }).then(r => ({ month: format(d, "MMM"), revenue: Number(r._sum?.amount ?? 0) }))
+      const [membership, supplements] = await Promise.all([
+        prisma.payment.aggregate({
+          where: { gymId: { in: gymIds }, status: "COMPLETED", paymentDate: { gte: startOfMonth(d), lte: endOfMonth(d) } },
+          _sum: { amount: true },
+        }),
+        prisma.supplementSale.aggregate({
+          where: { gymId: { in: gymIds }, soldAt: { gte: startOfMonth(d), lte: endOfMonth(d) } },
+          _sum: { totalAmount: true },
+        }),
+      ])
+      const membershipRev  = Number(membership._sum?.amount ?? 0)
+      const supplementRev  = Number(supplements._sum?.totalAmount ?? 0)
+      return {
+        month:          format(d, "MMM"),
+        revenue:        membershipRev + supplementRev,
+        membershipRev,
+        supplementRev,
+      }
     })
   )
 
@@ -38,31 +52,55 @@ export async function GET() {
   // Per-gym summary
   const topGyms = await Promise.all(
     gyms.map(async gym => {
-      const [members, revenue, attendance] = await Promise.all([
+      const [members, revenue, suppRevenue, attendance] = await Promise.all([
         prisma.gymMember.count({ where: { gymId: gym.id, status: "ACTIVE" } }),
         prisma.payment.aggregate({
           where: { gymId: gym.id, status: "COMPLETED", paymentDate: { gte: startOfMonth(now) } },
           _sum: { amount: true },
         }),
+        prisma.supplementSale.aggregate({
+          where: { gymId: gym.id, soldAt: { gte: startOfMonth(now) } },
+          _sum: { totalAmount: true },
+        }),
         prisma.attendance.count({ where: { gymId: gym.id, checkInTime: { gte: startOfMonth(now) } } }),
       ])
-      return { name: gym.name, members, revenue: Number(revenue._sum?.amount ?? 0), attendance }
+      const membershipRev = Number(revenue._sum?.amount ?? 0)
+      const supplementRev = Number(suppRevenue._sum?.totalAmount ?? 0)
+      return {
+        name: gym.name, members, attendance,
+        revenue:        membershipRev + supplementRev,
+        membershipRev,
+        supplementRev,
+      }
     })
   )
 
-  const [totalMembers, totalRevenue, totalAttendance] = await Promise.all([
+  const [totalMembers, totalMembershipRevenue, totalSupplementRevenue, totalAttendance] = await Promise.all([
     prisma.gymMember.count({ where: { gymId: { in: gymIds }, status: "ACTIVE" } }),
     prisma.payment.aggregate({
       where: { gymId: { in: gymIds }, status: "COMPLETED", paymentDate: { gte: startOfMonth(now) } },
       _sum: { amount: true },
     }),
+    prisma.supplementSale.aggregate({
+      where: { gymId: { in: gymIds }, soldAt: { gte: startOfMonth(now) } },
+      _sum: { totalAmount: true },
+    }),
     prisma.attendance.count({ where: { gymId: { in: gymIds }, checkInTime: { gte: startOfMonth(now) } } }),
   ])
+
+  const membershipRev = Number(totalMembershipRevenue._sum?.amount ?? 0)
+  const supplementRev = Number(totalSupplementRevenue._sum?.totalAmount ?? 0)
 
   return NextResponse.json({
     revenue: revenueData,
     memberGrowth,
     topGyms,
-    summary: { totalMembers, totalRevenue: Number(totalRevenue._sum?.amount ?? 0), totalAttendance },
+    summary: {
+      totalMembers,
+      totalRevenue:       membershipRev + supplementRev,
+      membershipRevenue:  membershipRev,
+      supplementRevenue:  supplementRev,
+      totalAttendance,
+    },
   })
 }

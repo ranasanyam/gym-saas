@@ -31,13 +31,18 @@ export async function GET() {
       })
     }
 
-    const [totalMembers, monthlyRevenue, todayAttendance, recentMembers, todayCheckins] =
+    const [totalMembers, monthlyRevenue, supplementRevenue, todayAttendance, recentMembers, todayCheckins, recentSupplementSales] =
       await Promise.all([
         prisma.gymMember.count({ where: { gymId: { in: gymIds }, status: "ACTIVE" } }),
 
         prisma.payment.aggregate({
           where: { gymId: { in: gymIds }, status: "COMPLETED", paymentDate: { gte: monthStart, lte: monthEnd } },
           _sum: { amount: true },
+        }),
+
+        prisma.supplementSale.aggregate({
+          where: { gymId: { in: gymIds }, soldAt: { gte: monthStart, lte: monthEnd } },
+          _sum: { totalAmount: true },
         }),
 
         prisma.attendance.count({
@@ -64,15 +69,31 @@ export async function GET() {
             member: { select: { profile: { select: { fullName: true, avatarUrl: true } } } },
           },
         }),
+
+        prisma.supplementSale.findMany({
+          where: { gymId: { in: gymIds } },
+          orderBy: { soldAt: "desc" },
+          take: 5,
+          include: {
+            supplement: { select: { name: true, unitSize: true } },
+            member: { include: { profile: { select: { fullName: true } } } },
+          },
+        }),
       ])
+
+    const membershipRevenue    = Number(monthlyRevenue._sum?.amount ?? 0)
+    const supplementRevenueAmt = Number(supplementRevenue._sum?.totalAmount ?? 0)
 
     return NextResponse.json({
       totalMembers,
       activeGyms: gymIds.length,
-      monthlyRevenue: Number(monthlyRevenue._sum?.amount ?? 0),
+      monthlyRevenue: membershipRevenue,
+      supplementRevenue: supplementRevenueAmt,
+      totalRevenue: membershipRevenue + supplementRevenueAmt,
       todayAttendance,
       recentMembers,
       todayCheckins,
+      recentSupplementSales,
       gyms,
     })
   } catch (error) {

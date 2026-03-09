@@ -7,7 +7,7 @@ import { useProfile } from "@/contexts/ProfileContext"
 import {
   Users, Building2, CreditCard, CalendarCheck,
   UserPlus, ClipboardList, BarChart3, Calendar,
-  ArrowRight, Loader2, TrendingUp
+  ArrowRight, Loader2, TrendingUp, ShoppingBag, Package
 } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 
@@ -15,6 +15,8 @@ interface DashboardData {
   totalMembers: number
   activeGyms: number
   monthlyRevenue: number
+  supplementRevenue: number
+  totalRevenue: number
   todayAttendance: number
   recentMembers: {
     id: string
@@ -28,6 +30,16 @@ interface DashboardData {
     checkInTime: string
     checkOutTime: string | null
     member: { profile: { fullName: string; avatarUrl: string | null } }
+  }[]
+  recentSupplementSales: {
+    id: string
+    qty: number
+    unitPrice: number
+    totalAmount: number
+    memberName: string | null
+    soldAt: string
+    supplement: { name: string; unitSize: string | null }
+    member: { profile: { fullName: string } } | null
   }[]
   gyms: { id: string; name: string; city: string | null }[]
 }
@@ -121,11 +133,12 @@ export default function OwnerDashboardPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Users}        label="Total Members"     value={data?.totalMembers ?? 0}                       sub={`${data?.totalMembers ?? 0} active`} />
-          <StatCard icon={Building2}    label="Active Gyms"       value={data?.activeGyms ?? 0}                         sub="Managed by you" />
-          <StatCard icon={CreditCard}   label="Monthly Revenue"   value={formatCurrency(data?.monthlyRevenue ?? 0)}     sub="This month" />
-          <StatCard icon={TrendingUp}   label="Today's Attendance" value={data?.todayAttendance ?? 0}                   sub="Check-ins today" />
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <StatCard icon={Users}       label="Total Members"       value={data?.totalMembers ?? 0}                            sub={`${data?.totalMembers ?? 0} active`} />
+          <StatCard icon={Building2}   label="Active Gyms"         value={data?.activeGyms ?? 0}                              sub="Managed by you" />
+          <StatCard icon={CreditCard}  label="Membership Revenue"  value={formatCurrency(data?.monthlyRevenue ?? 0)}          sub="This month" />
+          <StatCard icon={ShoppingBag} label="Supplement Revenue"  value={formatCurrency(data?.supplementRevenue ?? 0)}       sub="This month" subColor="text-green-400" />
+          <StatCard icon={TrendingUp}  label="Today's Attendance"  value={data?.todayAttendance ?? 0}                         sub="Check-ins today" />
         </div>
       )}
 
@@ -230,6 +243,39 @@ export default function OwnerDashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Recent Supplement Sales */}
+      {(data?.recentSupplementSales?.length ?? 0) > 0 && (
+        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary/70" />
+              <h3 className="text-white font-display font-semibold">Recent Supplement Sales</h3>
+            </div>
+            <Link href="/owner/supplements" className="text-primary text-xs hover:text-primary/80 transition-colors flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {data?.recentSupplementSales.map(s => (
+              <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/3 transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-4 h-4 text-green-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">
+                    {s.supplement.name}{s.supplement.unitSize ? ` (${s.supplement.unitSize})` : ""}
+                  </p>
+                  <p className="text-white/35 text-xs">
+                    {s.member?.profile.fullName ?? s.memberName ?? "Walk-in"} · {s.qty} unit{s.qty > 1 ? "s" : ""} · {timeAgo(s.soldAt)}
+                  </p>
+                </div>
+                <span className="text-green-400 font-semibold text-sm">₹{Number(s.totalAmount).toLocaleString("en-IN")}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

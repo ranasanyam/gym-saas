@@ -1,3 +1,8 @@
+
+
+
+
+
 // ============================================================
 // GYM MANAGEMENT SAAS — Prisma Schema (Final)
 // Includes: Core App + SaaS Billing + Referral & Wallet System
@@ -239,8 +244,10 @@ model Gym {
   payments        Payment[]
   classCategories ClassCategory[]
   classes         Class[]
-  workoutPlans    WorkoutPlan[]
-  dietPlans       DietPlan[]
+  workoutPlans     WorkoutPlan[]
+  dietPlans        DietPlan[]
+  supplements      Supplement[]
+  supplementSales  SupplementSale[]
   announcements   Announcement[]
   notifications   Notification[]
 
@@ -283,13 +290,17 @@ model SaasPlan {
   maxStorageGb Int? @map("max_storage_gb")
 
   // ── Feature flags ─────────────────────────────────────────
-  attendanceTracking Boolean @default(true)  @map("attendance_tracking")
-  workoutPlans       Boolean @default(true)  @map("workout_plans")
-  dietPlans          Boolean @default(false) @map("diet_plans")
-  classScheduling    Boolean @default(false) @map("class_scheduling")
-  reportsAnalytics   Boolean @default(false) @map("reports_analytics")
-  customBranding     Boolean @default(false) @map("custom_branding")
-  apiAccess          Boolean @default(false) @map("api_access")
+  attendanceTracking   Boolean @default(true)  @map("attendance_tracking")
+  workoutPlans         Boolean @default(true)  @map("workout_plans")
+  dietPlans            Boolean @default(false) @map("diet_plans")
+  classScheduling      Boolean @default(false) @map("class_scheduling")
+  reportsAnalytics     Boolean @default(false) @map("reports_analytics")
+  onlinePayments       Boolean @default(false) @map("online_payments")
+  balanceSheet         Boolean @default(false) @map("balance_sheet")
+  supplementManagement Boolean @default(false) @map("supplement_management")
+  customBranding       Boolean @default(false) @map("custom_branding")
+  whatsappIntegration  Boolean @default(false) @map("whatsapp_integration")
+  apiAccess            Boolean @default(false) @map("api_access")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -554,8 +565,9 @@ model GymMember {
   assignedTrainer GymTrainer?     @relation("AssignedTrainer", fields: [assignedTrainerId], references: [id], onDelete: SetNull)
   attendance      Attendance[]
   payments        Payment[]
-  classBookings   ClassBooking[]
-  workoutPlans    WorkoutPlan[]   @relation("WorkoutPlanMember")
+  classBookings       ClassBooking[]
+  workoutPlans        WorkoutPlan[]   @relation("WorkoutPlanMember")
+  supplementSales     SupplementSale[]
   dietPlans       DietPlan[]      @relation("DietPlanMember")
   workoutLogs     WorkoutLog[]
   bodyMetrics     BodyMetric[]
@@ -901,4 +913,55 @@ model Notification {
 
   @@index([profileId, isRead])
   @@map("notifications")
+}
+
+// ────────────────────────────────────────────────────────────
+// SUPPLEMENTS  (inventory + sales tracking per gym)
+// ────────────────────────────────────────────────────────────
+
+model Supplement {
+  id          String   @id @default(uuid())
+  gymId       String   @map("gym_id")
+  name        String
+  brand       String?
+  category    String?  // e.g. "Protein", "Creatine", "Vitamins"
+  description String?
+  unitSize    String?  @map("unit_size")   // e.g. "1kg", "60 caps"
+  price       Decimal  @db.Decimal(10, 2)  // selling price
+  costPrice   Decimal? @map("cost_price") @db.Decimal(10, 2) // purchase cost
+  stockQty    Int      @default(0) @map("stock_qty")
+  lowStockAt  Int      @default(5)  @map("low_stock_at") // alert threshold
+  imageUrl    String?  @map("image_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  gym   Gym                @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  sales SupplementSale[]
+
+  @@index([gymId])
+  @@map("supplements")
+}
+
+model SupplementSale {
+  id             String   @id @default(uuid())
+  supplementId   String   @map("supplement_id")
+  gymId          String   @map("gym_id")
+  memberId       String?  @map("member_id")  // null if sold to walk-in
+  memberName     String?  @map("member_name") // snapshot — useful if walk-in
+  qty            Int
+  unitPrice      Decimal  @map("unit_price")  @db.Decimal(10, 2)
+  totalAmount    Decimal  @map("total_amount") @db.Decimal(10, 2)
+  paymentMethod  String   @default("CASH") @map("payment_method")
+  notes          String?
+  soldAt         DateTime @default(now()) @map("sold_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  supplement Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
+  gym        Gym        @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  member     GymMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([gymId])
+  @@index([supplementId])
+  @@map("supplement_sales")
 }
