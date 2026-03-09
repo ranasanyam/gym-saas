@@ -66,7 +66,7 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
         <div className="p-2 bg-gradient-primary rounded-xl">
           <Dumbbell className="w-4 h-4 text-white" />
         </div>
-        <span className="text-lg font-display font-bold text-white">FitHub</span>
+        <span className="text-lg font-display font-bold text-white">GymStack</span>
       </div>
 
       <div className="flex-1 py-5 px-3 overflow-y-auto">

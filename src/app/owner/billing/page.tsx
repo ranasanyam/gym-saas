@@ -123,7 +123,7 @@ export default function BillingPage() {
         key:         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount:      order.amount,
         currency:    "INR",
-        name:        "FitHub",
+        name:        "GymStack",
         description: `${plan.name} Plan — ${INTERVAL_LABEL[plan.interval]}`,
         order_id:    order.orderId,
         handler: async (response: any) => {

@@ -32,24 +32,124 @@
 //     </html>
 //   );
 // }
-import type { Metadata } from "next"
+// import type { Metadata } from "next"
+// import "./globals.css"
+// import { Providers } from "@/components/Providers"
+// import { Toaster } from "@/components/ui/toaster"
+
+// export const metadata: Metadata = {
+//   title: "GymStack — Gym Management Platform",
+//   description: "Manage your gym, members, trainers, and classes all in one place.",
+// }
+
+// export default function RootLayout({ children }: { children: React.ReactNode }) {
+//   return (
+//     <html lang="en" suppressHydrationWarning>
+//       <body suppressHydrationWarning>
+//         <Providers>
+//           {children}
+//         </Providers>
+//         <Toaster />
+//       </body>
+//     </html>
+//   )
+// }
+
+// src/app/layout.tsx
+import type { Metadata, Viewport } from "next"
 import "./globals.css"
-import { Providers } from "@/components/Providers"
-import { Toaster } from "@/components/ui/toaster"
+import { Providers }        from "@/components/Providers"
+import { Toaster }          from "@/components/ui/toaster"
+import { PwaRegister } from "@/components/PwaRegister"
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt"
+
+export const viewport: Viewport = {
+  themeColor:         "#f97316",
+  colorScheme:        "dark",
+  width:              "device-width",
+  initialScale:       1,
+  maximumScale:       1,
+  userScalable:       false,
+  viewportFit:        "cover",
+}
 
 export const metadata: Metadata = {
-  title: "GymStack — Gym Management Platform",
-  description: "Manage your gym, members, trainers, and classes all in one place.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://GymStack.app"),
+
+  title:       { default: "GymStack — Gym Management Platform", template: "%s | GymStack" },
+  description: "Manage your gym, members, trainers, workouts and diet plans all in one place.",
+  keywords:    ["gym management", "fitness", "members", "workout plans", "diet plans", "attendance"],
+  authors:     [{ name: "GymStack" }],
+
+  // PWA
+  applicationName: "GymStack",
+  manifest:        "/manifest.json",
+
+  // Apple PWA
+  appleWebApp: {
+    capable:           true,
+    statusBarStyle:    "black-translucent",
+    title:             "GymStack",
+    startupImage:      "/icons/apple-touch-icon.png",
+  },
+
+  // Open Graph
+  openGraph: {
+    type:        "website",
+    title:       "GymStack — Gym Management Platform",
+    description: "Manage your gym, members, trainers, workouts and diet plans all in one place.",
+    siteName:    "GymStack",
+    images:      [{ url: "/icons/icon-512x512.png", width: 512, height: 512, alt: "GymStack" }],
+  },
+
+  // Twitter
+  twitter: {
+    card:        "summary",
+    title:       "GymStack — Gym Management Platform",
+    description: "Manage your gym, members, trainers, workouts and diet plans all in one place.",
+    images:      ["/icons/icon-512x512.png"],
+  },
+
+  icons: {
+    icon:             [
+      { url: "/icons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192x192.png",  sizes: "192x192", type: "image/png" },
+    ],
+    apple:            "/icons/apple-touch-icon.png",
+    shortcut:         "/icons/icon-192x192.png",
+  },
+
+  formatDetection: { telephone: false },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* iOS PWA status bar */}
+        <meta name="apple-mobile-web-app-capable"            content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style"   content="black-translucent" />
+        <meta name="apple-mobile-web-app-title"              content="GymStack" />
+
+        {/* Microsoft Tiles */}
+        <meta name="msapplication-TileColor"                 content="#f97316" />
+        <meta name="msapplication-TileImage"                 content="/icons/icon-144x144.png" />
+        <meta name="msapplication-config"                    content="none" />
+
+        {/* Splash screens aren't auto-generated — good enough with apple-touch-icon */}
+        <link rel="apple-touch-icon"                         href="/icons/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="152x152"         href="/icons/icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="180x180"         href="/icons/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="167x167"         href="/icons/icon-192x192.png" />
+      </head>
       <body suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>
         <Toaster />
+        <PwaRegister />
+        <PwaInstallPrompt />
       </body>
     </html>
   )

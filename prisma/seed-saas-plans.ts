@@ -8,7 +8,7 @@ async function main() {
   const plans = [
     {
       name:        "Free",
-      description: "Get started with FitHub at no cost. Perfect for new gyms.",
+      description: "Get started with GymStack at no cost. Perfect for new gyms.",
       interval:    "MONTHLY" as const,
       price:       0,
       sortOrder:   1,

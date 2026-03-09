@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       data: {
         profileId: referral.referrerId,
         title:     "🎉 Referral Reward Earned!",
-        message:   `Someone you referred just purchased a FitHub subscription! ₹${REFERRAL_REWARD} has been credited to your wallet.`,
+        message:   `Someone you referred just purchased a GymStack subscription! ₹${REFERRAL_REWARD} has been credited to your wallet.`,
         type:      "REFERRAL",
       },
     }),

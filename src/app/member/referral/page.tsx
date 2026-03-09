@@ -75,8 +75,8 @@ export default function MemberReferralPage() {
     if (!referralLink) return
     if (navigator.share) {
       await navigator.share({
-        title: "Join FitHub!",
-        text: `Use my referral code ${data?.code} to join FitHub and start your fitness journey!`,
+        title: "Join GymStack!",
+        text: `Use my referral code ${data?.code} to join GymStack and start your fitness journey!`,
         url: referralLink,
       })
     } else copyLink()
@@ -97,7 +97,7 @@ export default function MemberReferralPage() {
       <div>
         <h2 className="text-2xl font-display font-bold text-white">Refer & Earn</h2>
         <p className="text-white/40 text-sm mt-0.5">
-          Invite friends to FitHub and earn ₹{stats.rewardPerReferral} for every successful referral
+          Invite friends to GymStack and earn ₹{stats.rewardPerReferral} for every successful referral
         </p>
       </div>
 

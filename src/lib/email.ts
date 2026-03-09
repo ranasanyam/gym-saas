@@ -70,7 +70,7 @@ export async function sendPasswordResetEmail(opts: {
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: opts.to,
-    subject: "Reset your FitHub password",
+    subject: "Reset your GymStack password",
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
         <h2 style="color:#f97316">Reset your password</h2>
@@ -89,7 +89,7 @@ export async function sendMemberWelcomeEmail(opts: {
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: opts.to,
-    subject: `You've been added to ${opts.gymName} on FitHub`,
+    subject: `You've been added to ${opts.gymName} on GymStack`,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
         <h2 style="color:#f97316">Welcome to ${opts.gymName} 🎉</h2>

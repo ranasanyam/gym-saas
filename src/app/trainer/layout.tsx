@@ -66,7 +66,7 @@ export default function TrainerLayout({ children }: { children: React.ReactNode 
           <Dumbbell className="w-4 h-4 text-white" />
         </div>
         <div>
-          <span className="text-lg font-display font-bold text-white">FitHub</span>
+          <span className="text-lg font-display font-bold text-white">GymStack</span>
           <p className="text-[10px] text-primary/70 -mt-0.5 font-medium">Trainer</p>
         </div>
       </div>

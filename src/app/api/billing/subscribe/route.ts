@@ -1,5 +1,5 @@
 // src/app/api/billing/subscribe/route.ts
-// Handles SaaS platform subscription purchase (owner buys a FitHub plan)
+// Handles SaaS platform subscription purchase (owner buys a GymStack plan)
 // When payment is confirmed → referral conversion is triggered for the buyer
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"

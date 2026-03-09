@@ -281,7 +281,7 @@ export default function ForgotPasswordPage() {
             </div>
             <div className="text-center space-y-2">
               <p className="text-white/65 text-sm leading-relaxed">
-                There&apos;s no FitHub account linked to{" "}
+                There&apos;s no GymStack account linked to{" "}
                 <span className="text-white font-medium">{email}</span>.
               </p>
               <p className="text-white/40 text-xs">

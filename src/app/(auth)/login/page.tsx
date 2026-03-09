@@ -263,7 +263,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to continue to FitHub">
+    <AuthLayout title="Welcome back" subtitle="Sign in to continue to GymStack">
       <form onSubmit={handleSubmit} className="space-y-5">
 
         {/* Email */}

@@ -268,7 +268,7 @@ export default function SignupPage() {
         return
       }
 
-      toast({ title: "Welcome to FitHub! 🎉", description: "Account created successfully." })
+      toast({ title: "Welcome to GymStack! 🎉", description: "Account created successfully." })
       router.push("/select-role")
     } catch {
       toast({ variant: "destructive", title: "Something went wrong", description: "Please try again." })
@@ -278,7 +278,7 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthLayout title="Create your account" subtitle="Join FitHub and manage your gym smarter">
+    <AuthLayout title="Create your account" subtitle="Join GymStack and manage your gym smarter">
       <form onSubmit={handleSubmit} className="space-y-4">
 
         {/* Full name */}
