@@ -3,6 +3,10 @@
     {
       "path": "/api/push/daily-digest",
       "schedule": "30 16 * * *"
+    },
+    {
+      "path": "/api/push/expiry-alerts",
+      "schedule": "30 3 * * *"
     }
   ],
   "headers": [
@@ -11,6 +15,13 @@
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
         { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" },
+        { "key": "Content-Type", "value": "application/manifest+json" }
       ]
     }
   ]

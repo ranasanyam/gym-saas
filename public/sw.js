@@ -127,105 +127,279 @@
 // })
 
 
-// public/sw.js — GymStack Service Worker v2
-const CACHE_NAME = "gymstack-v2"
-const STATIC_ASSETS = ["/offline", "/icons/icon-192x192.png"]
+// // public/sw.js — GymStack Service Worker v2
+// const CACHE_NAME = "gymstack-v2"
+// const STATIC_ASSETS = ["/offline", "/icons/icon-192x192.png"]
 
-// ── Install ────────────────────────────────────────────────
+// // ── Install ────────────────────────────────────────────────
+// self.addEventListener("install", e => {
+//   e.waitUntil(
+//     caches.open(CACHE_NAME).then(c => c.addAll(STATIC_ASSETS)).then(() => self.skipWaiting())
+//   )
+// })
+
+// // ── Activate ───────────────────────────────────────────────
+// self.addEventListener("activate", e => {
+//   e.waitUntil(
+//     caches.keys()
+//       .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+//       .then(() => self.clients.claim())
+//   )
+// })
+
+// // ── Fetch ──────────────────────────────────────────────────
+// self.addEventListener("fetch", e => {
+//   const { request } = e
+//   const url = new URL(request.url)
+
+//   // API: always network, never cache
+//   if (url.pathname.startsWith("/api/")) return
+
+//   // Static assets: cache-first
+//   if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
+//     e.respondWith(
+//       caches.match(request).then(cached => cached ?? fetch(request).then(res => {
+//         const clone = res.clone()
+//         caches.open(CACHE_NAME).then(c => c.put(request, clone))
+//         return res
+//       }))
+//     )
+//     return
+//   }
+
+//   // Navigation: network-first → offline fallback
+//   if (request.mode === "navigate") {
+//     e.respondWith(
+//       fetch(request).catch(() => caches.match("/offline"))
+//     )
+//     return
+//   }
+
+//   // Everything else: stale-while-revalidate
+//   e.respondWith(
+//     caches.open(CACHE_NAME).then(cache =>
+//       cache.match(request).then(cached => {
+//         const fetchPromise = fetch(request).then(res => {
+//           cache.put(request, res.clone())
+//           return res
+//         }).catch(() => cached)
+//         return cached ?? fetchPromise
+//       })
+//     )
+//   )
+// })
+
+// // ── Push Notifications ─────────────────────────────────────
+// self.addEventListener("push", e => {
+//   let data = { title: "GymStack", body: "You have a new notification", url: "/" }
+//   try { data = { ...data, ...JSON.parse(e.data?.text() ?? "{}") } } catch {}
+
+//   e.waitUntil(
+//     self.registration.showNotification(data.title, {
+//       body:    data.body,
+//       icon:    data.icon  ?? "/icons/icon-192x192.png",
+//       badge:   data.badge ?? "/icons/icon-72x72.png",
+//       tag:     data.tag   ?? "gymstack-notification",
+//       data:    { url: data.url ?? "/" },
+//       vibrate: [200, 100, 200],
+//       actions: [
+//         { action: "open",    title: "Open App" },
+//         { action: "dismiss", title: "Dismiss"  },
+//       ],
+//     })
+//   )
+// })
+
+// // ── Notification click ─────────────────────────────────────
+// self.addEventListener("notificationclick", e => {
+//   e.notification.close()
+//   if (e.action === "dismiss") return
+
+//   const url = e.notification.data?.url ?? "/"
+//   e.waitUntil(
+//     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
+//       const existing = clients.find(c => c.url.includes(self.location.origin))
+//       if (existing) { existing.focus(); existing.navigate(url) }
+//       else self.clients.openWindow(url)
+//     })
+//   )
+// })
+
+// // ── Background Sync (future use) ──────────────────────────
+// self.addEventListener("message", e => {
+//   if (e.data?.type === "SKIP_WAITING") self.skipWaiting()
+// })
+
+// public/sw.js — GymStack Service Worker v4
+// Fix: "The object is in an invalid state" — caused by duplicate SW registrations
+// Solution: skipWaiting() immediately on install + clients.claim() on activate
+
+const CACHE_NAME    = "gymstack-v4"
+const STATIC_ASSETS = ["/offline"]
+
+// ── Install ────────────────────────────────────────────────────────────────
 self.addEventListener("install", e => {
+  // Take control immediately, don't wait for old SW to be dismissed
+  self.skipWaiting()
+
   e.waitUntil(
-    caches.open(CACHE_NAME).then(c => c.addAll(STATIC_ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(STATIC_ASSETS.map(url =>
+        cache.add(url).catch(() => null) // don't fail install if offline page missing
+      ))
+    )
   )
 })
 
-// ── Activate ───────────────────────────────────────────────
+// ── Activate ───────────────────────────────────────────────────────────────
 self.addEventListener("activate", e => {
   e.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+    Promise.all([
+      // Immediately control all clients (tabs/windows)
+      self.clients.claim(),
+      // Purge old caches
+      caches.keys().then(keys =>
+        Promise.all(
+          keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+        )
+      ),
+    ])
   )
 })
 
-// ── Fetch ──────────────────────────────────────────────────
+// ── Fetch ──────────────────────────────────────────────────────────────────
 self.addEventListener("fetch", e => {
   const { request } = e
   const url = new URL(request.url)
 
-  // API: always network, never cache
+  // Only intercept same-origin requests
+  if (url.origin !== self.location.origin) return
+
+  // API requests: always go straight to network, never cache
   if (url.pathname.startsWith("/api/")) return
 
-  // Static assets: cache-first
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
+  // Static assets: cache-first with network fallback
+  if (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/")        ||
+    /\.(png|ico|svg|woff2?|jpg|webp)$/.test(url.pathname)
+  ) {
     e.respondWith(
-      caches.match(request).then(cached => cached ?? fetch(request).then(res => {
-        const clone = res.clone()
-        caches.open(CACHE_NAME).then(c => c.put(request, clone))
-        return res
-      }))
-    )
-    return
-  }
-
-  // Navigation: network-first → offline fallback
-  if (request.mode === "navigate") {
-    e.respondWith(
-      fetch(request).catch(() => caches.match("/offline"))
-    )
-    return
-  }
-
-  // Everything else: stale-while-revalidate
-  e.respondWith(
-    caches.open(CACHE_NAME).then(cache =>
-      cache.match(request).then(cached => {
-        const fetchPromise = fetch(request).then(res => {
-          cache.put(request, res.clone())
+      caches.match(request).then(cached => {
+        if (cached) return cached
+        return fetch(request).then(res => {
+          if (res.ok) {
+            const clone = res.clone()
+            caches.open(CACHE_NAME)
+              .then(c => c.put(request, clone))
+              .catch(() => {})
+          }
           return res
-        }).catch(() => cached)
-        return cached ?? fetchPromise
+        }).catch(() => cached ?? new Response("", { status: 503 }))
       })
     )
-  )
+    return
+  }
+
+  // Navigation (page loads): network-first with offline fallback
+  if (request.mode === "navigate") {
+    e.respondWith(
+      fetch(request).catch(() =>
+        caches.match("/offline").then(c => c ?? new Response("Offline", { status: 503 }))
+      )
+    )
+    return
+  }
 })
 
-// ── Push Notifications ─────────────────────────────────────
+// ── Push Notifications ─────────────────────────────────────────────────────
 self.addEventListener("push", e => {
-  let data = { title: "GymStack", body: "You have a new notification", url: "/" }
-  try { data = { ...data, ...JSON.parse(e.data?.text() ?? "{}") } } catch {}
+  // Default payload in case parsing fails
+  let payload = {
+    title: "GymStack",
+    body:  "You have a new notification",
+    icon:  "/icons/icon-192x192.png",
+    badge: "/icons/icon-72x72.png",
+    url:   "/",
+    tag:   "gymstack-notification",
+  }
+
+  try {
+    if (e.data) {
+      const parsed = e.data.json()
+      payload = {
+        ...payload,
+        ...parsed,
+        // Ensure icon/badge always exist
+        icon:  parsed.icon  ?? "/icons/icon-192x192.png",
+        badge: parsed.badge ?? "/icons/icon-72x72.png",
+      }
+    }
+  } catch {
+    try {
+      const text = e.data?.text()
+      if (text) payload.body = text
+    } catch {}
+  }
+
+  const options = {
+    body:               payload.body,
+    icon:               payload.icon,
+    badge:              payload.badge,
+    tag:                payload.tag,
+    data:               { url: payload.url },
+    vibrate:            [200, 100, 200],
+    requireInteraction: false,
+    actions: [
+      { action: "open",    title: "Open App" },
+      { action: "dismiss", title: "Dismiss"  },
+    ],
+  }
 
   e.waitUntil(
-    self.registration.showNotification(data.title, {
-      body:    data.body,
-      icon:    data.icon  ?? "/icons/icon-192x192.png",
-      badge:   data.badge ?? "/icons/icon-72x72.png",
-      tag:     data.tag   ?? "gymstack-notification",
-      data:    { url: data.url ?? "/" },
-      vibrate: [200, 100, 200],
-      actions: [
-        { action: "open",    title: "Open App" },
-        { action: "dismiss", title: "Dismiss"  },
-      ],
-    })
+    self.registration
+      .showNotification(payload.title, options)
+      .catch(err => {
+        // Silently swallow — showNotification can throw if permission revoked mid-session
+        console.warn("[SW] showNotification failed:", err?.message ?? err)
+      })
   )
 })
 
-// ── Notification click ─────────────────────────────────────
+// ── Notification Click ─────────────────────────────────────────────────────
 self.addEventListener("notificationclick", e => {
   e.notification.close()
+
   if (e.action === "dismiss") return
 
-  const url = e.notification.data?.url ?? "/"
+  const targetUrl = e.notification.data?.url ?? "/"
+
   e.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
-      const existing = clients.find(c => c.url.includes(self.location.origin))
-      if (existing) { existing.focus(); existing.navigate(url) }
-      else self.clients.openWindow(url)
-    })
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then(clients => {
+        // Focus an existing open window if possible
+        const existing = clients.find(c =>
+          c.url.startsWith(self.location.origin) && "focus" in c
+        )
+        if (existing) {
+          existing.focus()
+          if ("navigate" in existing) existing.navigate(targetUrl)
+          return
+        }
+        // Otherwise open a new tab
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl)
+        }
+      })
+      .catch(err => console.warn("[SW] notificationclick error:", err))
   )
 })
 
-// ── Background Sync (future use) ──────────────────────────
+// ── Message Handler ────────────────────────────────────────────────────────
+// Allows app to send { type: "SKIP_WAITING" } to force-activate new SW
 self.addEventListener("message", e => {
-  if (e.data?.type === "SKIP_WAITING") self.skipWaiting()
+  if (e.data?.type === "SKIP_WAITING") {
+    self.skipWaiting()
+  }
 })

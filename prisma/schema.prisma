@@ -1,3 +1,6 @@
+
+
+
 // ============================================================
 // GYM MANAGEMENT SAAS — Prisma Schema (Final)
 // Includes: Core App + SaaS Billing + Referral & Wallet System
@@ -11,7 +14,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
 }
-
 // ────────────────────────────────────────────────────────────
 // ENUMS
 // ────────────────────────────────────────────────────────────
@@ -85,6 +87,7 @@ enum AttendanceMethod {
   MANUAL
   QR
   BIOMETRIC
+  SELF
 }
 
 // ── SaaS Billing ─────────────────────────────────────────────
@@ -229,6 +232,7 @@ model Gym {
   services      String[] @default([])
   facilities    String[] @default([])
   gymImages     String[] @default([]) @map("gym_images")
+  logoUrl       String?  @map("logo_url")
   timezone      String   @default("Asia/Kolkata")
   currency      String   @default("INR") @db.Char(3)
   isActive      Boolean  @default(true) @map("is_active")
@@ -248,6 +252,7 @@ model Gym {
   supplements      Supplement[]
   supplementSales  SupplementSale[]
   planTemplates    PlanTemplate[]
+  milestones       AttendanceMilestone[]
   announcements   Announcement[]
   notifications   Notification[]
 
@@ -553,6 +558,10 @@ model GymMember {
   medicalNotes          String?      @map("medical_notes")
   emergencyContactName  String?      @map("emergency_contact_name")
   emergencyContactPhone String?      @map("emergency_contact_phone")
+  currentStreak         Int          @default(0) @map("current_streak")
+  longestStreak         Int          @default(0) @map("longest_streak")
+  lastCheckinDate       DateTime?    @map("last_checkin_date") @db.Date
+  totalCheckins         Int          @default(0) @map("total_checkins")
   workoutStartTime      String?      @map("workout_start_time")       // e.g. "05:00"
   workoutEndTime        String?      @map("workout_end_time")         // e.g. "06:00"
   isActive              Boolean      @default(true) @map("is_active")
@@ -574,7 +583,8 @@ model GymMember {
   dietPlans       DietPlan[]      @relation("DietPlanMember")
   workoutLogs     WorkoutLog[]
   bodyMetrics     BodyMetric[]
-  trainerReviews  TrainerReview[]
+  trainerReviews       TrainerReview[]
+  attendanceMilestones AttendanceMilestone[]
 
   @@unique([gymId, profileId])
   @@index([gymId])
@@ -622,6 +632,7 @@ model Payment {
   invoiceUrl        String?       @map("invoice_url")
   paymentDate       DateTime?     @map("payment_date")
   planNameSnapshot  String?       @map("plan_name_snapshot")  // denormalised plan name — safe to show even if plan is deleted
+  notes             String?                                    // optional payment note from owner
   createdAt         DateTime      @default(now()) @map("created_at")
 
   gym            Gym             @relation(fields: [gymId], references: [id], onDelete: Cascade)
@@ -969,6 +980,27 @@ model SupplementSale {
   @@map("supplement_sales")
 }
 
+
+// ────────────────────────────────────────────────────────────
+// ATTENDANCE MILESTONES  (streak badges & poster generation)
+// ────────────────────────────────────────────────────────────
+
+model AttendanceMilestone {
+  id          String   @id @default(uuid())
+  memberId    String   @map("member_id")
+  gymId       String   @map("gym_id")
+  milestone   Int      // 30, 100, 365 etc.
+  achievedAt  DateTime @default(now()) @map("achieved_at")
+  posterUrl   String?  @map("poster_url")   // Cloudinary URL if generated
+  notified    Boolean  @default(false)
+
+  member GymMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  gym    Gym       @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, milestone])
+  @@map("attendance_milestones")
+}
+
 // ────────────────────────────────────────────────────────────
 // PUSH SUBSCRIPTIONS  (Web Push / PWA notifications)
 // ────────────────────────────────────────────────────────────
@@ -1015,8 +1047,3 @@ model PlanTemplate {
   @@index([ownerGymId])
   @@map("plan_templates")
 }
-
-
-
-
-
