@@ -1,8 +1,3 @@
-
-
-
-
-
 // ============================================================
 // GYM MANAGEMENT SAAS — Prisma Schema (Final)
 // Includes: Core App + SaaS Billing + Referral & Wallet System
@@ -129,7 +124,8 @@ enum ReferralStatus {
 enum WalletTransactionType {
   CREDIT_REFERRAL     // earned by referring someone
   CREDIT_BONUS        // manual bonus by admin
-  DEBIT_SUBSCRIPTION  // used to pay/discount a SaaS plan
+  DEBIT_SUBSCRIPTION  // used to pay/discount a SaaS plan (platform billing)
+  DEBIT_MEMBERSHIP    // used to discount a gym membership fee
   DEBIT_ADJUSTMENT    // manual debit by admin
 }
 
@@ -167,6 +163,8 @@ model Profile {
   // SaaS billing
   saasSubscriptions   SaasSubscription[]
   saasPayments        SaasPayment[]
+  pushSubscriptions   PushSubscription[]
+  planTemplates       PlanTemplate[]
   wallet              Wallet?
   // Referral
   referralCode        ReferralCode?
@@ -226,7 +224,8 @@ model Gym {
   city          String?
   state         String?
   pincode       String?
-  contactNumber String?  @map("contact_number")
+  contactNumber   String?  @map("contact_number")
+  whatsappNumber  String?  @map("whatsapp_number")  // owner's WhatsApp for broadcast messages
   services      String[] @default([])
   facilities    String[] @default([])
   gymImages     String[] @default([]) @map("gym_images")
@@ -248,6 +247,7 @@ model Gym {
   dietPlans        DietPlan[]
   supplements      Supplement[]
   supplementSales  SupplementSale[]
+  planTemplates    PlanTemplate[]
   announcements   Announcement[]
   notifications   Notification[]
 
@@ -444,12 +444,15 @@ model WalletTransaction {
   amount       Decimal               @db.Decimal(10, 2) // always positive
   balanceAfter Decimal               @map("balance_after") @db.Decimal(10, 2) // snapshot
   description  String?               // e.g. "Referral reward — ROHIT2024 converted"
-  referenceId  String?               @map("reference_id") // referral.id or saas_payment.id
+  referenceId  String?               @map("reference_id") // referral.id or payment.id
+  gymId        String?               @map("gym_id")       // gym where credit was used
+  expiresAt    DateTime?             @map("expires_at")   // 90-day expiry for CREDIT_ types
   createdAt    DateTime              @default(now()) @map("created_at")
 
   wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
   @@index([walletId])
+  @@index([expiresAt])
   @@map("wallet_transactions")
 }
 
@@ -965,3 +968,55 @@ model SupplementSale {
   @@index([supplementId])
   @@map("supplement_sales")
 }
+
+// ────────────────────────────────────────────────────────────
+// PUSH SUBSCRIPTIONS  (Web Push / PWA notifications)
+// ────────────────────────────────────────────────────────────
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  profileId String   @map("profile_id")
+  endpoint  String   @unique
+  p256dh    String   @map("p256dh")
+  auth      String
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@map("push_subscriptions")
+}
+
+// ────────────────────────────────────────────────────────────
+// PLAN TEMPLATES  (reusable workout/diet plan templates)
+// ────────────────────────────────────────────────────────────
+
+model PlanTemplate {
+  id           String   @id @default(uuid())
+  ownerGymId   String?  @map("owner_gym_id")    // null = global/system template
+  createdById  String   @map("created_by_id")
+  type         String   // "WORKOUT" | "DIET"
+  title        String
+  description  String?
+  goal         String?
+  difficulty   String?  // BEGINNER | INTERMEDIATE | ADVANCED (workout)
+  planData     Json     @map("plan_data")
+  isGlobal     Boolean  @default(false) @map("is_global") // visible to all gyms
+  usageCount   Int      @default(0) @map("usage_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  createdBy Profile @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  gym       Gym?    @relation(fields: [ownerGymId], references: [id], onDelete: SetNull)
+
+  @@index([type, isGlobal])
+  @@index([ownerGymId])
+  @@map("plan_templates")
+}
+
+
+
+
+
