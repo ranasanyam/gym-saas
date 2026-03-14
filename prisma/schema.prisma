@@ -14,6 +14,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
 }
+
 // ────────────────────────────────────────────────────────────
 // ENUMS
 // ────────────────────────────────────────────────────────────
@@ -289,10 +290,13 @@ model SaasPlan {
   sortOrder   Int              @default(0) @map("sort_order") // for display ordering on pricing page
 
   // ── Usage limits (null = unlimited) ──────────────────────
-  maxMembers   Int? @map("max_members")
-  maxTrainers  Int? @map("max_trainers")
-  maxClasses   Int? @map("max_classes")    // class templates per gym
-  maxStorageGb Int? @map("max_storage_gb")
+  maxGyms              Int? @map("max_gyms")
+  maxMembers           Int? @map("max_members")
+  maxTrainers          Int? @map("max_trainers")
+  maxMembershipPlans   Int? @map("max_membership_plans")
+  maxNotificationsPerMonth Int? @map("max_notifications_per_month")
+  maxClasses           Int? @map("max_classes")    // class templates per gym
+  maxStorageGb         Int? @map("max_storage_gb")
 
   // ── Feature flags ─────────────────────────────────────────
   attendanceTracking   Boolean @default(true)  @map("attendance_tracking")

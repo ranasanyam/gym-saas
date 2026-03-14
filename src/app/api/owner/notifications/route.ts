@@ -1,3 +1,5 @@
+
+
 // // src/app/api/owner/notifications/route.ts
 // import { NextRequest, NextResponse } from "next/server"
 // import { auth } from "@/auth"
@@ -20,19 +22,83 @@
 // export async function POST(req: NextRequest) {
 //   const session = await auth()
 //   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-//   const { gymId, title, body, targetRole, expiresAt } = await req.json()
-//   if (!gymId || !title || !body) return NextResponse.json({ error: "gymId, title and body are required" }, { status: 400 })
-//   const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
-//   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
-//   const announcement = await prisma.announcement.create({
-//     data: {
-//       gymId, authorId: session.user.id, title, body,
-//       targetRole: targetRole || null,
-//       publishedAt: new Date(),
-//       expiresAt: expiresAt ? new Date(expiresAt) : null,
-//     },
-//   })
-//   return NextResponse.json(announcement, { status: 201 })
+
+//   try {
+//     const { gymId, title, body, targetRole, expiresAt } = await req.json()
+
+//     if (!gymId || !title?.trim() || !body?.trim())
+//       return NextResponse.json({ error: "gymId, title and body are required" }, { status: 400 })
+
+//     const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
+//     if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
+
+//     // ── 1. Create the announcement record ──────────────────────────────────
+//     const announcement = await prisma.announcement.create({
+//       data: {
+//         gymId,
+//         authorId: session.user.id,
+//         title: title.trim(),
+//         body: body.trim(),
+//         targetRole: targetRole || null,
+//         publishedAt: new Date(),
+//         expiresAt: expiresAt ? new Date(expiresAt) : null,
+//       },
+//     })
+
+//     // ── 2. Collect recipient profileIds ────────────────────────────────────
+//     const recipientIds: string[] = []
+
+//     const sendToMembers  = !targetRole || targetRole === "MEMBER"
+//     const sendToTrainers = !targetRole || targetRole === "TRAINER"
+
+//     if (sendToMembers) {
+//       const members = await prisma.gymMember.findMany({
+//         where:  { gymId, status: "ACTIVE" },
+//         select: { profileId: true },
+//       })
+//       members.forEach(m => {
+//         if (!recipientIds.includes(m.profileId)) recipientIds.push(m.profileId)
+//       })
+//     }
+
+//     if (sendToTrainers) {
+//       const trainers = await prisma.gymTrainer.findMany({
+//         where:  { gymId },
+//         select: { profileId: true },
+//       })
+//       trainers.forEach(t => {
+//         if (!recipientIds.includes(t.profileId)) recipientIds.push(t.profileId)
+//       })
+//     }
+
+//     // ── 3. Create one Notification row per recipient ───────────────────────
+//     let notifCount = 0
+//     if (recipientIds.length > 0) {
+//       // Use individual creates in a transaction to avoid createMany issues
+//       await prisma.$transaction(
+//         recipientIds.map(profileId =>
+//           prisma.notification.create({
+//             data: {
+//               profileId,
+//               gymId,
+//               title: title.trim(),
+//               message: body.trim(),
+//               type: "ANNOUNCEMENT",
+//             },
+//           })
+//         )
+//       )
+//       notifCount = recipientIds.length
+//     }
+
+//     return NextResponse.json(
+//       { ...announcement, recipientCount: notifCount },
+//       { status: 201 }
+//     )
+//   } catch (error) {
+//     console.error("Notification send error:", error)
+//     return NextResponse.json({ error: "Failed to send notification" }, { status: 500 })
+//   }
 // }
 
 // export async function DELETE(req: NextRequest) {
@@ -44,12 +110,11 @@
 //   return NextResponse.json({ success: true })
 // }
 
-
-
 // src/app/api/owner/notifications/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { getOwnerSubscription, getOwnerUsage, checkLimit } from "@/lib/subscription"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -78,7 +143,25 @@ export async function POST(req: NextRequest) {
     const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
     if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
 
-    // ── 1. Create the announcement record ──────────────────────────────────
+    // ── Subscription check ────────────────────────────────────────────────
+    const [sub, usage] = await Promise.all([
+      getOwnerSubscription(session.user.id),
+      getOwnerUsage(session.user.id),
+    ])
+
+    if (!sub || sub.isExpired) {
+      return NextResponse.json(
+        { error: "Your subscription has expired. Please renew to send notifications.", upgradeRequired: true },
+        { status: 403 }
+      )
+    }
+
+    const check = checkLimit(usage.notificationsThisMonth, sub.limits.maxNotificationsPerMonth, "notifications this month")
+    if (!check.allowed) {
+      return NextResponse.json({ error: check.reason, upgradeRequired: true }, { status: 403 })
+    }
+
+    // ── 1. Create announcement record ─────────────────────────────────────
     const announcement = await prisma.announcement.create({
       data: {
         gymId,
@@ -91,56 +174,38 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // ── 2. Collect recipient profileIds ────────────────────────────────────
+    // ── 2. Collect recipient profileIds ───────────────────────────────────
     const recipientIds: string[] = []
-
-    const sendToMembers  = !targetRole || targetRole === "MEMBER"
+    const sendToMembers = !targetRole || targetRole === "MEMBER"
     const sendToTrainers = !targetRole || targetRole === "TRAINER"
 
     if (sendToMembers) {
       const members = await prisma.gymMember.findMany({
-        where:  { gymId, status: "ACTIVE" },
-        select: { profileId: true },
+        where: { gymId, status: "ACTIVE" }, select: { profileId: true },
       })
-      members.forEach(m => {
-        if (!recipientIds.includes(m.profileId)) recipientIds.push(m.profileId)
-      })
+      members.forEach(m => { if (!recipientIds.includes(m.profileId)) recipientIds.push(m.profileId) })
     }
-
     if (sendToTrainers) {
       const trainers = await prisma.gymTrainer.findMany({
-        where:  { gymId },
-        select: { profileId: true },
+        where: { gymId }, select: { profileId: true },
       })
-      trainers.forEach(t => {
-        if (!recipientIds.includes(t.profileId)) recipientIds.push(t.profileId)
-      })
+      trainers.forEach(t => { if (!recipientIds.includes(t.profileId)) recipientIds.push(t.profileId) })
     }
 
-    // ── 3. Create one Notification row per recipient ───────────────────────
+    // ── 3. Create one Notification row per recipient ──────────────────────
     let notifCount = 0
     if (recipientIds.length > 0) {
-      // Use individual creates in a transaction to avoid createMany issues
       await prisma.$transaction(
         recipientIds.map(profileId =>
           prisma.notification.create({
-            data: {
-              profileId,
-              gymId,
-              title: title.trim(),
-              message: body.trim(),
-              type: "ANNOUNCEMENT",
-            },
+            data: { profileId, gymId, title: title.trim(), message: body.trim(), type: "ANNOUNCEMENT" },
           })
         )
       )
       notifCount = recipientIds.length
     }
 
-    return NextResponse.json(
-      { ...announcement, recipientCount: notifCount },
-      { status: 201 }
-    )
+    return NextResponse.json({ ...announcement, recipientCount: notifCount }, { status: 201 })
   } catch (error) {
     console.error("Notification send error:", error)
     return NextResponse.json({ error: "Failed to send notification" }, { status: 500 })
