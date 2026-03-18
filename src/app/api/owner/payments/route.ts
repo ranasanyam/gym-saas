@@ -81,21 +81,21 @@
 
 // src/app/api/owner/payments/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import { startOfMonth, endOfMonth } from "date-fns"
 import { sendPushToProfile } from "@/lib/push"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const gymId = searchParams.get("gymId")
   const page  = parseInt(searchParams.get("page") ?? "1")
   const now   = new Date()
 
-  const gyms   = await prisma.gym.findMany({ where: { ownerId: session.user.id }, select: { id: true } })
+  const gyms   = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
 
   const [payments, total, monthTotal] = await Promise.all([
@@ -126,8 +126,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const {
     gymId, memberId, membershipPlanId, amount,
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
   if (!gymId || !memberId || !amount)
     return NextResponse.json({ error: "gymId, memberId and amount are required" }, { status: 400 })
 
-  const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
+  const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: profileId } })
   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
 
   const member = await prisma.gymMember.findFirst({

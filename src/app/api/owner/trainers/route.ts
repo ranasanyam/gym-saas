@@ -167,7 +167,7 @@
 
 // src/app/api/owner/trainers/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
 import { getOwnerSubscription, getOwnerUsage, checkLimit } from "@/lib/subscription"
@@ -204,12 +204,12 @@ function generateReferralCode(name: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const gymId = searchParams.get("gymId")
 
-  const gyms = await prisma.gym.findMany({ where: { ownerId: session.user.id }, select: { id: true } })
+  const gyms = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
 
   const trainers = await prisma.gymTrainer.findMany({
@@ -225,13 +225,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   // ── Subscription check ────────────────────────────────────────────────────
   const [sub, usage] = await Promise.all([
-    getOwnerSubscription(session.user.id),
-    getOwnerUsage(session.user.id),
+    getOwnerSubscription(profileId),
+    getOwnerUsage(profileId),
   ])
 
   if (!sub || sub.isExpired) {
@@ -256,13 +256,13 @@ export async function POST(req: NextRequest) {
   if (!mobileNumber?.trim()) return NextResponse.json({ error: "Mobile number is required" }, { status: 400 })
 
   const gym = await prisma.gym.findFirst({
-    where: { id: gymId, ownerId: session.user.id },
+    where: { id: gymId, ownerId: profileId },
     select: { id: true, name: true },
   })
   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
 
   const ownerProfile = await prisma.profile.findUnique({
-    where: { id: session.user.id }, select: { fullName: true },
+    where: { id: profileId }, select: { fullName: true },
   })
 
   const normalizedEmail = email.toLowerCase().trim()
@@ -288,7 +288,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(trainer, { status: 201 })
   }
 
-  const profileId = await prisma.$transaction(async (tx) => {
+  const newProfileId = await prisma.$transaction(async (tx) => {
     const profile = await tx.profile.create({
       data: {
         userId: crypto.randomUUID(),
@@ -317,9 +317,9 @@ export async function POST(req: NextRequest) {
     return profile.id
   })
 
-  const rawToken = await createPasswordSetupToken(profileId)
+  const rawToken = await createPasswordSetupToken(newProfileId)
   const setupLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${rawToken}`
   await sendTrainerWelcomeEmail(normalizedEmail, fullName.trim(), gym.name, ownerProfile?.fullName ?? "Your gym owner", setupLink)
 
-  return NextResponse.json({ id: profileId }, { status: 201 })
+  return NextResponse.json({ id: newProfileId }, { status: 201 })
 }

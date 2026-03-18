@@ -1,6 +1,6 @@
 // src/app/api/owner/members/[memberId]/renew/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
 function addMonths(date: Date, months: number): Date {
@@ -12,13 +12,13 @@ function addMonths(date: Date, months: number): Date {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { memberId } = await params
 
   // Verify ownership
   const member = await prisma.gymMember.findFirst({
-    where: { id: memberId, gym: { ownerId: session.user.id } },
+    where: { id: memberId, gym: { ownerId: profileId } },
     include: {
       membershipPlan: true,
       gym: { select: { id: true, name: true } },

@@ -1,15 +1,15 @@
 // src/app/api/trainer/dashboard/route.ts
-import { NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { NextRequest, NextResponse } from "next/server"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import { startOfMonth, endOfMonth } from "date-fns"
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function GET(req: NextRequest) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const trainer = await prisma.gymTrainer.findUnique({
-    where: { profileId: session.user.id },
+    where: { profileId: profileId },
     include: {
       gym: { select: { id: true, name: true, city: true, gymImages: true, contactNumber: true } },
       profile: { select: { fullName: true, avatarUrl: true, email: true, mobileNumber: true } },

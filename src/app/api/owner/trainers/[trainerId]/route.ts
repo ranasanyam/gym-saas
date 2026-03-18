@@ -1,14 +1,14 @@
 // src/app/api/owner/trainers/[trainerId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ trainerId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function GET(req: NextRequest, { params }: { params: Promise<{ trainerId: string }> }) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { trainerId } = await params
   const trainer = await prisma.gymTrainer.findFirst({
-    where: { id: trainerId, gym: { ownerId: session.user.id } },
+    where: { id: trainerId, gym: { ownerId: profileId } },
     include: {
       profile: { select: { fullName: true, email: true, mobileNumber: true, avatarUrl: true } },
       gym: { select: { name: true } },
@@ -23,12 +23,12 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ traine
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ trainerId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { trainerId } = await params
   const body = await req.json()
   const updated = await prisma.gymTrainer.updateMany({
-    where: { id: trainerId, gym: { ownerId: session.user.id } },
+    where: { id: trainerId, gym: { ownerId: profileId } },
     data: {
       specializations: body.specializations,
       certifications: body.certifications,

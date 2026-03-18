@@ -294,7 +294,7 @@
 
 // src/app/api/owner/members/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { sendPushToProfile } from "@/lib/push"
@@ -341,8 +341,8 @@ async function createPasswordSetupToken(profileId: string): Promise<string> {
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const gymId = searchParams.get("gymId")
@@ -351,7 +351,7 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get("page") ?? "1")
   const limit = 20
 
-  const gyms = await prisma.gym.findMany({ where: { ownerId: session.user.id }, select: { id: true } })
+  const gyms = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
 
   const where: any = {
@@ -388,13 +388,13 @@ export async function GET(req: NextRequest) {
 
 // ── POST ──────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   // ── Subscription check ────────────────────────────────────────────────────
   const [sub, usage] = await Promise.all([
-    getOwnerSubscription(session.user.id),
-    getOwnerUsage(session.user.id),
+    getOwnerSubscription(profileId),
+    getOwnerUsage(profileId),
   ])
 
   if (!sub || sub.isExpired) {
@@ -426,24 +426,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "gymId, fullName, and startDate are required" }, { status: 400 })
 
   const gym = await prisma.gym.findFirst({
-    where: { id: gymId, ownerId: session.user.id },
+    where: { id: gymId, ownerId: profileId },
     select: { id: true, name: true },
   })
   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
 
   const ownerProfile = await prisma.profile.findUnique({
-    where: { id: session.user.id },
+    where: { id: profileId },
     select: { fullName: true },
   })
 
-  let profileId: string
+  let newProfileId: string
   let isNewProfile = false
   const finalEmail = email?.trim().toLowerCase() || `${crypto.randomUUID()}@noemail.gymstack`
 
   const existingProfile = await prisma.profile.findUnique({ where: { email: finalEmail } })
 
   if (existingProfile) {
-    profileId = existingProfile.id
+    newProfileId = existingProfile.id
     const alreadyMember = await prisma.gymMember.findFirst({
       where: { gymId, profileId },
     })
@@ -471,9 +471,9 @@ export async function POST(req: NextRequest) {
       await tx.referralCode.create({ data: { profileId: p.id, code } })
       return p
     })
-    profileId = newProfile.id
+    newProfileId = newProfile.id
     isNewProfile = true
-    const rawToken = await createPasswordSetupToken(profileId)
+    const rawToken = await createPasswordSetupToken(newProfileId)
     const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${rawToken}`
     await sendPasswordSetupEmail(finalEmail, fullName.trim(), gym.name, ownerProfile?.fullName ?? "Your gym owner", resetLink)
   }
@@ -487,7 +487,7 @@ export async function POST(req: NextRequest) {
   const member = await prisma.gymMember.create({
     data: {
       gymId,
-      profileId,
+      profileId: newProfileId,
       membershipPlanId: membershipPlanId || null,
       startDate: new Date(startDate),
       endDate,
@@ -510,9 +510,9 @@ export async function POST(req: NextRequest) {
       const notifMsg = `You've been enrolled in the ${plan.name} membership plan at ${gym.name}.`
       await Promise.allSettled([
         prisma.notification.create({
-          data: { gymId, profileId, title: notifTitle, message: notifMsg, type: "BILLING" },
+          data: { gymId, profileId: newProfileId, title: notifTitle, message: notifMsg, type: "BILLING" },
         }),
-        sendPushToProfile(profileId, {
+        sendPushToProfile(newProfileId, {
           title: notifTitle,
           body: `Your ${plan.name} membership at ${gym.name} is now active. Welcome!`,
           url: "/member/payments",

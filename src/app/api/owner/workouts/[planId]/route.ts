@@ -1,16 +1,16 @@
 // src/app/api/owner/workouts/[planId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ planId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { planId } = await params
   const body = await req.json()
 
   const plan = await prisma.workoutPlan.findFirst({
-    where: { id: planId, gym: { ownerId: session.user.id } },
+    where: { id: planId, gym: { ownerId: profileId } },
   })
   if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
 
@@ -32,11 +32,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pl
   return NextResponse.json(updated)
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ planId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ planId: string }> }) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { planId } = await params
-  const plan = await prisma.workoutPlan.findFirst({ where: { id: planId, gym: { ownerId: session.user.id } } })
+  const plan = await prisma.workoutPlan.findFirst({ where: { id: planId, gym: { ownerId: profileId } } })
   if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
   await prisma.workoutPlan.update({ where: { id: planId }, data: { isActive: false } })
   return NextResponse.json({ success: true })

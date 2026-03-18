@@ -1,16 +1,16 @@
 // src/app/api/referral/route.ts
-import { NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { NextRequest, NextResponse } from "next/server"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
 const REFERRAL_REWARD = 100 // ₹100 wallet credit per successful referral
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function GET(req: NextRequest) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const profile = await prisma.profile.findUnique({
-    where: { id: session.user.id },
+    where: { id: profileId },
     select: {
       referralCode: { select: { id: true, code: true } },
       wallet: { select: { balance: true } },
@@ -21,7 +21,7 @@ export async function GET() {
 
   // Referrals I sent (people I referred)
   const referred = await prisma.referral.findMany({
-    where: { referrerId: session.user.id },
+    where: { referrerId: profileId },
     include: {
       referred: { select: { fullName: true, avatarUrl: true, createdAt: true } },
     },
@@ -30,7 +30,7 @@ export async function GET() {
 
   // Wallet transactions
   const transactions = await prisma.walletTransaction.findMany({
-    where: { wallet: { profileId: session.user.id } },
+    where: { wallet: { profileId: profileId } },
     orderBy: { createdAt: "desc" },
     take: 20,
   })

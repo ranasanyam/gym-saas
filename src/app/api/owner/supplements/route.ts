@@ -54,20 +54,20 @@
 
 // src/app/api/owner/supplements/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import { getOwnerSubscription, checkFeature } from "@/lib/subscription"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const gymId = searchParams.get("gymId")
   const search = searchParams.get("search") ?? ""
   const category = searchParams.get("category") ?? ""
 
-  const gyms = await prisma.gym.findMany({ where: { ownerId: session.user.id }, select: { id: true } })
+  const gyms = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
 
   const supplements = await prisma.supplement.findMany({
@@ -87,11 +87,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   // ── Subscription check ────────────────────────────────────────────────────
-  const sub = await getOwnerSubscription(session.user.id)
+  const sub = await getOwnerSubscription(profileId)
   if (!sub || sub.isExpired) {
     return NextResponse.json(
       { error: "Your subscription has expired. Please renew to manage supplements.", upgradeRequired: true },
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
   if (!gymId || !name?.trim() || price == null)
     return NextResponse.json({ error: "gymId, name, and price are required" }, { status: 400 })
 
-  const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
+  const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: profileId } })
   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
 
   const supplement = await prisma.supplement.create({

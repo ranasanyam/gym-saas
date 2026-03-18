@@ -61,7 +61,7 @@
 
 // src/app/api/member/attendance/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, subDays } from "date-fns"
 import { sendPushToProfile } from "@/lib/push"
@@ -69,8 +69,8 @@ import { sendPushToProfile } from "@/lib/push"
 const MILESTONES = [7, 14, 30, 60, 100, 180, 365]
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const page  = parseInt(searchParams.get("page") ?? "1")
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
   const now   = new Date()
 
   const memberships = await prisma.gymMember.findMany({
-    where:  { profileId: session.user.id },
+    where:  { profileId: profileId },
     select: { id: true, currentStreak: true, longestStreak: true, totalCheckins: true },
   })
   const memberIds = memberships.map(m => m.id)
@@ -122,14 +122,14 @@ export async function GET(req: NextRequest) {
   })
 }
 
-export async function POST() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function POST(req: NextRequest) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const now = new Date()
 
   const membership = await prisma.gymMember.findFirst({
-    where:   { profileId: session.user.id, status: "ACTIVE" },
+    where:   { profileId: profileId, status: "ACTIVE" },
     include: {
       gym:     { select: { id: true, name: true, ownerId: true } },
       profile: { select: { fullName: true } },
@@ -207,7 +207,7 @@ export async function POST() {
 
     await Promise.allSettled([
       // Push to member
-      sendPushToProfile(session.user.id, {
+      sendPushToProfile(profileId, {
         title: `🏆 ${label}!`,
         body:  `You've hit ${biggest} consecutive days at ${membership.gym.name}! Check your dashboard for your badge.`,
         url:   "/member/dashboard",
@@ -222,7 +222,7 @@ export async function POST() {
       // In-app notification for member
       prisma.notification.create({
         data: {
-          profileId: session.user.id,
+          profileId: profileId,
           gymId:     membership.gymId,
           title:     `🏆 ${label}!`,
           message:   `${biggest} days of showing up at ${membership.gym.name}. You've earned a special badge — check your dashboard!`,

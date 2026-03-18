@@ -74,7 +74,7 @@
 
 // src/app/api/owner/members/[memberId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import { sendPushToProfile } from "@/lib/push"
 
@@ -85,13 +85,13 @@ async function ownsGym(ownerId: string, memberId: string) {
   })
 }
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function GET(req: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { memberId } = await params
 
   const member = await prisma.gymMember.findFirst({
-    where: { id: memberId, gym: { ownerId: session.user.id } },
+    where: { id: memberId, gym: { ownerId: profileId } },
     include: {
       profile: {
         select: {
@@ -118,10 +118,10 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ member
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { memberId } = await params
-  const existing = await ownsGym(session.user.id, memberId)
+  const existing = await ownsGym(profileId, memberId)
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const body = await req.json()
@@ -182,11 +182,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ me
   return NextResponse.json(updated)
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { memberId } = await params
-  const member = await ownsGym(session.user.id, memberId)
+  const member = await ownsGym(profileId, memberId)
   if (!member) return NextResponse.json({ error: "Not found" }, { status: 404 })
   await prisma.gymMember.update({
     where: { id: memberId },

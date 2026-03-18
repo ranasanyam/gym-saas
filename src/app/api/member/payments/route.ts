@@ -1,18 +1,18 @@
 // src/app/api/member/payments/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const page  = parseInt(searchParams.get("page") ?? "1")
   const limit = 20
 
   const memberships = await prisma.gymMember.findMany({
-    where: { profileId: session.user.id },
+    where: { profileId: profileId },
     select: { id: true },
   })
   const memberIds = memberships.map(m => m.id)

@@ -101,13 +101,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { resolveProfileId } from "@/lib/mobileAuth"
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ gymId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ gymId: string }> }) {
+  // const session = await auth()
+  // if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { gymId } = await params
   const gym = await prisma.gym.findFirst({
-    where: { id: gymId, ownerId: session.user.id },
+    where: { id: gymId, ownerId: profileId },
     include: {
       membershipPlans: { orderBy: { createdAt: "desc" } },
       _count: { select: { members: true, trainers: true } },
@@ -118,12 +122,14 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ gymId:
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ gymId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // const session = await auth()
+  // if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { gymId } = await params
   const body = await req.json()
   const gym = await prisma.gym.updateMany({
-    where: { id: gymId, ownerId: session.user.id },
+    where: { id: gymId, ownerId: profileId },
     data: {
       name: body.name, address: body.address, city: body.city,
       state: body.state, pincode: body.pincode, contactNumber: body.contactNumber,
@@ -135,10 +141,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ gy
   return NextResponse.json({ success: true })
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ gymId: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ gymId: string }> }) {
+  // const session = await auth()
+  // if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { gymId } = await params
-  await prisma.gym.updateMany({ where: { id: gymId, ownerId: session.user.id }, data: { isActive: false } })
+  await prisma.gym.updateMany({ where: { id: gymId, ownerId: profileId }, data: { isActive: false } })
   return NextResponse.json({ success: true })
 }

@@ -47,12 +47,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { getOwnerSubscription, getOwnerUsage, checkLimit } from "@/lib/subscription"
+import { resolveProfileId } from "@/lib/mobileAuth"
+export async function GET(req: NextRequest) {
+  // const session = await auth()
+  // if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const gyms = await prisma.gym.findMany({
-    where: { ownerId: session.user.id },
+    where: { ownerId: profileId },
     include: {
       _count: { select: { members: true, trainers: true } },
       membershipPlans: { where: { isActive: true }, select: { id: true, name: true, price: true } },
@@ -63,13 +66,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // const session = await auth()
+  // if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   // ── Subscription check ────────────────────────────────────────────────────
   const [sub, usage] = await Promise.all([
-    getOwnerSubscription(session.user.id),
-    getOwnerUsage(session.user.id),
+    getOwnerSubscription(profileId),
+    getOwnerUsage(profileId),
   ])
 
   if (!sub || sub.isExpired) {
@@ -90,7 +95,7 @@ export async function POST(req: NextRequest) {
 
   const gym = await prisma.gym.create({
     data: {
-      ownerId: session.user.id,
+      ownerId: profileId,
       name: name.trim(),
       address: address?.trim() || null,
       city: city?.trim() || null,

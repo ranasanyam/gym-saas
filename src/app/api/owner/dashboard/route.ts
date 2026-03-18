@@ -112,6 +112,7 @@ import {
   startOfWeek, endOfWeek, subMonths, subWeeks,
   startOfYear, endOfYear, format, addDays
 } from "date-fns"
+import { resolveProfileId } from "@/lib/mobileAuth"
 
 type DashRange =
   | "today" | "this_week" | "last_week" | "this_month"
@@ -151,22 +152,25 @@ function getRangeWindow(range: DashRange): { start: Date; end: Date } {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // const session = await auth()
+    // if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    const profileId = await resolveProfileId(req)
+    if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
     const filterGymId = searchParams.get("gymId") ?? ""
-    const range       = (searchParams.get("range") ?? "this_month") as DashRange
+    const range = (searchParams.get("range") ?? "this_month") as DashRange
 
     const now = new Date()
 
     // 1. Load all owner gyms
     const gyms = await prisma.gym.findMany({
-      where:  { ownerId: session.user.id, isActive: true },
+      where: { ownerId: profileId, isActive: true },
       select: { id: true, name: true, city: true },
     })
     const allGymIds = gyms.map(g => g.id)
-    const gymIds    = filterGymId && allGymIds.includes(filterGymId)
+    const gymIds = filterGymId && allGymIds.includes(filterGymId)
       ? [filterGymId]
       : allGymIds
 
@@ -187,28 +191,28 @@ export async function GET(req: NextRequest) {
 
     const { start: rangeStart, end: rangeEnd } = getRangeWindow(range)
     const todayStart = startOfDay(now)
-    const todayEnd   = endOfDay(now)
-    const in7Days    = addDays(now, 7)
-    const in3Days    = addDays(now, 3)
+    const todayEnd = endOfDay(now)
+    const in7Days = addDays(now, 7)
+    const in3Days = addDays(now, 3)
 
     // 2. Build 7-day sparkline (always last 7 days regardless of range)
     const sparklinePromise = Promise.all(
       Array.from({ length: 7 }, async (_, i) => {
-        const d  = subDays(now, 6 - i)
+        const d = subDays(now, 6 - i)
         const ds = startOfDay(d)
         const de = endOfDay(d)
         const [mem, supp] = await Promise.all([
           prisma.payment.aggregate({
             where: { gymId: { in: gymIds }, status: "COMPLETED", paymentDate: { gte: ds, lte: de } },
-            _sum:  { amount: true },
+            _sum: { amount: true },
           }),
           prisma.supplementSale.aggregate({
             where: { gymId: { in: gymIds }, soldAt: { gte: ds, lte: de } },
-            _sum:  { totalAmount: true },
+            _sum: { totalAmount: true },
           }),
         ])
         return {
-          date:    format(d, "EEE"),
+          date: format(d, "EEE"),
           revenue: Number(mem._sum?.amount ?? 0) + Number(supp._sum?.totalAmount ?? 0),
         }
       })
@@ -236,20 +240,20 @@ export async function GET(req: NextRequest) {
 
       prisma.payment.aggregate({
         where: { gymId: { in: gymIds }, status: "COMPLETED", paymentDate: { gte: rangeStart, lte: rangeEnd } },
-        _sum:  { amount: true },
+        _sum: { amount: true },
       }),
       prisma.supplementSale.aggregate({
         where: { gymId: { in: gymIds }, soldAt: { gte: rangeStart, lte: rangeEnd } },
-        _sum:  { totalAmount: true },
+        _sum: { totalAmount: true },
       }),
 
       prisma.payment.aggregate({
         where: { gymId: { in: gymIds }, status: "COMPLETED", paymentDate: { gte: todayStart, lte: todayEnd } },
-        _sum:  { amount: true },
+        _sum: { amount: true },
       }),
       prisma.supplementSale.aggregate({
         where: { gymId: { in: gymIds }, soldAt: { gte: todayStart, lte: todayEnd } },
-        _sum:  { totalAmount: true },
+        _sum: { totalAmount: true },
       }),
 
       prisma.attendance.count({
@@ -266,9 +270,9 @@ export async function GET(req: NextRequest) {
         where: { gymId: { in: gymIds }, status: "ACTIVE", endDate: { gte: now, lte: in3Days } },
       }),
       prisma.gymMember.findMany({
-        where:  { gymId: { in: gymIds }, status: "ACTIVE", endDate: { gte: todayStart, lte: todayEnd } },
+        where: { gymId: { in: gymIds }, status: "ACTIVE", endDate: { gte: todayStart, lte: todayEnd } },
         select: { profile: { select: { fullName: true } } },
-        take:   5,
+        take: 5,
       }),
 
       prisma.attendance.count({
@@ -279,65 +283,65 @@ export async function GET(req: NextRequest) {
       }),
 
       prisma.gymMember.findMany({
-        where:   { gymId: { in: gymIds } },
+        where: { gymId: { in: gymIds } },
         orderBy: { createdAt: "desc" },
-        take:    6,
+        take: 6,
         select: {
           id: true, createdAt: true, status: true,
           profile: { select: { fullName: true, avatarUrl: true, email: true } },
-          gym:     { select: { name: true } },
+          gym: { select: { name: true } },
         },
       }),
       prisma.attendance.findMany({
-        where:   { gymId: { in: gymIds }, checkInTime: { gte: todayStart, lte: todayEnd } },
+        where: { gymId: { in: gymIds }, checkInTime: { gte: todayStart, lte: todayEnd } },
         orderBy: { checkInTime: "desc" },
-        take:    8,
+        take: 8,
         select: {
           id: true, checkInTime: true, checkOutTime: true,
           member: { select: { profile: { select: { fullName: true, avatarUrl: true } } } },
         },
       }),
       prisma.supplementSale.findMany({
-        where:   { gymId: { in: gymIds } },
+        where: { gymId: { in: gymIds } },
         orderBy: { soldAt: "desc" },
-        take:    6,
+        take: 6,
         select: {
           id: true, qty: true, totalAmount: true, memberName: true, soldAt: true,
           supplement: { select: { name: true, unitSize: true } },
-          member:     { select: { profile: { select: { fullName: true } } } },
+          member: { select: { profile: { select: { fullName: true } } } },
         },
       }),
     ])
 
-    const dailyRevenue         = await sparklinePromise
-    const rangeRevenue         = Number(rangeRevAgg._sum?.amount ?? 0)
-    const rangeSuppRevenue     = Number(rangeSuppRevAgg._sum?.totalAmount ?? 0)
-    const todayMembershipRev   = Number(todayRevAgg._sum?.amount ?? 0)
-    const todaySuppRev         = Number(todaySuppRevAgg._sum?.totalAmount ?? 0)
+    const dailyRevenue = await sparklinePromise
+    const rangeRevenue = Number(rangeRevAgg._sum?.amount ?? 0)
+    const rangeSuppRevenue = Number(rangeSuppRevAgg._sum?.totalAmount ?? 0)
+    const todayMembershipRev = Number(todayRevAgg._sum?.amount ?? 0)
+    const todaySuppRev = Number(todaySuppRevAgg._sum?.totalAmount ?? 0)
 
     return NextResponse.json({
       gyms,
       totalMembers,
-      activeGyms:             allGymIds.length,
+      activeGyms: allGymIds.length,
       range,
-      rangeStart:             rangeStart.toISOString(),
-      rangeEnd:               rangeEnd.toISOString(),
+      rangeStart: rangeStart.toISOString(),
+      rangeEnd: rangeEnd.toISOString(),
       rangeRevenue,
       rangeSupplementRevenue: rangeSuppRevenue,
-      totalRevenue:           rangeRevenue + rangeSuppRevenue,
+      totalRevenue: rangeRevenue + rangeSuppRevenue,
       rangeAttendance,
       rangeNewMembers,
-      todayRevenue:           todayMembershipRev + todaySuppRev,
+      todayRevenue: todayMembershipRev + todaySuppRev,
       todayAttendance,
       todayNewMembers,
-      expiringMembers:        expiringMembers7,
+      expiringMembers: expiringMembers7,
       expiringMembers3,
-      expiringToday:          expiringToday.map(m => m.profile.fullName),
+      expiringToday: expiringToday.map(m => m.profile.fullName),
       recentMembers,
       todayCheckins,
       recentSupplementSales,
       dailyRevenue,
-      filteredGymId:          filterGymId || null,
+      filteredGymId: filterGymId || null,
     })
   } catch (error: any) {
     console.error("[Dashboard API]", error?.message ?? error)

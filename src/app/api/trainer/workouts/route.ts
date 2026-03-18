@@ -1,14 +1,14 @@
 // src/app/api/trainer/workouts/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function GET(req: NextRequest) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const trainer = await prisma.gymTrainer.findUnique({
-    where: { profileId: session.user.id },
+    where: { profileId: profileId },
     select: { id: true, gymId: true },
   })
   if (!trainer) return NextResponse.json({ error: "Trainer not found" }, { status: 404 })
@@ -18,7 +18,7 @@ export async function GET() {
       gymId: trainer.gymId,
       isActive: true,
       OR: [
-        { createdBy: session.user.id },
+        { createdBy: profileId },
         {
           assignedToMemberId: {
             in: (await prisma.gymMember.findMany({
@@ -39,11 +39,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const trainer = await prisma.gymTrainer.findUnique({
-    where: { profileId: session.user.id },
+    where: { profileId: profileId },
     select: { id: true, gymId: true },
   })
   if (!trainer) return NextResponse.json({ error: "Trainer not found" }, { status: 404 })
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const plan = await prisma.workoutPlan.create({
     data: {
       gymId:   trainer.gymId,
-      createdBy: session.user.id,
+      createdBy: profileId,
       title, description, goal,
       difficulty:    difficulty    ?? "BEGINNER",
       durationWeeks: durationWeeks ?? 4,

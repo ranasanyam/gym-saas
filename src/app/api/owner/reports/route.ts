@@ -203,7 +203,7 @@
 
 // src/app/api/owner/reports/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek,
@@ -274,11 +274,11 @@ async function getRevenueSeries(gymIds: string[], start: Date, end: Date, groupB
 }
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   // ── Subscription check ────────────────────────────────────────────────────
-  const sub = await getOwnerSubscription(session.user.id)
+  const sub = await getOwnerSubscription(profileId)
   if (!sub || sub.isExpired) {
     return NextResponse.json(
       { error: "Your subscription has expired. Please renew to access reports.", upgradeRequired: true },
@@ -294,7 +294,7 @@ export async function GET(req: NextRequest) {
   const range = (searchParams.get("range") ?? "last_6_months") as Range
   const gymIdF = searchParams.get("gymId") ?? ""
 
-  const gyms = await prisma.gym.findMany({ where: { ownerId: session.user.id, isActive: true }, select: { id: true, name: true } })
+  const gyms = await prisma.gym.findMany({ where: { ownerId: profileId, isActive: true }, select: { id: true, name: true } })
   const gymIds = gymIdF ? gyms.filter(g => g.id === gymIdF).map(g => g.id) : gyms.map(g => g.id)
 
   if (!gymIds.length) return NextResponse.json({ revenue: [], memberGrowth: [], topGyms: [], summary: {}, range })

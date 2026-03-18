@@ -88,20 +88,20 @@
 
 
 // src/app/api/profile/me/route.ts
-import { NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { NextRequest, NextResponse } from "next/server"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await auth()
+    const profileId = await resolveProfileId(req)
 
-    if (!session?.user?.id) {
+    if (!profileId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const profile = await prisma.profile.findUnique({
-      where: { id: session.user.id },
+      where: { id: profileId },
       select: {
         id: true,
         fullName: true,

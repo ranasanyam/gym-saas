@@ -83,19 +83,19 @@
 // }
 
 // src/app/api/member/dashboard/route.ts
-import { NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { NextRequest, NextResponse } from "next/server"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns"
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+export async function GET(req: NextRequest) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const now = new Date()
 
   const memberships = await prisma.gymMember.findMany({
-    where: { profileId: session.user.id },
+    where: { profileId: profileId },
     include: {
       gym: {
         select: {
@@ -164,7 +164,7 @@ export async function GET() {
       },
     }),
     prisma.notification.count({
-      where: { profileId: session.user.id, isRead: false },
+      where: { profileId: profileId, isRead: false },
     }),
     prisma.attendanceMilestone.findMany({
       where:   { memberId: { in: memberIds } },

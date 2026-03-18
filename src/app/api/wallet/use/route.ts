@@ -1,15 +1,15 @@
 // src/app/api/wallet/use/route.ts
 // Apply wallet credit to a membership payment with 20% cap + expiry validation
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
 const WALLET_CAP_PERCENT = 20  // members can use max 20% of membership fee from wallet
 const CREDIT_EXPIRY_DAYS  = 90 // wallet credits expire after 90 days
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { membershipFeeAmount, gymId } = await req.json()
   if (!membershipFeeAmount || !gymId)
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   // Expire old credits first (90-day rule)
   const now = new Date()
   const wallet = await prisma.wallet.findUnique({
-    where:  { profileId: session.user.id },
+    where:  { profileId: profileId },
     select: { id: true, balance: true },
   })
   if (!wallet) return NextResponse.json({ error: "Wallet not found" }, { status: 404 })
@@ -68,14 +68,14 @@ export async function POST(req: NextRequest) {
 
 // Actually deduct from wallet when payment is confirmed
 export async function PATCH(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { amount, gymId, paymentId } = await req.json()
   if (!amount || !gymId)
     return NextResponse.json({ error: "amount and gymId required" }, { status: 400 })
 
-  const wallet = await prisma.wallet.findUnique({ where: { profileId: session.user.id } })
+  const wallet = await prisma.wallet.findUnique({ where: { profileId: profileId } })
   if (!wallet) return NextResponse.json({ error: "Wallet not found" }, { status: 404 })
 
   const newBalance = Math.max(0, Number(wallet.balance) - Number(amount))

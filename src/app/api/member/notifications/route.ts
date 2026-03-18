@@ -1,11 +1,11 @@
 // src/app/api/member/notifications/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const unreadOnly = searchParams.get("unreadOnly") === "true"
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const limit = 20
 
   const where = {
-    profileId: session.user.id,
+    profileId: profileId,
     ...(unreadOnly ? { isRead: false } : {}),
   }
 
@@ -34,21 +34,21 @@ export async function GET(req: NextRequest) {
       },
     }),
     prisma.notification.count({ where }),
-    prisma.notification.count({ where: { profileId: session.user.id, isRead: false } }),
+    prisma.notification.count({ where: { profileId: profileId, isRead: false } }),
   ])
 
   return NextResponse.json({ notifications, total, pages: Math.ceil(total / limit), unreadCount })
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
 
   await prisma.notification.updateMany({
     where: {
-      profileId: session.user.id,
+      profileId: profileId,
       ...(body.id ? { id: body.id } : {}),
     },
     data: { isRead: true },

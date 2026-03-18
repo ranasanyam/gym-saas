@@ -112,15 +112,15 @@
 
 // src/app/api/owner/notifications/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import { getOwnerSubscription, getOwnerUsage, checkLimit } from "@/lib/subscription"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const gymId = new URL(req.url).searchParams.get("gymId")
-  const gyms = await prisma.gym.findMany({ where: { ownerId: session.user.id }, select: { id: true } })
+  const gyms = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
   const announcements = await prisma.announcement.findMany({
     where: { gymId: { in: gymIds } },
@@ -131,8 +131,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
     const { gymId, title, body, targetRole, expiresAt } = await req.json()
@@ -140,13 +140,13 @@ export async function POST(req: NextRequest) {
     if (!gymId || !title?.trim() || !body?.trim())
       return NextResponse.json({ error: "gymId, title and body are required" }, { status: 400 })
 
-    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: session.user.id } })
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId: profileId } })
     if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
 
     // ── Subscription check ────────────────────────────────────────────────
     const [sub, usage] = await Promise.all([
-      getOwnerSubscription(session.user.id),
-      getOwnerUsage(session.user.id),
+      getOwnerSubscription(profileId),
+      getOwnerUsage(profileId),
     ])
 
     if (!sub || sub.isExpired) {
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
     const announcement = await prisma.announcement.create({
       data: {
         gymId,
-        authorId: session.user.id,
+        authorId: profileId,
         title: title.trim(),
         body: body.trim(),
         targetRole: targetRole || null,
@@ -213,10 +213,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const id = new URL(req.url).searchParams.get("id")
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
-  await prisma.announcement.deleteMany({ where: { id, gym: { ownerId: session.user.id } } })
+  await prisma.announcement.deleteMany({ where: { id, gym: { ownerId: profileId } } })
   return NextResponse.json({ success: true })
 }
