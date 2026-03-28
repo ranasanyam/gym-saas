@@ -1,27 +1,43 @@
 {
   "crons": [
     {
-      "path": "/api/push/daily-digest",
-      "schedule": "30 16 * * *"
-    },
-    {
       "path": "/api/push/expiry-alerts",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/push/fee-alerts",
+      "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/push/daily-digest",
+      "schedule": "30 16 * * *"
     }
   ],
   "headers": [
     {
       "source": "/sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
-        { "key": "Service-Worker-Allowed", "value": "/" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
       ]
     },
     {
       "source": "/manifest.json",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=3600" },
-        { "key": "Content-Type", "value": "application/manifest+json" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        }
       ]
     }
   ]

@@ -62,6 +62,7 @@ import { Providers }        from "@/components/Providers"
 import { Toaster }          from "@/components/ui/toaster"
 import { PwaRegister } from "@/components/PwaRegister"
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt"
+import { PwaNotifications } from "@/components/PwaNotifications"
 
 export const viewport: Viewport = {
   themeColor:         "#f97316",
@@ -150,6 +151,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster />
         <PwaRegister />
         <PwaInstallPrompt />
+        <PwaNotifications />
       </body>
     </html>
   )

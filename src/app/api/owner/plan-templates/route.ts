@@ -2,16 +2,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { resolveProfileId } from "@/lib/mobileAuth"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // const session = await auth()
+  // if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url)
   const type  = searchParams.get("type") ?? "WORKOUT"
   const gymId = searchParams.get("gymId")
 
-  const gyms   = await prisma.gym.findMany({ where: { ownerId: session.user.id }, select: { id: true } })
+  const gyms   = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gyms.map(g => g.id)
 
   const templates = await prisma.planTemplate.findMany({
@@ -20,7 +24,7 @@ export async function GET(req: NextRequest) {
       OR: [
         { isGlobal: true },
         { ownerGymId: { in: gymIds } },
-        { createdById: session.user.id },
+        { createdById: profileId },
       ],
     },
     include: { createdBy: { select: { fullName: true } }, gym: { select: { name: true } } },

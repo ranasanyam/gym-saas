@@ -1,15 +1,27 @@
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
+import { isValidElement, ReactNode } from "react"
+
+interface ActionObject {
+  label: string
+  href?: string
+  onClick?: () => void
+  icon?: any
+}
 
 interface Props {
   title: string
   subtitle?: string
-  action?: { label: string; href?: string; onClick?: () => void; icon?: any }
+  action?: ActionObject | ReactNode
+  icon?: ReactNode
   breadcrumb?: { label: string; href: string }[]
 }
 
+function isActionObject(a: unknown): a is ActionObject {
+  return !!a && typeof a === "object" && !isValidElement(a) && "label" in (a as object)
+}
+
 export function PageHeader({ title, subtitle, action, breadcrumb }: Props) {
-  const Icon = action?.icon
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
       <div>
@@ -27,18 +39,25 @@ export function PageHeader({ title, subtitle, action, breadcrumb }: Props) {
         {subtitle && <p className="text-white/40 text-sm mt-0.5">{subtitle}</p>}
       </div>
       {action && (
-        action.href ? (
-          <Link href={action.href}
-            className="flex items-center gap-2 bg-gradient-primary text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap">
-            {Icon && <Icon className="w-4 h-4" />}
-            {action.label}
-          </Link>
+        isActionObject(action) ? (
+          (() => {
+            const Icon = action.icon
+            return action.href ? (
+              <Link href={action.href}
+                className="flex items-center gap-2 bg-gradient-primary text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap">
+                {Icon && <Icon className="w-4 h-4" />}
+                {action.label}
+              </Link>
+            ) : (
+              <button onClick={action.onClick}
+                className="flex items-center gap-2 bg-gradient-primary text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap">
+                {Icon && <Icon className="w-4 h-4" />}
+                {action.label}
+              </button>
+            )
+          })()
         ) : (
-          <button onClick={action.onClick}
-            className="flex items-center gap-2 bg-gradient-primary text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap">
-            {Icon && <Icon className="w-4 h-4" />}
-            {action.label}
-          </button>
+          <>{action}</>
         )
       )}
     </div>
