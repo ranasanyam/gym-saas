@@ -1,3 +1,5 @@
+
+
 // ============================================================
 // GYM MANAGEMENT SAAS — Prisma Schema (Final)
 // Includes: Core App + SaaS Billing + Referral & Wallet System
@@ -1146,4 +1148,18 @@ model LockerAssignment {
   @@index([memberId])
   @@index([gymId])
   @@map("locker_assignments")
+}
+
+model EmailOtp {
+  id        String   @id @default(uuid())
+  email     String
+  otpHash   String   @map("otp_hash")
+  expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([expiresAt])
+  @@map("email_otps")
 }
