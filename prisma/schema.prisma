@@ -598,6 +598,8 @@ model GymMember {
   @@index([gymId])
   @@index([profileId])
   @@index([assignedTrainerId])
+  @@index([createdAt])
+  @@index([endDate])
   @@map("gym_members")
 }
 
@@ -649,6 +651,7 @@ model Payment {
 
   @@index([gymId])
   @@index([memberId])
+  @@index([paymentDate])
   @@map("payments")
 }
 
@@ -985,6 +988,7 @@ model SupplementSale {
 
   @@index([gymId])
   @@index([supplementId])
+  @@index([soldAt])
   @@map("supplement_sales")
 }
 
