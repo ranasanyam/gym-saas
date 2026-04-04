@@ -217,7 +217,7 @@ export default function NotificationsPage() {
             </div>
             <div className="flex justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => setShowForm(false)}
-                className="border-white/10 text-white/60 hover:text-white h-10 text-sm">Cancel</Button>
+                className="border-white/10 text-white/60 hover:text-white h-10 bg-white/5 hover:bg-white/10 text-sm">Cancel</Button>
               <Button type="submit" disabled={saving} className="bg-gradient-primary hover:opacity-90 text-white font-semibold h-10 text-sm px-6 gap-2">
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Send</>}
               </Button>
