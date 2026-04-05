@@ -1,12 +1,13 @@
 // src/app/owner/expenses/page.tsx
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { PageHeader } from "@/components/owner/PageHeader"
+import { AppSelect } from "@/components/ui/AppSelect"
 import {
   Receipt, Plus, Trash2, Pencil, Loader2,
-  TrendingDown, Filter, X,
+  TrendingDown, X, Calendar, ChevronDown,
 } from "lucide-react"
 
 function fmt(n: number) {
@@ -44,12 +45,12 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 const RANGES = [
-  { key:"this_month",   label:"This Month" },
-  { key:"last_month",   label:"Last Month" },
-  { key:"last_quarter", label:"Last Quarter" },
-  { key:"last_6_months",label:"6 Months" },
-  { key:"last_year",    label:"This Year" },
-  { key:"all",          label:"All Time" },
+  { key: "today",          label: "Today"                    },
+  { key: "last_7_days",    label: "Last 7 Days"              },
+  { key: "last_30_days",   label: "Last 30 Days"             },
+  { key: "last_90_days",   label: "This Quarter (90 days)"   },
+  { key: "financial_year", label: "Financial Year (Apr–Mar)" },
+  { key: "custom",         label: "Custom Range"             },
 ]
 
 interface Expense {
@@ -63,9 +64,17 @@ interface ExpenseForm {
   description: string; expenseDate: string; receiptUrl: string
 }
 
+function localDateString() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
 const emptyForm = (): ExpenseForm => ({
   gymId: "", title: "", amount: "", category: "MISCELLANEOUS",
-  description: "", expenseDate: new Date().toISOString().split("T")[0], receiptUrl: "",
+  description: "", expenseDate: localDateString(), receiptUrl: "",
 })
 
 function ExpenseModal({
@@ -96,7 +105,7 @@ function ExpenseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
-      <div className="bg-[#141920] border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-[hsl(220_25%_11%)] border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-white/10">
           <h2 className="text-white font-semibold text-lg">{initial ? "Edit Expense" : "Add Expense"}</h2>
           <button onClick={onClose} className="text-white/40 hover:text-white transition-colors"><X size={20}/></button>
@@ -106,11 +115,12 @@ function ExpenseModal({
           {!initial && (
             <div>
               <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">Gym *</label>
-              <select value={form.gymId} onChange={e => set("gymId", e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary/50">
-                <option value="">Select gym</option>
-                {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              <AppSelect
+                value={form.gymId}
+                onChange={v => set("gymId", v)}
+                placeholder="Select gym"
+                options={[...gyms.map(g => ({ value: g.id, label: g.name }))]}
+              />
             </div>
           )}
 
@@ -141,10 +151,11 @@ function ExpenseModal({
           {/* Category */}
           <div>
             <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">Category</label>
-            <select value={form.category} onChange={e => set("category", e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary/50">
-              {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-            </select>
+            <AppSelect
+              value={form.category}
+              onChange={v => set("category", v)}
+              options={CATEGORIES.map(c => ({ value: c, label: CATEGORY_LABELS[c] }))}
+            />
           </div>
 
           {/* Notes */}
@@ -177,7 +188,20 @@ export default function ExpensesPage() {
   const [expenses,    setExpenses]    = useState<Expense[]>([])
   const [gyms,        setGyms]        = useState<{ id: string; name: string }[]>([])
   const [gymId,       setGymId]       = useState("")
-  const [range,       setRange]       = useState("this_month")
+  const [range,       setRange]       = useState("last_30_days")
+  const [customStart, setCustomStart] = useState("")
+  const [customEnd,   setCustomEnd]   = useState("")
+  const [rangeOpen,   setRangeOpen]   = useState(false)
+  const rangeDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (rangeDropdownRef.current && !rangeDropdownRef.current.contains(e.target as Node))
+        setRangeOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
   const [category,    setCategory]    = useState("")
   const [loading,     setLoading]     = useState(true)
   const [saving,      setSaving]      = useState(false)
@@ -189,8 +213,12 @@ export default function ExpensesPage() {
   const load = useCallback(() => {
     setLoading(true)
     const p = new URLSearchParams({ range })
-    if (gymId)    p.set("gymId", gymId)
-    if (category) p.set("category", category)
+    if (gymId)       p.set("gymId", gymId)
+    if (category)    p.set("category", category)
+    if (range === "custom" && customStart && customEnd) {
+      p.set("customStart", customStart)
+      p.set("customEnd",   customEnd)
+    }
     fetch(`/api/owner/expenses?${p}`)
       .then(r => r.json())
       .then(d => {
@@ -200,7 +228,7 @@ export default function ExpensesPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [gymId, range, category])
+  }, [gymId, range, category, customStart, customEnd])
 
   useEffect(() => {
     fetch("/api/owner/gyms").then(r => r.json()).then(d => { if (Array.isArray(d)) setGyms(d) })
@@ -255,31 +283,96 @@ export default function ExpensesPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
-        {/* Range */}
-        <div className="flex gap-1 bg-white/5 rounded-xl p-1 border border-white/10">
-          {RANGES.map(r => (
-            <button key={r.key} onClick={() => setRange(r.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${range === r.key ? "bg-primary text-white" : "text-white/50 hover:text-white"}`}>
-              {r.label}
-            </button>
-          ))}
-        </div>
+        {/* Range dropdown */}
+        {(() => {
+          const rangeRef = rangeDropdownRef
+          const rangeLabel = RANGES.find(r => r.key === range)?.label ?? "Select range"
+          return (
+            <div ref={rangeRef} className="relative">
+              <button
+                onClick={() => setRangeOpen(v => !v)}
+                className="flex items-center gap-2 bg-[hsl(220_25%_11%)] border border-white/10 text-white/80 rounded-xl px-3.5 h-10 text-sm hover:border-primary/40 transition-colors focus:outline-none"
+              >
+                <Calendar className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                <span className="truncate max-w-48">{rangeLabel}</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-white/30 shrink-0 transition-transform ${rangeOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {rangeOpen && (
+                <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-64 bg-[hsl(220_25%_10%)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                  <div className="p-1.5">
+                    {RANGES.filter(r => r.key !== "custom").map(r => (
+                      <button
+                        key={r.key}
+                        onClick={() => { setRange(r.key); setRangeOpen(false) }}
+                        className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-colors ${
+                          range === r.key
+                            ? "bg-primary/12 text-primary font-semibold"
+                            : "text-white/60 hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-white/6 p-3">
+                    <p className={`text-xs font-semibold mb-2.5 ${range === "custom" ? "text-primary" : "text-white/40"}`}>
+                      Custom Range
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={customStart}
+                          onChange={e => setCustomStart(e.target.value)}
+                          max={customEnd || undefined}
+                          className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-primary/40"
+                          style={{ colorScheme: "dark" }}
+                        />
+                        <span className="text-white/20 text-xs shrink-0">→</span>
+                        <input
+                          type="date"
+                          value={customEnd}
+                          onChange={e => setCustomEnd(e.target.value)}
+                          min={customStart || undefined}
+                          className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-primary/40"
+                          style={{ colorScheme: "dark" }}
+                        />
+                      </div>
+                      <button
+                        disabled={!customStart || !customEnd}
+                        onClick={() => { setRange("custom"); setRangeOpen(false) }}
+                        className="w-full py-2 rounded-xl text-xs font-semibold bg-primary text-white disabled:opacity-35 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                      >
+                        Apply Custom Range
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Gym filter */}
         {gyms.length > 1 && (
-          <select value={gymId} onChange={e => setGymId(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
-            <option value="">All Gyms</option>
-            {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
+          <AppSelect
+            value={gymId}
+            onChange={setGymId}
+            placeholder="All Gyms"
+            options={[{ value: "", label: "All Gyms" }, ...gyms.map(g => ({ value: g.id, label: g.name }))]}
+            className="w-40"
+          />
         )}
 
         {/* Category filter */}
-        <select value={category} onChange={e => setCategory(e.target.value)}
-          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
-          <option value="">All Categories</option>
-          {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-        </select>
+        <AppSelect
+          value={category}
+          onChange={setCategory}
+          placeholder="All Categories"
+          options={[{ value: "", label: "All Categories" }, ...CATEGORIES.map(c => ({ value: c, label: CATEGORY_LABELS[c] }))]}
+          className="w-44"
+        />
       </div>
 
       {/* Summary card */}

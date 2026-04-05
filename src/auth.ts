@@ -398,8 +398,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // Re-fetch role when:
       //   • session.update() is called (e.g. after role is assigned)
-      //   • role is missing from the token (e.g. first request after deploy)
-      if ((trigger === "update" || !token.role) && token.profileId) {
+      //   • role key is absent from the token (e.g. first request after deploy with old JWT)
+      // NOTE: do NOT use !token.role here — that would hit DB on every request for
+      // null-role users (fresh signups) and risks picking up a stale role mid-flow.
+      if ((trigger === "update" || token.role === undefined) && token.profileId) {
         const profile = await prisma.profile.findUnique({
           where:  { id: token.profileId as string },
           select: { role: true },

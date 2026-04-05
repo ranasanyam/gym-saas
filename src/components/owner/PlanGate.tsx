@@ -37,8 +37,8 @@ export function PlanGate({ allowed, featureLabel, children, compact = false }: P
                     <p className="text-white/40 text-xs mt-1">This feature is not included in your current plan.</p>
                 </div>
                 <Link
-                    href="/owner/billing"
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-primary to-orange-400 text-white text-xs font-semibold px-5 py-2.5 rounded-xl hover:opacity-90 transition-all"
+                    href="/owner/subscriptions"
+                    className="inline-flex items-center gap-2 bg-linear-to-r from-primary to-orange-400 text-white text-xs font-semibold px-5 py-2.5 rounded-xl hover:opacity-90 transition-all"
                 >
                     <Zap className="w-3.5 h-3.5" />
                     Upgrade Plan
@@ -56,8 +56,8 @@ export function PlanGate({ allowed, featureLabel, children, compact = false }: P
 export function UpgradeButton({ label = "Upgrade Plan" }: { label?: string }) {
     return (
         <Link
-            href="/owner/billing"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-white bg-gradient-to-r from-primary to-orange-400 px-4 py-2 rounded-xl hover:opacity-90 transition-all"
+            href="/owner/subscriptions"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-white bg-linear-to-r from-primary to-orange-400 px-4 py-2 rounded-xl hover:opacity-90 transition-all"
         >
             <Zap className="w-3.5 h-3.5" />
             {label}

@@ -238,9 +238,10 @@
 import { useSubscription } from "@/contexts/SubscriptionContext"
 import { PlanGate } from "@/components/owner/PlanGate"
 import { PageHeader } from "@/components/owner/PageHeader"
+import { AppSelect } from "@/components/ui/AppSelect"
 import { useEffect, useState, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
-import { CalendarCheck, Loader2, ChevronDown, Search, Clock } from "lucide-react"
+import { CalendarCheck, Loader2, Search, Clock } from "lucide-react"
 
 interface AttendanceRecord {
   id: string; checkInTime: string; checkOutTime: string | null
@@ -278,14 +279,13 @@ function AttendanceContent() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         {gyms.length > 1 && (
-          <div className="relative">
-            <select value={gymId} onChange={e => setGymId(e.target.value)}
-              className="appearance-none bg-[hsl(220_25%_11%)] border border-white/10 text-white/70 rounded-xl pl-4 pr-9 h-10 text-sm focus:outline-none cursor-pointer">
-              <option value="">All Gyms</option>
-              {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
-          </div>
+          <AppSelect
+            value={gymId}
+            onChange={setGymId}
+            placeholder="All Gyms"
+            options={[{ value: "", label: "All Gyms" }, ...gyms.map(g => ({ value: g.id, label: g.name }))]}
+            className="w-40"
+          />
         )}
         <div className="flex items-center gap-2 bg-white/5 border border-white/8 rounded-xl px-3 h-10 flex-1 max-w-xs">
           <Search className="w-3.5 h-3.5 text-white/30 shrink-0" />

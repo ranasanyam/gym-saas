@@ -543,7 +543,7 @@ import {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const STATUS_META: Record<string, { label: string; dot: string; card: string; badge: string }> = {
-  AVAILABLE:   { label: "Available",   dot: "bg-white", card: "border-white/8",          badge: "bg-emerald-500/12 text-white border-emerald-500/25" },
+  AVAILABLE:   { label: "Available",   dot: "bg-white", card: "border-white/8",          badge: "bg-green-500/12 text-green-400 border-green-500/25" },
   ASSIGNED:    { label: "Assigned",    dot: "bg-blue-400",    card: "border-blue-500/30",       badge: "bg-blue-500/12    text-blue-400    border-blue-500/25"   },
   MAINTENANCE: { label: "Maintenance", dot: "bg-amber-400",   card: "border-amber-500/30",      badge: "bg-amber-500/12   text-amber-400   border-amber-500/25"  },
   RESERVED:    { label: "Reserved",    dot: "bg-purple-400",  card: "border-purple-500/30",     badge: "bg-purple-500/12  text-purple-400  border-purple-500/25" },
@@ -599,12 +599,13 @@ function StatSkeleton() {
 }
 
 // ── Locker Card ───────────────────────────────────────────────────────────────
-function LockerCard({ locker, onEdit, onAssign, onUnassign, onUpdateAssignment }: {
+function LockerCard({ locker, onEdit, onAssign, onUnassign, onUpdateAssignment, releasingId }: {
   locker:             Locker
   onEdit:             (l: Locker) => void
   onAssign:           (l: Locker) => void
   onUnassign:         (l: Locker) => void
   onUpdateAssignment: (l: Locker) => void
+  releasingId:        string | null
 }) {
   const active      = locker.assignments.find(a => a.isActive)
   const meta        = STATUS_META[locker.status] ?? STATUS_META.AVAILABLE
@@ -675,7 +676,7 @@ function LockerCard({ locker, onEdit, onAssign, onUnassign, onUpdateAssignment }
               )}
             </div>
             {active.feeCollected ? (
-              <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium shrink-0">
+              <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium shrink-0">
                 <CheckCircle2 className="w-3 h-3" /> Paid
               </span>
             ) : (
@@ -730,9 +731,14 @@ function LockerCard({ locker, onEdit, onAssign, onUnassign, onUpdateAssignment }
             </button>
             <button
               onClick={() => onUnassign(locker)}
-              className="flex-1 py-2 rounded-xl bg-red-500/8 text-red-400 text-xs font-semibold hover:bg-red-500/15 transition-colors flex items-center justify-center gap-1.5 border border-red-500/15"
+              disabled={releasingId === locker.id}
+              className="flex-1 py-2 rounded-xl bg-red-500/8 text-red-400 text-xs font-semibold hover:bg-red-500/15 transition-colors flex items-center justify-center gap-1.5 border border-red-500/15 disabled:opacity-50"
             >
-              <X className="w-3 h-3" /> Release
+              {releasingId === locker.id
+                ? <Loader2 className="w-3 h-3 animate-spin" />
+                : <X className="w-3 h-3" />
+              }
+              Release
             </button>
           </>
         )}
@@ -757,7 +763,7 @@ function Modal({ title, onClose, children, footer }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-[hsl(220_25%_10%)] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+      <div className="bg-[hsl(220_25%_10%)] border border-white/10 rounded-2xl w-full max-w-md pb-5 shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
           <h2 className="text-white font-semibold text-sm">{title}</h2>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/8 text-white/40 hover:text-white transition-all">
@@ -771,6 +777,55 @@ function Modal({ title, onClose, children, footer }: {
   )
 }
 
+// ── Confirm dialog ────────────────────────────────────────────────────────────
+interface ConfirmState {
+  title: string
+  message: string
+  confirmLabel?: string
+  onConfirm: () => void
+}
+
+function ConfirmModal({ state, onClose, loading }: {
+  state: ConfirmState
+  onClose: () => void
+  loading?: boolean
+}) {
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-[hsl(220_25%_10%)] border border-white/10 rounded-2xl w-full max-w-sm py-5 shadow-2xl">
+        <div className="px-6 pt-6 pb-2 flex flex-col items-center gap-3 text-center">
+          <div className="w-11 h-11 rounded-full bg-red-500/12 border border-red-500/20 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-red-400" />
+          </div>
+          <div>
+            <h2 className="text-white font-semibold text-sm">{state.title}</h2>
+            <p className="text-white/45 text-xs mt-1.5 leading-relaxed">{state.message}</p>
+          </div>
+        </div>
+        <div className="px-6 pb-6 pt-4 flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/50 text-sm hover:text-white hover:border-white/20 transition-colors disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={state.onConfirm}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-red-500/15 text-red-400 border border-red-500/25 text-sm font-semibold hover:bg-red-500/25 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {state.confirmLabel ?? "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function LockersPage() {
   const { toast } = useToast()
@@ -783,10 +838,12 @@ export default function LockersPage() {
   const [stats,   setStats]   = useState<Stats>({ total: 0, available: 0, assigned: 0, maintenance: 0, reserved: 0 })
 
   // UI state
-  const [loading,  setLoading]  = useState(false)
-  const [saving,   setSaving]   = useState(false)
-  const [filter,   setFilter]   = useState("")
-  const [gymsReady, setGymsReady] = useState(false)
+  const [loading,      setLoading]      = useState(false)
+  const [saving,       setSaving]       = useState(false)
+  const [releasingId,  setReleasingId]  = useState<string | null>(null)
+  const [filter,       setFilter]       = useState("")
+  const [gymsReady,    setGymsReady]    = useState(false)
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null)
 
   // Modals
   const [showAdd,      setShowAdd]      = useState(false)
@@ -821,6 +878,8 @@ export default function LockersPage() {
   const load = useCallback(() => {
     if (!gymId) return
     setLoading(true)
+    setLockers([])
+    setStats({ total: 0, available: 0, assigned: 0, maintenance: 0, reserved: 0 })
     fetch(`/api/owner/lockers?gymId=${gymId}`)
       .then(r => r.json())
       .then(d => { setLockers(d.lockers ?? []); setStats(d.stats ?? {}) })
@@ -892,13 +951,24 @@ export default function LockersPage() {
     finally { setSaving(false) }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this locker? This cannot be undone.")) return
-    try {
-      const res = await fetch(`/api/owner/lockers/${id}`, { method: "DELETE" })
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
-      toast({ title: "Locker deleted" }); load()
-    } catch (err: any) { toast({ title: err.message, variant: "destructive" }) }
+  const handleDelete = (id: string, onDone?: () => void) => {
+    setConfirmState({
+      title: "Delete locker?",
+      message: "This will permanently remove the locker and all its assignment history. This cannot be undone.",
+      confirmLabel: "Delete",
+      onConfirm: async () => {
+        setSaving(true)
+        try {
+          const res = await fetch(`/api/owner/lockers/${id}`, { method: "DELETE" })
+          if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+          toast({ title: "Locker deleted" })
+          setConfirmState(null)
+          onDone?.()
+          load()
+        } catch (err: any) { toast({ title: err.message, variant: "destructive" }) }
+        finally { setSaving(false) }
+      },
+    })
   }
 
   const handleAssign = async () => {
@@ -919,13 +989,23 @@ export default function LockersPage() {
     finally { setSaving(false) }
   }
 
-  const handleUnassign = async (locker: Locker) => {
-    if (!confirm(`Release locker ${locker.lockerNumber}?`)) return
-    try {
-      const res = await fetch(`/api/owner/lockers/${locker.id}/assign`, { method: "DELETE" })
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
-      toast({ title: "Locker released" }); load()
-    } catch (err: any) { toast({ title: err.message, variant: "destructive" }) }
+  const handleUnassign = (locker: Locker) => {
+    setConfirmState({
+      title: `Release locker #${locker.lockerNumber}?`,
+      message: "The member will lose access and the locker will become available again.",
+      confirmLabel: "Release",
+      onConfirm: async () => {
+        setReleasingId(locker.id)
+        try {
+          const res = await fetch(`/api/owner/lockers/${locker.id}/assign`, { method: "DELETE" })
+          if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+          toast({ title: "Locker released" })
+          setConfirmState(null)
+          load()
+        } catch (err: any) { toast({ title: err.message, variant: "destructive" }) }
+        finally { setReleasingId(null) }
+      },
+    })
   }
 
   const handleUpdateAssignment = async () => {
@@ -954,7 +1034,7 @@ export default function LockersPage() {
 
   const statsItems = [
     { label: "Total",       value: stats.total,       color: "text-white",         icon: Lock          },
-    { label: "Available",   value: stats.available,   color: "text-white",   icon: CheckCircle2  },
+    { label: "Available",   value: stats.available,   color: "text-green-400",   icon: CheckCircle2  },
     { label: "Assigned",    value: stats.assigned,    color: "text-blue-400",      icon: KeyRound      },
     { label: "Maintenance", value: stats.maintenance, color: "text-amber-400",     icon: Wrench        },
     { label: "Reserved",    value: stats.reserved,    color: "text-purple-400",    icon: Clock         },
@@ -974,18 +1054,21 @@ export default function LockersPage() {
 
       {/* ── Gym selector + Bulk button ─────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Gym select — shown even for single gym for consistency */}
-        <div className="relative">
-          <select
-            value={gymId}
-            onChange={e => setGymId(e.target.value)}
-            className="appearance-none bg-[hsl(220_25%_11%)] border border-white/10 text-white/80 rounded-xl pl-4 pr-9 h-10 text-sm focus:outline-none focus:border-primary/50 cursor-pointer transition-colors"
-          >
-            {/* <option value="">All Gyms</option> */}
-            {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
-        </div>
+        {!gymsReady ? (
+          /* Skeleton while gyms are fetching */
+          <div className="h-10 w-40 bg-white/6 rounded-xl animate-pulse" />
+        ) : (
+          <div className="relative">
+            <select
+              value={gymId}
+              onChange={e => setGymId(e.target.value)}
+              className="appearance-none bg-[hsl(220_25%_11%)] border border-white/10 text-white/80 rounded-xl pl-4 pr-9 h-10 text-sm focus:outline-none focus:border-primary/50 cursor-pointer transition-colors"
+            >
+              {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+          </div>
+        )}
 
         {gymId && (
           <button
@@ -1013,7 +1096,7 @@ export default function LockersPage() {
         <>
           {/* ── Stats ───────────────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {loading && lockers.length === 0
+            {loading
               ? Array.from({ length: 5 }).map((_, i) => <StatSkeleton key={i} />)
               : statsItems.map(s => {
                   const Icon = s.icon
@@ -1039,7 +1122,7 @@ export default function LockersPage() {
           />
 
           {/* ── Locker grid ──────────────────────────────────────────────────── */}
-          {loading && lockers.length === 0 ? (
+          {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
               {Array.from({ length: 10 }).map((_, i) => <LockerSkeleton key={i} />)}
             </div>
@@ -1061,6 +1144,7 @@ export default function LockersPage() {
                   onEdit={setEditLocker}
                   onAssign={setAssignLocker}
                   onUnassign={handleUnassign}
+                  releasingId={releasingId}
                   onUpdateAssignment={lo => {
                     const a = lo.assignments.find(x => x.isActive)
                     setUpdateLocker(lo)
@@ -1174,7 +1258,7 @@ export default function LockersPage() {
           onClose={() => setEditLocker(null)}
           footer={
             <>
-              <button onClick={() => { if (confirm("Delete this locker?")) handleDelete(editLocker.id).then(() => setEditLocker(null)) }}
+              <button onClick={() => handleDelete(editLocker.id, () => setEditLocker(null))}
                 className="px-4 py-2.5 rounded-xl bg-red-500/8 text-red-400 text-sm hover:bg-red-500/15 transition-colors border border-red-500/15">
                 Delete
               </button>
@@ -1271,7 +1355,7 @@ export default function LockersPage() {
             <div>
               <span className="text-white/80 text-sm font-medium">Fee collected</span>
               {assignLocker.monthlyFee != null && assignLocker.monthlyFee > 0 && assignForm.feeCollected && (
-                <p className="text-emerald-400 text-xs mt-0.5">
+                <p className="text-white/50 text-xs mt-0.5">
                   ₹{Number(assignLocker.monthlyFee).toLocaleString("en-IN")} will be added to gym revenue
                 </p>
               )}
@@ -1313,13 +1397,22 @@ export default function LockersPage() {
             <div>
               <span className="text-white/80 text-sm font-medium">Fee collected</span>
               {!updateLocker.assignments.find(a => a.isActive)?.feeCollected && updateForm.feeCollected && updateLocker.monthlyFee != null && updateLocker.monthlyFee > 0 && (
-                <p className="text-emerald-400 text-xs mt-0.5">
+                <p className="text-white/5 text-xs mt-0.5">
                   ₹{Number(updateLocker.monthlyFee).toLocaleString("en-IN")} will be added to gym revenue
                 </p>
               )}
             </div>
           </label>
         </Modal>
+      )}
+
+      {/* ── Confirm dialog ─────────────────────────────────────────────────── */}
+      {confirmState && (
+        <ConfirmModal
+          state={confirmState}
+          onClose={() => setConfirmState(null)}
+          loading={saving || releasingId !== null}
+        />
       )}
     </div>
   )

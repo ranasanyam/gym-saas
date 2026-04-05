@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
   const gyms   = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
 
-  const [payments, total, monthTotal] = await Promise.all([
+  const [payments, total, monthTotal, allTimeTotal] = await Promise.all([
     prisma.payment.findMany({
       where:   { gymId: { in: gymIds } },
       orderBy: { createdAt: "desc" },
@@ -115,13 +115,18 @@ export async function GET(req: NextRequest) {
       where: { gymId: { in: gymIds }, status: "COMPLETED", paymentDate: { gte: startOfMonth(now), lte: endOfMonth(now) } },
       _sum:  { amount: true },
     }),
+    prisma.payment.aggregate({
+      where: { gymId: { in: gymIds }, status: "COMPLETED" },
+      _sum:  { amount: true },
+    }),
   ])
 
   return NextResponse.json({
     payments,
     total,
-    pages:      Math.ceil(total / 20),
-    monthTotal: Number(monthTotal._sum?.amount ?? 0),
+    pages:          Math.ceil(total / 20),
+    monthTotal:     Number(monthTotal._sum?.amount ?? 0),
+    allTimeRevenue: Number(allTimeTotal._sum?.amount ?? 0),
   })
 }
 

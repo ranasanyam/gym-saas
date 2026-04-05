@@ -58,8 +58,8 @@ import { motion } from "framer-motion"
 import { Dumbbell } from "lucide-react"
 
 interface AuthLayoutProps {
-  title: string
-  subtitle: string
+  title?: string
+  subtitle?: string
   children: React.ReactNode
 }
 
@@ -83,10 +83,12 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
 
         {/* Card */}
         <div className="glass rounded-2xl p-8">
-          <div className="mb-7">
-            <h1 className="text-[1.6rem] font-display font-bold text-white leading-tight mb-1">{title}</h1>
-            <p className="text-white/45 text-sm">{subtitle}</p>
-          </div>
+          {(title || subtitle) && (
+            <div className="mb-7">
+              {title   && <h1 className="text-[1.6rem] font-display font-bold text-white leading-tight mb-1">{title}</h1>}
+              {subtitle && <p className="text-white/45 text-sm">{subtitle}</p>}
+            </div>
+          )}
           {children}
         </div>
       </motion.div>

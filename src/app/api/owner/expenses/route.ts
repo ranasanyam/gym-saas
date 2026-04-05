@@ -1,5 +1,6 @@
 // src/app/api/owner/expenses/route.ts
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import {
@@ -19,19 +20,34 @@ async function ownerGyms(profileId: string): Promise<string[]> {
   return gyms.map(g => g.id)
 }
 
-function getDateRange(range: string): { start: Date; end: Date } {
+function getDateRange(range: string, customStart?: string, customEnd?: string): { start: Date; end: Date } {
   const now = new Date()
   switch (range) {
-    case "today":         return { start: startOfDay(now),  end: endOfDay(now) }
-    case "this_week":     return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) }
-    case "last_week":     { const lw = subWeeks(now, 1); return { start: startOfWeek(lw, { weekStartsOn: 1 }), end: endOfWeek(lw, { weekStartsOn: 1 }) } }
-    case "this_month":    return { start: startOfMonth(now), end: endOfMonth(now) }
-    case "last_month":    { const lm = subMonths(now, 1); return { start: startOfMonth(lm), end: endOfMonth(lm) } }
-    case "last_quarter":  { const lq = subQuarters(now, 1); return { start: startOfQuarter(lq), end: endOfQuarter(lq) } }
-    case "last_6_months": return { start: startOfMonth(subMonths(now, 5)), end: endOfMonth(now) }
-    case "last_year":     { const ly = subYears(now, 1); return { start: startOfYear(ly), end: endOfYear(ly) } }
-    case "all":           return { start: new Date("2020-01-01"), end: endOfDay(now) }
-    default:              return { start: startOfMonth(now), end: endOfMonth(now) }
+    case "today":          return { start: startOfDay(now), end: endOfDay(now) }
+    case "last_7_days":    return { start: startOfDay(new Date(now.getTime() - 6 * 86400000)), end: endOfDay(now) }
+    case "last_30_days":   return { start: startOfDay(new Date(now.getTime() - 29 * 86400000)), end: endOfDay(now) }
+    case "last_90_days": {
+      // This Quarter — last 90 days rolling
+      return { start: startOfDay(new Date(now.getTime() - 89 * 86400000)), end: endOfDay(now) }
+    }
+    case "financial_year": {
+      // Indian financial year: Apr 1 – Mar 31
+      const april = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
+      return {
+        start: startOfDay(new Date(april, 3, 1)),        // Apr 1
+        end:   endOfDay(new Date(april + 1, 2, 31)),     // Mar 31 next year
+      }
+    }
+    case "custom": {
+      if (customStart && customEnd) {
+        return {
+          start: startOfDay(new Date(customStart)),
+          end:   endOfDay(new Date(customEnd)),
+        }
+      }
+      return { start: startOfDay(new Date(now.getTime() - 29 * 86400000)), end: endOfDay(now) }
+    }
+    default: return { start: startOfDay(new Date(now.getTime() - 29 * 86400000)), end: endOfDay(now) }
   }
 }
 
@@ -41,11 +57,13 @@ export async function GET(req: NextRequest) {
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const gymId    = searchParams.get("gymId") ?? ""
-  const range    = searchParams.get("range") ?? "this_month"
-  const category = searchParams.get("category") ?? ""
-  const page     = parseInt(searchParams.get("page") ?? "1")
-  const limit    = 20
+  const gymId      = searchParams.get("gymId")      ?? ""
+  const range      = searchParams.get("range")      ?? "last_30_days"
+  const customStart = searchParams.get("customStart") ?? undefined
+  const customEnd   = searchParams.get("customEnd")   ?? undefined
+  const category   = searchParams.get("category")   ?? ""
+  const page       = parseInt(searchParams.get("page") ?? "1")
+  const limit      = 20
 
   const allGymIds = await ownerGyms(profileId)
   if (!allGymIds.length) {
@@ -53,7 +71,7 @@ export async function GET(req: NextRequest) {
   }
 
   const gymIds    = gymId && allGymIds.includes(gymId) ? [gymId] : allGymIds
-  const { start, end } = getDateRange(range)
+  const { start, end } = getDateRange(range, customStart, customEnd)
 
   const where: any = {
     gymId:       { in: gymIds },
@@ -91,7 +109,7 @@ export async function GET(req: NextRequest) {
   ])
 
   // Time-series (daily or monthly) for chart
-  const isShortRange = ["today", "this_week", "last_week", "this_month", "last_month"].includes(range)
+  const isShortRange = ["today", "last_7_days", "last_30_days"].includes(range)
   const allInRange   = await prisma.gymExpense.findMany({
     where,
     select: { expenseDate: true, amount: true },
@@ -159,5 +177,6 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  revalidatePath("/owner/dashboard")
   return NextResponse.json(expense, { status: 201 })
 }

@@ -148,7 +148,7 @@ model Profile {
   city         String?
   avatarUrl    String?   @map("avatar_url")
   passwordHash String?   @map("password_hash")         // null for OAuth-only users
-  role         String?   @default("member")             // owner | trainer | member
+  role         String?                                    // owner | trainer | member — null until user picks on /select-role
   goals        String[]  @default([])
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")

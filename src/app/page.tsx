@@ -5,10 +5,10 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import Link from "next/link"
 import {
   Dumbbell, ArrowRight, CheckCircle, Users, ClipboardList,
-  UtensilsCrossed, BarChart3, Bell, CreditCard, Calendar,
+  UtensilsCrossed, BarChart3, Bell, CreditCard,
   ShieldCheck, Zap, Star, ChevronDown, Menu, X, TrendingUp,
-  Wallet, Trophy, Lock, Package, QrCode, Receipt,
-  Smartphone, Apple, Play, ChevronRight, MapPin, Clock,
+  Trophy, Lock, Package, Receipt,
+  Smartphone, Apple, Play, ChevronRight, MapPin,
   Activity, Globe, Shield, Building2, AlertTriangle,
 } from "lucide-react"
 import { features } from "process"
@@ -203,43 +203,35 @@ const ROLES = [
   },
 ]
 
-const PLANS = [
+const PRICING_DURATIONS = [
+  { key: "quarterly",   label: "3 Months",  months: 3  },
+  { key: "half_yearly", label: "6 Months",  months: 6  },
+  { key: "yearly",      label: "12 Months", months: 12 },
+] as const
+
+type PricingDuration = typeof PRICING_DURATIONS[number]["key"]
+
+const PRICING_TIERS = [
   {
-    name: "Free", price: "₹0", period: "1 month",
-    desc: "Try everything at zero cost.",
-    highlight: false, cta: "Start Free",
-    features: ["Up to 100 members", "Workout & diet plans", "Attendance tracking", "Push notifications", "24/7 support"],
-  },
-  {
-    name: "Basic", price: "₹1,000", period: "3 months",
-    desc: "More members, all core tools.",
+    name: "Basic", key: "basic",
+    desc: "Core tools for single-gym owners.",
     highlight: false, cta: "Get Basic",
-    features: ["Up to 200 members", "Everything in Free", "Diet plan builder", "Expense tracker", "24/7 support"],
+    prices: { quarterly: 999, half_yearly: 1799, yearly: 2999 },
+    features: ["1 gym location", "Unlimited members", "Workout & diet plans", "Attendance tracking", "Payment history & billing", "Expense tracker"],
   },
   {
-    name: "Standard", price: "₹2,000", period: "6 months",
-    desc: "Grow your gym with payments & inventory.",
-    highlight: false, cta: "Get Standard",
-    features: ["Up to 500 members", "Up to 5 gyms", "Everything in Basic", "Razorpay payments", "Supplement store", "Locker management", "Full analytics & reports"],
-  },
-  {
-    name: "Pro", price: "₹3,000", period: "per year",
-    desc: "Unlimited scale.",
+    name: "Pro", key: "pro",
+    desc: "Everything you need to scale.",
     highlight: true, cta: "Get Pro",
-    features: ["Unlimited members & trainers", "Unlimited gyms", "Everything in Standard", "Priority support", "Free updates forever"],
+    prices: { quarterly: 1999, half_yearly: 3499, yearly: 5999 },
+    features: ["Up to 5 gym locations", "Everything in Basic", "Supplement store", "Locker management", "Full analytics & reports", "Plan templates"],
   },
-  // {
-  //   name: "Elite", price: "₹4,000", period: "per year",
-  //   desc: "Your brand, your platform.",
-  //   highlight: false, cta: "Get Elite",
-  //   features: ["Everything in Pro", "Custom branding", "WhatsApp integration", "API access"],
-  // },
   {
-    name: "Lifetime", price: "₹20,000", period: "one-time",
-    desc: "Pay once, own it forever.",
-    highlight: false, cta: "Get Lifetime",
-    // features: ["Everything in Elite", "Lifetime updates", "Never pay again", "First priority support"],
-    features: ["Everything in Pro", "Lifetime updates", "Never pay again", "First priority support"]
+    name: "Enterprise", key: "enterprise",
+    desc: "For serious multi-gym operations.",
+    highlight: false, cta: "Get Enterprise",
+    prices: { quarterly: 3999, half_yearly: 6999, yearly: 11999 },
+    features: ["Unlimited gym locations", "Everything in Pro", "Refer & earn system", "Priority support", "API access", "Early access to features"],
   },
 ]
 
@@ -474,6 +466,7 @@ export default function LandingPage() {
   const appRef        = useInView(0.1)
   const pricingRef    = useInView(0.05)
   const faqRef        = useInView(0.1)
+  const [pricingDuration, setPricingDuration] = useState<PricingDuration>("quarterly")
 
   return (
     <div className="min-h-screen text-white overflow-x-hidden" style={{ backgroundColor: "#080c12" }}>
@@ -888,66 +881,124 @@ export default function LandingPage() {
       {/* ── PRICING ─────────────────────────────────────────────────────────── */}
       <section id="pricing" ref={pricingRef.ref} className="py-32 px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
+          <div className="text-center mb-14">
             <SectionLabel>Transparent pricing</SectionLabel>
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-4" style={{ letterSpacing: "-0.03em" }}>
               Plans that grow with you
             </h2>
-            <p className="text-white/45 text-lg">Start free. Upgrade when you're ready. No hidden fees ever.</p>
+            <p className="text-white/45 text-lg mb-8">Start free. Upgrade when you're ready. No hidden fees ever.</p>
+
+            {/* Duration toggle */}
+            <div className="inline-flex bg-white/5 border border-white/10 rounded-2xl p-1 gap-1">
+              {PRICING_DURATIONS.map(d => (
+                <button
+                  key={d.key}
+                  onClick={() => setPricingDuration(d.key)}
+                  className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    pricingDuration === d.key
+                      ? "bg-[#f97316] text-white shadow-lg shadow-orange-500/25"
+                      : "text-white/45 hover:text-white/70"
+                  }`}
+                >
+                  {d.label}
+                  {d.key === "yearly" && (
+                    <span className="ml-1.5 text-[10px] font-bold bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">Save 25%</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
-            {PLANS.map(({ name, price, period, desc, highlight, cta, features: planF }, i) => (
-              <div key={name}
-                className={`rounded-3xl p-7 relative transition-all duration-500 hover:scale-[1.02] ${
-                  highlight ? "pricing-shine" : "border border-white/8 bg-white/2"
-                }`}
-                style={{
-                  opacity:    pricingRef.inView ? 1 : 0,
-                  transform:  pricingRef.inView ? "translateY(0)" : "translateY(24px)",
-                  transition: `opacity 0.5s ease ${i * 80}ms, transform 0.5s ease ${i * 80}ms`,
-                }}>
-                {highlight && (
-                  <>
-                    <div className="absolute inset-0 bg-linear-to-b from-[#f97316]/5 to-transparent pointer-events-none" />
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-linear-to-r from-[#f97316] to-[#fb923c] text-white text-xs font-black px-5 py-1.5 rounded-full shadow-lg shadow-orange-500/30">
-                      ✦ Most Popular
-                    </div>
-                  </>
-                )}
-
-                <div className="relative">
-                  <div className="flex items-start justify-between mb-1">
-                    <h3 className="text-white font-display font-bold text-xl">{name}</h3>
-                    {highlight && <Zap className="w-4 h-4 text-[#f97316]" />}
-                  </div>
-                  <p className="text-white/35 text-xs mb-5">{desc}</p>
-
-                  <div className="flex items-end gap-1.5 mb-7">
-                    <span className="text-4xl font-black text-white font-display">{price}</span>
-                    <span className="text-white/35 text-sm mb-1">/ {period}</span>
-                  </div>
-
-                  <ul className="space-y-2.5 mb-8">
-                    {planF.map(f => (
-                      <li key={f} className="flex items-start gap-2.5">
-                        <CheckCircle className="w-4 h-4 text-[#f97316] shrink-0 mt-0.5" />
-                        <span className="text-white/55 text-sm">{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link href="/signup"
-                    className={`block text-center text-sm font-bold py-3.5 rounded-xl transition-all ${
-                      highlight
-                        ? "bg-[#f97316] hover:bg-[#ea580c] text-white shadow-lg shadow-orange-500/25"
-                        : "border border-white/12 text-white/60 hover:text-white hover:border-white/25 hover:bg-white/4"
-                    }`}>
-                    {cta}
-                  </Link>
-                </div>
+          {/* Free plan banner */}
+          <div
+            className="mb-6 rounded-2xl border border-white/8 bg-white/2 px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+            style={{
+              opacity:    pricingRef.inView ? 1 : 0,
+              transform:  pricingRef.inView ? "translateY(0)" : "translateY(24px)",
+              transition: "opacity 0.5s ease 0ms, transform 0.5s ease 0ms",
+            }}
+          >
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <h3 className="text-white font-display font-bold text-lg">Free</h3>
+                <span className="text-xs font-semibold bg-white/8 text-white/50 px-2 py-0.5 rounded-full">1 Month</span>
               </div>
-            ))}
+              <p className="text-white/40 text-sm">Try everything at zero cost — no credit card required.</p>
+            </div>
+            <div className="flex items-center gap-6 shrink-0">
+              <div className="flex items-end gap-1">
+                <span className="text-3xl font-black text-white font-display">₹0</span>
+                <span className="text-white/35 text-sm mb-0.5">/ 1 month</span>
+              </div>
+              <Link href="/signup" className="px-5 py-2.5 rounded-xl border border-white/12 text-white/60 hover:text-white hover:border-white/25 hover:bg-white/4 text-sm font-bold transition-all whitespace-nowrap">
+                Start Free
+              </Link>
+            </div>
+          </div>
+
+          {/* Paid tiers */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+            {PRICING_TIERS.map(({ name, desc, highlight, cta, features: planF, prices }, i) => {
+              const price  = prices[pricingDuration]
+              const dur    = PRICING_DURATIONS.find(d => d.key === pricingDuration)!
+              const perMo  = Math.round(price / dur.months)
+              return (
+                <div key={name}
+                  className={`rounded-3xl p-7 relative transition-all duration-500 hover:scale-[1.02] ${
+                    highlight ? "pricing-shine" : "border border-white/8 bg-white/2"
+                  }`}
+                  style={{
+                    opacity:    pricingRef.inView ? 1 : 0,
+                    transform:  pricingRef.inView ? "translateY(0)" : "translateY(24px)",
+                    transition: `opacity 0.5s ease ${(i + 1) * 80}ms, transform 0.5s ease ${(i + 1) * 80}ms`,
+                  }}>
+                  {highlight && (
+                    <>
+                      <div className="absolute inset-0 bg-linear-to-b from-[#f97316]/5 to-transparent pointer-events-none rounded-3xl" />
+                      <div className="absolute -top-4 inset-x-0 flex justify-center">
+                        <span className="bg-linear-to-r from-[#f97316] to-[#fb923c] text-white text-xs font-black px-5 py-1.5 rounded-full shadow-lg shadow-orange-500/30">
+                          ✦ Most Popular
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="relative">
+                    <div className="flex items-start justify-between mb-1">
+                      <h3 className="text-white font-display font-bold text-xl">{name}</h3>
+                      {highlight && <Zap className="w-4 h-4 text-[#f97316]" />}
+                    </div>
+                    <p className="text-white/35 text-xs mb-5">{desc}</p>
+
+                    <div className="mb-7">
+                      <div className="flex items-end gap-1.5">
+                        <span className="text-4xl font-black text-white font-display">₹{price.toLocaleString("en-IN")}</span>
+                        <span className="text-white/35 text-sm mb-1">/ {dur.label.toLowerCase()}</span>
+                      </div>
+                      <p className="text-white/30 text-xs mt-1">₹{perMo.toLocaleString("en-IN")} per month</p>
+                    </div>
+
+                    <ul className="space-y-2.5 mb-8">
+                      {planF.map(f => (
+                        <li key={f} className="flex items-start gap-2.5">
+                          <CheckCircle className="w-4 h-4 text-[#f97316] shrink-0 mt-0.5" />
+                          <span className="text-white/55 text-sm">{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <Link href="/signup"
+                      className={`block text-center text-sm font-bold py-3.5 rounded-xl transition-all ${
+                        highlight
+                          ? "bg-[#f97316] hover:bg-[#ea580c] text-white shadow-lg shadow-orange-500/25"
+                          : "border border-white/12 text-white/60 hover:text-white hover:border-white/25 hover:bg-white/4"
+                      }`}>
+                      {cta}
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>

@@ -72,7 +72,7 @@
 //         return
 //       }
 
-//       toast({ title: "Welcome to FitHub! 🎉", description: "Account created successfully." })
+//       toast({ title: "Welcome to GymStack! 🎉", description: "Account created successfully." })
 //       router.push("/select-role")
 //     } catch {
 //       toast({ variant: "destructive", title: "Something went wrong", description: "Please try again." })
@@ -82,7 +82,7 @@
 //   }
 
 //   return (
-//     <AuthLayout title="Create your account" subtitle="Join FitHub and manage your gym smarter">
+//     <AuthLayout title="Create your account" subtitle="Join GymStack and manage your gym smarter">
 //       <form onSubmit={handleSubmit} className="space-y-4">
 
 //         {/* Full name */}
@@ -635,8 +635,9 @@ function SignupContent() {
         return
       }
 
-      // Success — go directly to select-role, no alert needed
-      router.push("/select-role")
+      // Hard-redirect so the browser does a full page load with the fresh session
+      // cookie — avoids any stale useSession() cache carrying over a previous login.
+      window.location.href = "/select-role"
     } catch {
       toast({ variant: "destructive", title: "Something went wrong", description: "Please try again." })
     } finally {
@@ -724,7 +725,7 @@ function SignupContent() {
               </div>
 
               <Button type="button" variant="outline"
-                onClick={() => signIn("google", { callbackUrl: "/select-role" })}
+                onClick={() => signIn("google", { callbackUrl: "/auth-redirect" })}
                 className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:border-white/20 h-11 gap-2.5">
                 <GoogleIcon /> Continue with Google
               </Button>
@@ -738,13 +739,17 @@ function SignupContent() {
         </motion.div>
       ) : (
         <motion.div key="otp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
-          <AuthLayout title="Verify your email" subtitle={`Enter the 6-digit code sent to ${form.email}`}>
+          <AuthLayout>
             <form onSubmit={handleVerifyAndRegister} className="space-y-6">
 
-              {/* Icon */}
-              <div className="flex justify-center">
+              {/* Icon + heading — centered */}
+              <div className="flex flex-col items-center gap-4 mb-2">
                 <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
                   <ShieldCheck className="w-8 h-8 text-primary" />
+                </div>
+                <div className="text-center">
+                  <h1 className="text-[1.6rem] font-display font-bold text-white leading-tight mb-1">Verify your email</h1>
+                  <p className="text-white/45 text-sm">Enter the 6-digit code sent to {form.email}</p>
                 </div>
               </div>
 

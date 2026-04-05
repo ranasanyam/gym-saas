@@ -283,9 +283,10 @@
 import { useSubscription } from "@/contexts/SubscriptionContext"
 import { PlanGate } from "@/components/owner/PlanGate"
 import { PageHeader } from "@/components/owner/PageHeader"
+import { AppSelect } from "@/components/ui/AppSelect"
 import { useEffect, useState, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
-import { CreditCard, Plus, Loader2, ChevronDown, TrendingUp } from "lucide-react"
+import { CreditCard, Plus, Loader2, TrendingUp } from "lucide-react"
 
 function fmt(n: number) { return `₹${Number(n).toLocaleString("en-IN")}` }
 
@@ -372,14 +373,13 @@ function PaymentsContent() {
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         {gyms.length > 1 && (
-          <div className="relative">
-            <select value={gymId} onChange={e => setGymId(e.target.value)}
-              className="appearance-none bg-[hsl(220_25%_11%)] border border-white/10 text-white/70 rounded-xl pl-4 pr-9 h-10 text-sm focus:outline-none cursor-pointer">
-              <option value="">All Gyms</option>
-              {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
-          </div>
+          <AppSelect
+            value={gymId}
+            onChange={setGymId}
+            placeholder="All Gyms"
+            options={[{ value: "", label: "All Gyms" }, ...gyms.map(g => ({ value: g.id, label: g.name }))]}
+            className="w-40"
+          />
         )}
         <button onClick={() => setShowForm(true)}
           className="ml-auto flex items-center gap-2 bg-gradient-to-r from-primary to-orange-400 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90">
@@ -394,27 +394,30 @@ function PaymentsContent() {
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="text-white/50 text-xs mb-1 block">Gym *</label>
-              <select value={form.gymId} onChange={e => onGymChange(e.target.value)}
-                className="w-full appearance-none bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none">
-                <option value="">Select gym</option>
-                {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              <AppSelect
+                value={form.gymId}
+                onChange={onGymChange}
+                placeholder="Select gym"
+                options={gyms.map(g => ({ value: g.id, label: g.name }))}
+              />
             </div>
             <div>
               <label className="text-white/50 text-xs mb-1 block">Member *</label>
-              <select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}
-                className="w-full appearance-none bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none">
-                <option value="">Select member</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.profile.fullName}</option>)}
-              </select>
+              <AppSelect
+                value={form.memberId}
+                onChange={v => setForm(f => ({ ...f, memberId: v }))}
+                placeholder="Select member"
+                options={members.map(m => ({ value: m.id, label: m.profile.fullName }))}
+              />
             </div>
             <div>
               <label className="text-white/50 text-xs mb-1 block">Membership Plan</label>
-              <select value={form.membershipPlanId} onChange={e => setForm(f => ({ ...f, membershipPlanId: e.target.value }))}
-                className="w-full appearance-none bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none">
-                <option value="">No plan</option>
-                {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <AppSelect
+                value={form.membershipPlanId}
+                onChange={v => setForm(f => ({ ...f, membershipPlanId: v }))}
+                placeholder="No plan"
+                options={[{ value: "", label: "No plan" }, ...plans.map(p => ({ value: p.id, label: p.name }))]}
+              />
             </div>
             <div>
               <label className="text-white/50 text-xs mb-1 block">Amount (₹) *</label>
@@ -423,10 +426,11 @@ function PaymentsContent() {
             </div>
             <div>
               <label className="text-white/50 text-xs mb-1 block">Payment Method</label>
-              <select value={form.paymentMethod} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}
-                className="w-full appearance-none bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none">
-                {["CASH", "UPI", "CARD", "BANK_TRANSFER", "OTHER"].map(m => <option key={m} value={m}>{m.replace("_", " ")}</option>)}
-              </select>
+              <AppSelect
+                value={form.paymentMethod}
+                onChange={v => setForm(f => ({ ...f, paymentMethod: v }))}
+                options={["CASH", "UPI", "CARD", "BANK_TRANSFER", "OTHER"].map(m => ({ value: m, label: m.replace("_", " ") }))}
+              />
             </div>
             <div>
               <label className="text-white/50 text-xs mb-1 block">Payment Date</label>

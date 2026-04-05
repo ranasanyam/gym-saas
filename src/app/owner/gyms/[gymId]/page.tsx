@@ -573,7 +573,7 @@ export default function GymDetailPage() {
     const payData = await payRes.json()
     setGym(gymData)
     setEditForm({ ...gymData, gymImages: gymData.gymImages ?? [] })
-    setStats({ monthRevenue: payData.monthTotal ?? 0, totalRevenue: payData.total ?? 0 })
+    setStats({ monthRevenue: payData.monthTotal ?? 0, totalRevenue: payData.allTimeRevenue ?? 0 })
     setLoading(false)
     startCarousel((gymData.gymImages ?? []).length)
   }, [gymId, startCarousel])
@@ -744,7 +744,7 @@ export default function GymDetailPage() {
               </div>
             )}
           </div>
-          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6">
+          {/* <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6">
             <h3 className="text-white font-semibold text-sm mb-4">Services</h3>
             <div className="flex flex-wrap gap-2 mb-5">
               {gym.services.length > 0 ? gym.services.map(s => <span key={s} className="text-xs bg-primary/10 border border-primary/20 text-primary/80 px-3 py-1.5 rounded-full font-medium">{s}</span>) : <p className="text-white/30 text-sm">No services</p>}
@@ -753,7 +753,7 @@ export default function GymDetailPage() {
             <div className="flex flex-wrap gap-2">
               {gym.facilities.length > 0 ? gym.facilities.map(f => <span key={f} className="text-xs bg-white/6 border border-white/10 text-white/55 px-3 py-1.5 rounded-full">{f}</span>) : <p className="text-white/30 text-sm">No facilities</p>}
             </div>
-          </div>
+          </div> */}
         </div>
       )}
 

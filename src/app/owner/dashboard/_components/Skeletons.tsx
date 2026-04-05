@@ -75,3 +75,7 @@ export function SuppSkeleton() {
     </div>
   )
 }
+
+export function LowStockSkeleton() {
+  return <Pulse className="h-32" />
+}

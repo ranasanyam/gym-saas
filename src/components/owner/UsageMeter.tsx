@@ -81,7 +81,7 @@ export function UsageMeter() {
             {/* Upgrade CTA */}
             {!isLifetime && (
                 <Link
-                    href="/owner/billing"
+                    href="/owner/subscriptions"
                     className="flex items-center justify-center gap-1.5 w-full text-xs font-semibold text-white/80 bg-white/5 hover:bg-primary/20 border border-white/8 hover:border-primary/30 rounded-lg py-1.5 transition-all"
                 >
                     <Zap className="w-3 h-3 text-primary" />

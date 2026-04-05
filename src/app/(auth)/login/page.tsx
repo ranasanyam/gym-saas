@@ -145,7 +145,7 @@
 //         <Button
 //           type="button"
 //           variant="outline"
-//           onClick={() => signIn("google", { callbackUrl: "/select-role" })}
+//           onClick={() => signIn("google", { callbackUrl: "/auth-redirect" })}
 //           className="w-full border-white/10 bg-white/5 text-white hover:bg-white/8 hover:border-white/20 h-11 transition-all gap-2.5"
 //         >
 //           <GoogleIcon />
@@ -180,7 +180,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react"
@@ -190,19 +189,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { useProfile } from "@/contexts/ProfileContext"
 
-function getRolePath(role: string | null): string {
-  if (role === "owner") return "/owner/dashboard"
+function getRolePath(role: string | null | undefined): string {
+  if (role === "owner")   return "/owner/dashboard"
   if (role === "trainer") return "/trainer/dashboard"
-  if (role === "member") return "/member/dashboard"
+  if (role === "member")  return "/member/dashboard"
   return "/select-role"
 }
 
 export default function LoginPage() {
-  const router = useRouter()
   const { toast } = useToast()
-  const { refresh } = useProfile()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -238,19 +234,13 @@ export default function LoginPage() {
         return
       }
 
-      // Poll /api/profile/me until the session is ready (max 3 attempts)
-      let profile: any = null
-      for (let i = 0; i < 3; i++) {
-        await new Promise(r => setTimeout(r, 300))
-        const profileRes = await fetch("/api/profile/me")
-        if (profileRes.ok) {
-          profile = await profileRes.json()
-          break
-        }
-      }
-
-      await refresh()
-      router.push(getRolePath(profile?.role ?? null))
+      // signIn() sets the session cookie synchronously before the Promise
+      // resolves, so /api/profile/me will see the new session immediately.
+      // Use window.location.href (hard navigation) so there is no router
+      // cache or stale useSession() data carrying over from a previous login.
+      const profileRes = await fetch("/api/profile/me")
+      const profile    = profileRes.ok ? await profileRes.json() : null
+      window.location.href = getRolePath(profile?.role)
     } catch {
       toast({
         variant: "destructive",
@@ -320,7 +310,7 @@ export default function LoginPage() {
 
         {/* Google */}
         <Button type="button" variant="outline"
-          onClick={() => signIn("google", { callbackUrl: "/select-role" })}
+          onClick={() => signIn("google", { callbackUrl: "/auth-redirect" })}
           className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 hover:border-white/20 h-11 transition-all gap-2.5">
           <GoogleIcon />
           Continue with Google

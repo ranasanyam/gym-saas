@@ -14,7 +14,7 @@ import {
   CalendarCheck, CreditCard, ClipboardList, UtensilsCrossed,
   Bell, BarChart3, Settings, LogOut, Menu, Search,
   Loader2, Tag, Gift, ShoppingBag, Lock, Zap, Receipt,
-  IndianRupee
+  IndianRupee, CircleUserRound
 } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 
@@ -41,8 +41,8 @@ const navItems: NavItem[] = [
   // { label: "Refer & Earn",  href: "/owner/referral",     icon: Gift,            featureKey: "hasReferAndEarn" },
   { label: "Notifications", href: "/owner/notifications", icon: Bell },
   { label: "Reports",       href: "/owner/reports",      icon: BarChart3,       featureKey: "hasFullReports" },
-  { label: "Billing",       href: "/owner/billing",      icon: Zap },
-  { label: "Settings",      href: "/owner/settings",     icon: Settings },
+  { label: "Subscriptions",  href: "/owner/subscriptions",      icon: Zap },
+  { label: "Profile",      href: "/owner/profile",     icon: CircleUserRound },
 ]
 
 function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
@@ -86,12 +86,12 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
-    <aside className={`${mobile ? "flex" : "hidden lg:flex"} flex-col w-54 min-h-screen bg-[hsl(220_25%_7%)] border-r border-white/5`}>
+    <aside className={`${mobile ? "flex" : "hidden lg:flex"} flex-col w-54 h-screen sticky top-0 shrink-0 bg-[hsl(220_25%_7%)] border-r border-white/5`}>
       <div className="flex items-center gap-2.5 px-5 h-16 border-b border-white/5 shrink-0">
         <div className="p-2 bg-gradient-primary rounded-xl">
           <Dumbbell className="w-4 h-4 text-white" />
         </div>
-        <span className="text-lg font-display font-bold text-white">FitHub</span>
+        <span className="text-lg font-display font-bold text-white">GymStack</span>
       </div>
 
       <div className="flex-1 py-5 px-3 overflow-y-auto">
@@ -147,7 +147,7 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <div className="min-h-screen bg-[hsl(220_25%_6%)] flex">
+    <div className="h-screen bg-[hsl(220_25%_6%)] flex overflow-hidden">
       <Sidebar />
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
@@ -155,7 +155,7 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
           <div className="relative z-10"><Sidebar mobile /></div>
         </div>
       )}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <SubscriptionBanner />
         <header className="h-16 border-b border-white/5 bg-[hsl(220_25%_7%)] flex items-center justify-between px-6 gap-4 sticky top-0 z-40">
           <div className="flex items-center gap-4">

@@ -424,9 +424,9 @@ function ReferralContent() {
   const share = () => {
     const code = data?.referralCode
     if (!code) return
-    const text = `Join FitHub — the gym management platform I use! Use my code ${code} when signing up and we both earn wallet credits. ${process.env.NEXT_PUBLIC_APP_URL ?? ""}/signup?ref=${code}`
+    const text = `Join GymStack — the gym management platform I use! Use my code ${code} when signing up and we both earn wallet credits. ${process.env.NEXT_PUBLIC_APP_URL ?? ""}/signup?ref=${code}`
     if (navigator.share) {
-      navigator.share({ title: "Join FitHub", text }).catch(() => { })
+      navigator.share({ title: "Join GymStack", text }).catch(() => { })
     } else {
       navigator.clipboard.writeText(text)
       toast({ variant: "success", title: "Share link copied!" })
@@ -515,9 +515,9 @@ function ReferralContent() {
         <div className="bg-yellow-500/8 border border-yellow-500/20 rounded-2xl p-4 space-y-2">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-4 h-4 text-yellow-400" />
-            <p className="text-yellow-300 text-sm font-semibold">Already on FitHub</p>
+            <p className="text-yellow-300 text-sm font-semibold">Already on GymStack</p>
           </div>
-          <p className="text-yellow-400/70 text-xs">These referred people already have an active gym on FitHub — reward pending their first subscription:</p>
+          <p className="text-yellow-400/70 text-xs">These referred people already have an active gym on GymStack — reward pending their first subscription:</p>
           {data!.alreadyUsingNotices.map((n, i) => (
             <div key={i} className="flex items-center gap-2 text-xs text-yellow-300/80">
               <ChevronRight className="w-3 h-3 shrink-0" /> {n.name} · {n.email}
@@ -620,7 +620,7 @@ function ReferralContent() {
             {[
               { step: "1", title: "Share your code", desc: "Send your unique referral code to other gym owners." },
               { step: "2", title: "They sign up", desc: "When they register using your code, the referral is tracked." },
-              { step: "3", title: "They subscribe", desc: "When they purchase any paid FitHub plan, you earn ₹500 wallet credits." },
+              { step: "3", title: "They subscribe", desc: "When they purchase any paid GymStack plan, you earn ₹500 wallet credits." },
               { step: "4", title: "Use credits", desc: "Credits are applied as a discount on your next plan renewal (20% cap per transaction, valid 90 days)." },
             ].map(s => (
               <div key={s.step} className="flex gap-4">
