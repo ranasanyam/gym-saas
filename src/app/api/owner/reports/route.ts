@@ -190,10 +190,14 @@ export async function GET(req: NextRequest) {
       { status: 403 }
     )
   }
-  const check = checkFeature(sub.limits.hasFullReports, "Full reports & analytics")
+  // Basic plan and above can access reports; Free plan is blocked.
+  const check = checkFeature(sub.limits.hasFullReports, "Reports & analytics")
   if (!check.allowed) {
     return NextResponse.json({ error: check.reason, upgradeRequired: true }, { status: 403 })
   }
+  // isPremium = true for Pro/Enterprise (hasFullAnalytics).
+  // Basic users get all data but the UI uses this flag to hide export buttons.
+  const isPremium = sub.limits.hasFullAnalytics
 
   // ── Params ───────────────────────────────────────────────────────────────
   const { searchParams } = new URL(req.url)
@@ -376,6 +380,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     range,
+    isPremium,
     dateRange: { start: start.toISOString(), end: end.toISOString() },
 
     revenueSeries: bucketData.map(b => ({
@@ -385,10 +390,10 @@ export async function GET(req: NextRequest) {
       lockerRev:     b.lockerRev,
       total:         b.membershipRev + b.supplementRev + b.lockerRev,
     })),
-    expenseSeries:      bucketData.map(b => ({ label: b.label, amount:    b.expense      })),
-    attendanceSeries:   bucketData.map(b => ({ label: b.label, count:     b.attendance   })),
-    memberGrowthSeries: bucketData.map(b => ({ label: b.label, count:     b.newMembers   })),
-    lockerRevenueSeries:bucketData.map(b => ({ label: b.label, amount:    b.lockerRev    })),
+    expenseSeries:       bucketData.map(b => ({ label: b.label, amount: b.expense    })),
+    attendanceSeries:    bucketData.map(b => ({ label: b.label, count:  b.attendance })),
+    memberGrowthSeries:  bucketData.map(b => ({ label: b.label, count:  b.newMembers })),
+    lockerRevenueSeries: bucketData.map(b => ({ label: b.label, amount: b.lockerRev  })),
 
     topGyms: topGymsData,
 

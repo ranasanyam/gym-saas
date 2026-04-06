@@ -44,6 +44,7 @@ interface SubscriptionContextValue {
     hasFullReports: boolean
     hasAttendance: boolean
     hasDashboardAnalytics: boolean
+    hasFullAnalytics: boolean
 
     // Usage percent helpers (for progress bars, 0–100)
     gymUsagePct: number | null
@@ -138,6 +139,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
             hasFullReports: limits?.hasFullReports ?? false,
             hasAttendance: limits?.hasAttendance ?? false,
             hasDashboardAnalytics: limits?.hasDashboardAnalytics ?? false,
+            hasFullAnalytics: limits?.hasFullAnalytics ?? false,
 
             gymUsagePct,
             memberUsagePct,

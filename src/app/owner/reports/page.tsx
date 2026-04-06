@@ -611,26 +611,26 @@
 // src/app/owner/reports/page.tsx
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useSubscription }   from "@/contexts/SubscriptionContext"
 import { PlanGate }          from "@/components/owner/PlanGate"
 import { PageHeader }        from "@/components/owner/PageHeader"
 import {
   TrendingUp, TrendingDown, Users, CreditCard, CalendarCheck,
   ShoppingBag, Loader2, ChevronDown, UserPlus, Lock,
+  FileSpreadsheet, FileText, Zap, Calendar,
 } from "lucide-react"
+import type { DashRange } from "@/lib/dashboard-queries"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const RANGES = [
-  { value: "today",         label: "Today"         },
-  { value: "this_week",     label: "This Week"      },
-  { value: "last_week",     label: "Last Week"      },
-  { value: "this_month",    label: "This Month"     },
-  { value: "last_month",    label: "Last Month"     },
-  { value: "last_quarter",  label: "Last Quarter"   },
-  { value: "last_6_months", label: "Last 6 Months"  },
-  { value: "last_year",     label: "Last Year"      },
-  { value: "all",           label: "All Time"       },
+// Values must match DashRange in src/lib/dashboard-queries.ts
+const RANGE_OPTIONS: { value: DashRange; label: string }[] = [
+  { value: "today",          label: "Today"                    },
+  { value: "last_7_days",    label: "Last 7 Days"              },
+  { value: "last_30_days",   label: "Last 30 Days"             },
+  { value: "last_90_days",   label: "This Quarter (90 days)"   },
+  { value: "financial_year", label: "Financial Year (Apr–Mar)" },
+  { value: "custom",         label: "Custom Range"             },
 ]
 
 // Revenue segment colours
@@ -640,6 +640,7 @@ const C = {
   locker:     "hsl(217 91% 60%)",   // blue
   expense:    "hsl(0 84% 60%)",     // red
   members:    "hsl(262 80% 65%)",   // purple
+  attendance: "hsl(280 80% 65%)",   // violet
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -650,6 +651,7 @@ interface RevenueBucket {
 interface ReportData {
   revenueSeries:       RevenueBucket[]
   expenseSeries:       { label: string; amount: number }[]
+  attendanceSeries:    { label: string; count: number }[]
   memberGrowthSeries:  { label: string; count: number }[]
   lockerRevenueSeries: { label: string; amount: number }[]
   topGyms: {
@@ -662,7 +664,8 @@ interface ReportData {
     membershipRevenue: number; supplementRevenue: number; lockerRevenue: number
     totalRevenue: number; totalExpenses: number; netRevenue: number; totalAttendance: number
   }
-  range:     string
+  range:      DashRange
+  isPremium:  boolean
   dateRange?: { start: string; end: string }
 }
 
@@ -749,217 +752,521 @@ function LineChart({
   )
 }
 
-// ── Reports content ───────────────────────────────────────────────────────────
-function ReportsContent() {
-  const [data,    setData]    = useState<ReportData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [range,   setRange]   = useState("last_6_months")
-  const [gymId,   setGymId]   = useState("")
-  const [gyms,    setGyms]    = useState<{ id: string; name: string }[]>([])
-
-  const load = useCallback(() => {
-    setLoading(true)
-    const params = new URLSearchParams({ range })
-    if (gymId) params.set("gymId", gymId)
-    fetch(`/api/owner/reports?${params}`)
-      .then(r => r.json())
-      .then(d => { if (!d.upgradeRequired) setData(d) })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [range, gymId])
+// ── Range picker dropdown ─────────────────────────────────────────────────────
+function RangePicker({
+  range, customS, customE, onApply,
+}: {
+  range:   DashRange
+  customS: string
+  customE: string
+  onApply: (r: DashRange, cs?: string, ce?: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [cs,   setCs]   = useState(customS)
+  const [ce,   setCe]   = useState(customE)
+  const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch("/api/owner/gyms").then(r => r.json())
-      .then(g => { if (Array.isArray(g)) setGyms(g) }).catch(() => {})
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", h)
+    return () => document.removeEventListener("mousedown", h)
   }, [])
 
-  useEffect(() => { load() }, [load])
-
-  const rangeLabel = RANGES.find(r => r.value === range)?.label ?? "Last 6 Months"
-  const s = data?.summary
-
-  const hasLockerRevenue = (s?.lockerRevenue ?? 0) > 0 ||
-    (data?.lockerRevenueSeries ?? []).some(b => b.amount > 0)
+  const label = RANGE_OPTIONS.find(o => o.value === range)?.label ?? "Select range"
 
   return (
-    <div className="space-y-6">
-      {/* ── Filters ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative">
-          <select value={range} onChange={e => setRange(e.target.value)}
-            className="appearance-none bg-[hsl(220_25%_11%)] border border-white/10 text-white rounded-xl pl-4 pr-9 h-10 text-sm focus:outline-none cursor-pointer">
-            {RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
-        </div>
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 bg-[hsl(220_25%_11%)] border border-white/10 text-white/80 rounded-xl px-3.5 h-10 text-sm hover:border-primary/40 transition-colors focus:outline-none"
+      >
+        <Calendar className="w-3.5 h-3.5 text-white/40 shrink-0" />
+        <span className="truncate max-w-44">{label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-white/30 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
 
-        {gyms.length > 1 && (
-          <div className="relative">
-            <select value={gymId} onChange={e => setGymId(e.target.value)}
-              className="appearance-none bg-[hsl(220_25%_11%)] border border-white/10 text-white/70 rounded-xl pl-4 pr-9 h-10 text-sm focus:outline-none cursor-pointer">
-              <option value="">All Gyms</option>
-              {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-64 bg-[hsl(220_25%_10%)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="p-1.5">
+            {RANGE_OPTIONS.filter(o => o.value !== "custom").map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => { onApply(opt.value); setOpen(false) }}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-colors ${
+                  range === opt.value
+                    ? "bg-primary/12 text-primary font-semibold"
+                    : "text-white/60 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-        )}
-
-        {loading && <Loader2 className="w-4 h-4 text-primary animate-spin" />}
-
-        {data?.dateRange && (
-          <p className="text-white/25 text-xs ml-auto">
-            {new Date(data.dateRange.start).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-            {" — "}
-            {new Date(data.dateRange.end).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-          </p>
-        )}
-      </div>
-
-      {/* ── Summary cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {[
-          { icon: Users,        label: "Active Members",  value: s?.totalMembers     ?? 0, f: (n: number) => n.toString(), color: "text-blue-400",   bg: "bg-blue-500/10"   },
-          { icon: UserPlus,     label: "New Members",     value: s?.newMembers       ?? 0, f: (n: number) => n.toString(), color: "text-emerald-400",bg: "bg-emerald-500/10"},
-          { icon: CreditCard,   label: "Membership Rev",  value: s?.membershipRevenue ?? 0, f: fmt,                        color: "text-primary",    bg: "bg-primary/10"    },
-          { icon: ShoppingBag,  label: "Supplement Rev",  value: s?.supplementRevenue ?? 0, f: fmt,                        color: "text-green-400",  bg: "bg-green-500/10"  },
-          { icon: Lock,         label: "Locker Revenue",  value: s?.lockerRevenue    ?? 0, f: fmt,                         color: "text-blue-400",   bg: "bg-blue-500/10"   },
-          { icon: TrendingUp,   label: "Total Revenue",   value: s?.totalRevenue     ?? 0, f: fmt,                         color: "text-white",      bg: "bg-white/8"       },
-          { icon: TrendingDown, label: "Total Expenses",  value: s?.totalExpenses    ?? 0, f: fmt,                         color: "text-red-400",    bg: "bg-red-500/10"    },
-          { icon: TrendingUp,   label: "Net Revenue",     value: s?.netRevenue       ?? 0, f: fmt,
-            color: (s?.netRevenue ?? 0) >= 0 ? "text-emerald-400" : "text-red-400",
-            bg:    (s?.netRevenue ?? 0) >= 0 ? "bg-emerald-500/10" : "bg-red-500/10",
-          },
-          { icon: CalendarCheck,label: "Attendance",      value: s?.totalAttendance  ?? 0, f: (n: number) => n.toString(), color: "text-purple-400", bg: "bg-purple-500/10" },
-        ].map(({ icon: Icon, label, value, f, color, bg }) => (
-          <div key={label} className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-4">
-            <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center mb-2`}>
-              <Icon className={`w-4 h-4 ${color}`} />
-            </div>
-            <p className={`text-xl font-bold ${color}`}>{loading ? "—" : f(value)}</p>
-            <p className="text-white/35 text-xs mt-0.5">{label}</p>
-            <p className="text-white/20 text-[10px] mt-0.5">{rangeLabel}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Charts row 1: Revenue breakdown + Member growth ───────────────── */}
-      <div className="grid lg:grid-cols-2 gap-5">
-        {/* Revenue stacked bar */}
-        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h3 className="text-white font-semibold text-sm">Revenue Breakdown</h3>
-              <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
-            </div>
-            <div className="flex flex-col items-end gap-1.5">
-              {[
-                [C.membership, "Membership"],
-                [C.supplement, "Supplements"],
-                [C.locker,     "Lockers"],
-              ].map(([color, label]) => (
-                <div key={String(label)} className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-sm" style={{ background: String(color) }} />
-                  <span className="text-white/30 text-[10px]">{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          {loading
-            ? <div className="h-28 bg-white/3 rounded-xl animate-pulse" />
-            : (data?.revenueSeries?.length ?? 0) === 0
-              ? <div className="h-28 flex items-center justify-center text-white/20 text-sm">No data for this period</div>
-              : <StackedBar data={data!.revenueSeries} />
-          }
-        </div>
-
-        {/* Member growth line chart */}
-        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
-          <div className="mb-4">
-            <h3 className="text-white font-semibold text-sm">New Members</h3>
-            <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
-          </div>
-          {loading
-            ? <div className="h-20 bg-white/3 rounded-xl animate-pulse" />
-            : <LineChart data={data?.memberGrowthSeries ?? []} valueKey="count" color={C.members} />
-          }
-        </div>
-      </div>
-
-      {/* ── Locker Revenue graph (only shown when there is locker revenue) ─── */}
-      {(hasLockerRevenue || loading) && (
-        <div className="bg-[hsl(220_25%_9%)] border border-blue-500/15 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-blue-500/12 rounded-lg flex items-center justify-center">
-                <Lock className="w-4 h-4 text-blue-400" />
+          <div className="border-t border-white/6 p-3">
+            <p className={`text-xs font-semibold mb-2.5 ${range === "custom" ? "text-primary" : "text-white/40"}`}>
+              Custom Range
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="date" value={cs} onChange={e => setCs(e.target.value)} max={ce || undefined}
+                  className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-primary/40"
+                  style={{ colorScheme: "dark" }}
+                />
+                <span className="text-white/20 text-xs shrink-0">→</span>
+                <input
+                  type="date" value={ce} onChange={e => setCe(e.target.value)} min={cs || undefined}
+                  className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-primary/40"
+                  style={{ colorScheme: "dark" }}
+                />
               </div>
-              <div>
-                <h3 className="text-white font-semibold text-sm">Locker Revenue</h3>
-                <p className="text-white/35 text-xs mt-0.5">
-                  Fee collected from locker assignments · {rangeLabel}
-                </p>
-              </div>
+              <button
+                disabled={!cs || !ce}
+                onClick={() => { onApply("custom", cs, ce); setOpen(false) }}
+                className="w-full py-2 rounded-xl text-xs font-semibold bg-primary text-white disabled:opacity-35 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+              >
+                Apply Custom Range
+              </button>
             </div>
-            {s?.lockerRevenue != null && s.lockerRevenue > 0 && (
-              <p className="text-blue-400 font-bold text-lg">{fmt(s.lockerRevenue)}</p>
-            )}
-          </div>
-          {loading
-            ? <div className="h-20 bg-white/3 rounded-xl animate-pulse" />
-            : <LineChart
-                data={data?.lockerRevenueSeries ?? []}
-                valueKey="amount"
-                color={C.locker}
-                emptyMsg="No locker fees collected in this period"
-              />
-          }
-        </div>
-      )}
-
-      {/* ── Per-gym table ─────────────────────────────────────────────────── */}
-      {(data?.topGyms?.length ?? 0) > 0 && (
-        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/5">
-            <h3 className="text-white font-semibold text-sm">Per-Gym Breakdown</h3>
-            <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/5">
-                  {[
-                    "Gym", "Active Members", "New Members", "Attendance",
-                    "Membership Rev", "Supplement Rev", "Locker Rev", "Total", "Expenses", "Net",
-                  ].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-white/30 text-xs font-medium whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/4">
-                {data!.topGyms.map((g, i) => (
-                  <tr key={i} className="hover:bg-white/2 transition-colors">
-                    <td className="px-5 py-3.5 text-white font-medium whitespace-nowrap">{g.name}</td>
-                    <td className="px-5 py-3.5 text-white/60">{g.activeMembers}</td>
-                    <td className="px-5 py-3.5 text-emerald-400">+{g.newMembers}</td>
-                    <td className="px-5 py-3.5 text-white/60">{g.attendance}</td>
-                    <td className="px-5 py-3.5 text-primary">{fmt(g.membershipRev)}</td>
-                    <td className="px-5 py-3.5 text-green-400">{fmt(g.supplementRev)}</td>
-                    <td className="px-5 py-3.5 text-blue-400">{fmt(g.lockerRev ?? 0)}</td>
-                    <td className="px-5 py-3.5 text-white font-semibold">{fmt(g.totalRevenue)}</td>
-                    <td className="px-5 py-3.5 text-red-400">{fmt(g.expenses)}</td>
-                    <td className={`px-5 py-3.5 font-semibold ${g.netRevenue >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {fmt(g.netRevenue)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+// ── Excel export (xlsx is already a project dependency) ───────────────────────
+async function exportExcel(data: ReportData, rangeLabel: string) {
+  const XLSX = await import("xlsx")
+  const wb   = XLSX.utils.book_new()
+
+  // Sheet 1: Summary
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ["GymStack Report", rangeLabel],
+    [],
+    ["Metric",               "Value"],
+    ["Active Members",        data.summary.totalMembers],
+    ["New Members",           data.summary.newMembers],
+    ["Membership Revenue",    data.summary.membershipRevenue],
+    ["Supplement Revenue",    data.summary.supplementRevenue],
+    ["Locker Revenue",        data.summary.lockerRevenue],
+    ["Total Revenue",         data.summary.totalRevenue],
+    ["Total Expenses",        data.summary.totalExpenses],
+    ["Net Revenue",           data.summary.netRevenue],
+    ["Total Attendance",      data.summary.totalAttendance],
+  ]), "Summary")
+
+  // Sheet 2: Revenue breakdown
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ["Period", "Membership (₹)", "Supplements (₹)", "Lockers (₹)", "Total (₹)"],
+    ...data.revenueSeries.map(r => [r.label, r.membershipRev, r.supplementRev, r.lockerRev, r.total]),
+  ]), "Revenue")
+
+  // Sheet 3: Expenses
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ["Period", "Expenses (₹)"],
+    ...data.expenseSeries.map(e => [e.label, e.amount]),
+  ]), "Expenses")
+
+  // Sheet 4: Attendance
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ["Period", "Check-ins"],
+    ...(data.attendanceSeries ?? []).map(a => [a.label, a.count]),
+  ]), "Attendance")
+
+  // Sheet 5: New Members
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ["Period", "New Members"],
+    ...data.memberGrowthSeries.map(m => [m.label, m.count]),
+  ]), "New Members")
+
+  // Sheet 6: Per-Gym (if applicable)
+  if (data.topGyms.length > 1) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+      ["Gym", "Active Members", "New Members", "Attendance",
+       "Membership Rev (₹)", "Supplement Rev (₹)", "Locker Rev (₹)", "Total Revenue (₹)", "Expenses (₹)", "Net Revenue (₹)"],
+      ...data.topGyms.map(g => [
+        g.name, g.activeMembers, g.newMembers, g.attendance,
+        g.membershipRev, g.supplementRev, g.lockerRev ?? 0,
+        g.totalRevenue, g.expenses, g.netRevenue,
+      ]),
+    ]), "Per-Gym")
+  }
+
+  XLSX.writeFile(wb, `gymstack-report-${rangeLabel.replace(/\s+/g, "-").toLowerCase()}.xlsx`)
+}
+
+// ── Reports content ───────────────────────────────────────────────────────────
+function ReportsContent() {
+  const { hasFullAnalytics } = useSubscription()
+
+  const [data,      setData]      = useState<ReportData | null>(null)
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [range,     setRange]     = useState<DashRange>("last_30_days")
+  const [customS,   setCustomS]   = useState("")
+  const [customE,   setCustomE]   = useState("")
+  const [gymId,     setGymId]     = useState("")
+  const [gyms,      setGyms]      = useState<{ id: string; name: string }[]>([])
+
+  // Fetch gyms once on mount
+  useEffect(() => {
+    fetch("/api/owner/gyms")
+      .then(r => r.ok ? r.json() : [])
+      .then(g => { if (Array.isArray(g)) setGyms(g) })
+      .catch(() => {})
+  }, [])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = new URLSearchParams({ range })
+      if (gymId) params.set("gymId", gymId)
+      if (range === "custom" && customS && customE) {
+        params.set("customStart", customS)
+        params.set("customEnd",   customE)
+      }
+      const res = await fetch(`/api/owner/reports?${params}`)
+      const d   = await res.json()
+      if (!res.ok) {
+        setError(d.error ?? "Failed to load report data.")
+        return
+      }
+      setData(d)
+    } catch {
+      setError("Network error. Please check your connection and try again.")
+    } finally {
+      setLoading(false)
+    }
+  }, [range, gymId, customS, customE])
+
+  useEffect(() => { load() }, [load])
+
+  function handleApply(r: DashRange, cs?: string, ce?: string) {
+    setRange(r)
+    setCustomS(r === "custom" && cs ? cs : "")
+    setCustomE(r === "custom" && ce ? ce : "")
+  }
+
+  const rangeLabel  = RANGE_OPTIONS.find(o => o.value === range)?.label ?? "Last 30 Days"
+  const s           = data?.summary
+  const isPremium   = data?.isPremium ?? hasFullAnalytics
+  const hasLocker   = (s?.lockerRevenue ?? 0) > 0 ||
+    (data?.lockerRevenueSeries ?? []).some(b => b.amount > 0)
+
+  const dateHint = data?.dateRange
+    ? `${new Date(data.dateRange.start).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${new Date(data.dateRange.end).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
+    : ""
+
+  return (
+    <>
+      {/* Print styles — only active when window.print() is called */}
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: #fff !important; color: #000 !important; }
+          .print-target { background: #fff !important; }
+        }
+      `}</style>
+
+      <div className="space-y-6 print-target">
+        {/* ── Controls ───────────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-3 no-print">
+          <RangePicker
+            range={range} customS={customS} customE={customE}
+            onApply={handleApply}
+          />
+
+          {/* Gym selector — Enterprise/multi-gym */}
+          {gyms.length > 1 && (
+            <div className="relative">
+              <select
+                value={gymId}
+                onChange={e => setGymId(e.target.value)}
+                className="appearance-none bg-[hsl(220_25%_11%)] border border-white/10 text-white/80 rounded-xl pl-4 pr-9 h-10 text-sm focus:outline-none focus:border-primary cursor-pointer"
+              >
+                <option value="">All Gyms</option>
+                {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+            </div>
+          )}
+
+          {loading && <Loader2 className="w-4 h-4 text-primary animate-spin" />}
+          {dateHint && <p className="text-white/25 text-xs">{dateHint}</p>}
+
+          {/* Export buttons — Pro/Enterprise only */}
+          {isPremium && (
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                disabled={!data || loading || exporting}
+                onClick={async () => {
+                  if (!data) return
+                  setExporting(true)
+                  try { await exportExcel(data, rangeLabel) }
+                  catch (e) { console.error("Excel export failed", e) }
+                  finally { setExporting(false) }
+                }}
+                className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-[hsl(220_25%_11%)] border border-white/10 text-white/70 text-xs font-medium hover:border-green-500/40 hover:text-green-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {exporting
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                Excel
+              </button>
+              <button
+                disabled={!data || loading}
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-[hsl(220_25%_11%)] border border-white/10 text-white/70 text-xs font-medium hover:border-red-500/40 hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                PDF
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Print-only header */}
+        <div className="hidden print:block mb-4">
+          <h1 className="text-2xl font-bold">GymStack Report — {rangeLabel}</h1>
+          {dateHint && <p className="text-sm text-gray-500 mt-1">{dateHint}</p>}
+        </div>
+
+        {/* ── Error state ─────────────────────────────────────────────────── */}
+        {error && (
+          <div className="bg-red-500/8 border border-red-500/20 rounded-2xl px-5 py-4 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* ── Summary cards ───────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[
+            { icon: Users,        label: "Active Members",  value: s?.totalMembers      ?? 0, f: (n: number) => n.toLocaleString("en-IN"), color: "text-blue-400",   bg: "bg-blue-500/10"   },
+            { icon: UserPlus,     label: "New Members",     value: s?.newMembers        ?? 0, f: (n: number) => n.toLocaleString("en-IN"), color: "text-emerald-400",bg: "bg-emerald-500/10"},
+            { icon: CreditCard,   label: "Membership Rev",  value: s?.membershipRevenue ?? 0, f: fmt,                                      color: "text-primary",    bg: "bg-primary/10"    },
+            { icon: ShoppingBag,  label: "Supplement Rev",  value: s?.supplementRevenue ?? 0, f: fmt,                                      color: "text-green-400",  bg: "bg-green-500/10"  },
+            { icon: Lock,         label: "Locker Revenue",  value: s?.lockerRevenue     ?? 0, f: fmt,                                      color: "text-blue-400",   bg: "bg-blue-500/10"   },
+            { icon: TrendingUp,   label: "Total Revenue",   value: s?.totalRevenue      ?? 0, f: fmt,                                      color: "text-white",      bg: "bg-white/8"       },
+            { icon: TrendingDown, label: "Total Expenses",  value: s?.totalExpenses     ?? 0, f: fmt,                                      color: "text-red-400",    bg: "bg-red-500/10"    },
+            {
+              icon: TrendingUp,   label: "Net Revenue",     value: s?.netRevenue        ?? 0, f: fmt,
+              color: (s?.netRevenue ?? 0) >= 0 ? "text-emerald-400" : "text-red-400",
+              bg:    (s?.netRevenue ?? 0) >= 0 ? "bg-emerald-500/10" : "bg-red-500/10",
+            },
+            { icon: CalendarCheck,label: "Attendance",      value: s?.totalAttendance   ?? 0, f: (n: number) => n.toLocaleString("en-IN"), color: "text-purple-400", bg: "bg-purple-500/10" },
+          ].map(({ icon: Icon, label, value, f, color, bg }) => (
+            <div key={label} className={`bg-[hsl(220_25%_9%)] border rounded-2xl p-4 ${
+              isPremium ? "border-white/10 hover:border-white/20 transition-colors" : "border-white/6"
+            }`}>
+              <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center mb-2`}>
+                <Icon className={`w-4 h-4 ${color}`} />
+              </div>
+              <p className={`text-xl font-bold ${color}`}>{loading ? "—" : f(value)}</p>
+              <p className="text-white/35 text-xs mt-0.5">{label}</p>
+              <p className="text-white/20 text-[10px] mt-0.5">{rangeLabel}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Charts: Revenue breakdown + Member growth ────────────────────── */}
+        <div className="grid lg:grid-cols-2 gap-5">
+
+          {/* Revenue stacked bar */}
+          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-white font-semibold text-sm">Revenue Breakdown</h3>
+                <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
+              </div>
+              <div className="flex flex-col items-end gap-1.5">
+                {([[C.membership, "Membership"], [C.supplement, "Supplements"], [C.locker, "Lockers"]] as const).map(
+                  ([color, label]) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-sm" style={{ background: color }} />
+                      <span className="text-white/30 text-[10px]">{label}</span>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+            {loading
+              ? <div className="h-28 bg-white/3 rounded-xl animate-pulse" />
+              : (data?.revenueSeries?.length ?? 0) === 0
+                ? <div className="h-28 flex items-center justify-center text-white/20 text-sm">No data for this period</div>
+                : <StackedBar data={data!.revenueSeries} />
+            }
+            {/* Revenue footer totals */}
+            {data && !loading && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/6 text-xs">
+                <span className="text-white/40">Membership: <span className="font-semibold" style={{ color: C.membership }}>{fmt(s?.membershipRevenue ?? 0)}</span></span>
+                <span className="text-white/40">Supplements: <span className="font-semibold" style={{ color: C.supplement }}>{fmt(s?.supplementRevenue ?? 0)}</span></span>
+                {hasLocker && <span className="text-white/40">Lockers: <span className="font-semibold" style={{ color: C.locker }}>{fmt(s?.lockerRevenue ?? 0)}</span></span>}
+                <span className="text-white/40 ml-auto">Total: <span className="font-semibold text-white">{fmt(s?.totalRevenue ?? 0)}</span></span>
+              </div>
+            )}
+          </div>
+
+          {/* Member growth */}
+          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
+            <div className="mb-4">
+              <h3 className="text-white font-semibold text-sm">New Members</h3>
+              <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
+            </div>
+            {loading
+              ? <div className="h-20 bg-white/3 rounded-xl animate-pulse" />
+              : <LineChart data={data?.memberGrowthSeries ?? []} valueKey="count" color={C.members} />
+            }
+            {data && !loading && (
+              <div className="flex mt-3 pt-3 border-t border-white/6 text-xs">
+                <span className="text-white/40 ml-auto">
+                  Total: <span className="font-semibold" style={{ color: C.members }}>
+                    {(data.memberGrowthSeries ?? []).reduce((sum, d) => sum + d.count, 0)} new members
+                  </span>
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Attendance chart ─────────────────────────────────────────────── */}
+        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="text-white font-semibold text-sm">Attendance</h3>
+              <p className="text-white/35 text-xs mt-0.5">Check-ins · {rangeLabel}</p>
+            </div>
+            {data && !loading && (
+              <p className="text-purple-400 font-bold text-lg">
+                {(data.attendanceSeries ?? []).reduce((sum, d) => sum + d.count, 0).toLocaleString("en-IN")}
+              </p>
+            )}
+          </div>
+          {loading
+            ? <div className="h-20 bg-white/3 rounded-xl animate-pulse" />
+            : <LineChart data={data?.attendanceSeries ?? []} valueKey="count" color={C.attendance} emptyMsg="No check-ins in this period" />
+          }
+        </div>
+
+        {/* ── Locker revenue (only when data exists) ──────────────────────── */}
+        {(hasLocker || loading) && (
+          <div className="bg-[hsl(220_25%_9%)] border border-blue-500/15 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-blue-500/12 rounded-lg flex items-center justify-center">
+                  <Lock className="w-4 h-4 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold text-sm">Locker Revenue</h3>
+                  <p className="text-white/35 text-xs mt-0.5">Fee collected · {rangeLabel}</p>
+                </div>
+              </div>
+              {(s?.lockerRevenue ?? 0) > 0 && (
+                <p className="text-blue-400 font-bold text-lg">{fmt(s!.lockerRevenue)}</p>
+              )}
+            </div>
+            {loading
+              ? <div className="h-20 bg-white/3 rounded-xl animate-pulse" />
+              : <LineChart
+                  data={data?.lockerRevenueSeries ?? []}
+                  valueKey="amount"
+                  color={C.locker}
+                  emptyMsg="No locker fees in this period"
+                />
+            }
+          </div>
+        )}
+
+        {/* ── Premium: expense trend (Pro/Enterprise) ─────────────────────── */}
+        {isPremium && (
+          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-white font-semibold text-sm">Expense Trend</h3>
+                <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
+              </div>
+              {data && !loading && (
+                <p className="text-red-400 font-bold text-lg">{fmt(s?.totalExpenses ?? 0)}</p>
+              )}
+            </div>
+            {loading
+              ? <div className="h-20 bg-white/3 rounded-xl animate-pulse" />
+              : <LineChart data={data?.expenseSeries ?? []} valueKey="amount" color={C.expense} emptyMsg="No expenses in this period" />
+            }
+          </div>
+        )}
+
+        {/* ── Per-gym breakdown table ──────────────────────────────────────── */}
+        {(data?.topGyms?.length ?? 0) > 0 && (
+          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-semibold text-sm">Per-Gym Breakdown</h3>
+                <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    {[
+                      "Gym", "Active", "New", "Attendance",
+                      "Mem. Rev", "Supp. Rev", "Locker Rev", "Total", "Expenses", "Net",
+                    ].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-white/30 text-xs font-medium whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/4">
+                  {data!.topGyms.map((g, i) => (
+                    <tr key={i} className="hover:bg-white/2 transition-colors">
+                      <td className="px-5 py-3.5 text-white font-medium whitespace-nowrap">{g.name}</td>
+                      <td className="px-5 py-3.5 text-white/60">{g.activeMembers}</td>
+                      <td className="px-5 py-3.5 text-emerald-400">+{g.newMembers}</td>
+                      <td className="px-5 py-3.5 text-white/60">{g.attendance}</td>
+                      <td className="px-5 py-3.5 text-primary">{fmt(g.membershipRev)}</td>
+                      <td className="px-5 py-3.5 text-green-400">{fmt(g.supplementRev)}</td>
+                      <td className="px-5 py-3.5 text-blue-400">{fmt(g.lockerRev ?? 0)}</td>
+                      <td className="px-5 py-3.5 text-white font-semibold">{fmt(g.totalRevenue)}</td>
+                      <td className="px-5 py-3.5 text-red-400">{fmt(g.expenses)}</td>
+                      <td className={`px-5 py-3.5 font-semibold ${g.netRevenue >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {fmt(g.netRevenue)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Upgrade prompt for Basic plan ────────────────────────────────── */}
+        {!isPremium && data && (
+          <div className="bg-linear-to-r from-primary/8 to-orange-500/5 border border-primary/15 rounded-2xl px-5 py-4 flex items-center gap-4 no-print">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <Zap className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold text-sm">Unlock Premium Reports</p>
+              <p className="text-white/45 text-xs mt-0.5">
+                Upgrade to Pro or Enterprise to get Excel/PDF exports, expense trend charts, and detailed multi-gym analytics.
+              </p>
+            </div>
+            <a
+              href="/owner/subscriptions"
+              className="shrink-0 inline-flex items-center gap-1.5 bg-primary text-white text-xs font-semibold px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Upgrade
+            </a>
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 

@@ -158,6 +158,7 @@ import Link              from "next/link"
 import { redirect }      from "next/navigation"
 import { auth }          from "@/auth"
 import { prisma }        from "@/lib/prisma"
+import { getOwnerSubscription } from "@/lib/subscription"
 import {
   UserPlus, CalendarCheck,
   ShoppingBag, BarChart3, Building2, ArrowRight, IndianRupee,
@@ -169,7 +170,7 @@ import { RecentMembers }          from "./_components/RecentMembers"
 import { TodayCheckins }          from "./_components/TodayCheckins"
 import { SupplementSales }        from "./_components/SupplementSales"
 import { RecentExpenses }         from "./_components/RecentExpenses"
-import { LowStockAlerts } from "./_components/Lowstockalerts"
+import { LowStockAlerts }         from "./_components/Lowstockalerts"
 import {
   StatsSkeleton, MembersSkeleton, CheckinsSkeleton,
   ExpensesSkeleton, SuppSkeleton, LowStockSkeleton,
@@ -177,12 +178,12 @@ import {
 
 // ── Quick Actions (static, no data) ──────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { label: "Add Member",  href: "/owner/members/new", icon: UserPlus,      color: "text-blue-400",   bg: "bg-blue-500/10"   },
-  { label: "Add Trainer", href: "/owner/trainer/new", icon: UserPlus,      color: "text-yellow-400", bg: "bg-yellow-500/10" },
-  { label: "Attendance",  href: "/owner/attendance",  icon: CalendarCheck, color: "text-green-400",  bg: "bg-green-500/10"  },
-  { label: "Expenses",    href: "/owner/expenses",    icon: IndianRupee,   color: "text-red-400",    bg: "bg-red-500/10"    },
-  { label: "Supplements", href: "/owner/supplements", icon: ShoppingBag,   color: "text-purple-400", bg: "bg-purple-500/10" },
-  { label: "Reports",     href: "/owner/reports",     icon: BarChart3,     color: "text-orange-400", bg: "bg-orange-500/10" },
+  { label: "Add Member",  href: "/owner/members/new",  icon: UserPlus,      color: "text-blue-400",   bg: "bg-blue-500/10"   },
+  { label: "Add Trainer", href: "/owner/trainers/new", icon: UserPlus,      color: "text-yellow-400", bg: "bg-yellow-500/10" },
+  { label: "Attendance",  href: "/owner/attendance",   icon: CalendarCheck, color: "text-green-400",  bg: "bg-green-500/10"  },
+  { label: "Expenses",    href: "/owner/expenses",     icon: IndianRupee,   color: "text-red-400",    bg: "bg-red-500/10"    },
+  { label: "Supplements", href: "/owner/supplements",  icon: ShoppingBag,   color: "text-purple-400", bg: "bg-purple-500/10" },
+  { label: "Reports",     href: "/owner/reports",      icon: BarChart3,     color: "text-orange-400", bg: "bg-orange-500/10" },
 ]
 
 function QuickActions() {
@@ -229,16 +230,24 @@ export default async function OwnerDashboardPage({
       .includes(range) ? range : "last_30_days"
   ) as DashRange
 
-  // Gyms needed immediately for Controls + gymIds for all sections
-  const gyms = await prisma.gym.findMany({
-    where:  { ownerId: session.user.id, isActive: true },
-    select: { id: true, name: true, city: true },
-  })
+  // Fetch gyms + subscription in parallel — both needed before rendering
+  const [gyms, subscription] = await Promise.all([
+    prisma.gym.findMany({
+      where:  { ownerId: session.user.id, isActive: true },
+      select: { id: true, name: true, city: true },
+    }),
+    getOwnerSubscription(session.user.id),
+  ])
 
-  const allGymIds = gyms.map(g => g.id)
-  const gymIds    = gymId && allGymIds.includes(gymId) ? [gymId] : allGymIds
-  const ownerName = session.user.name ?? "Owner"
-  const multiGym  = allGymIds.length > 1
+  const allGymIds  = gyms.map(g => g.id)
+  const gymIds     = gymId && allGymIds.includes(gymId) ? [gymId] : allGymIds
+  const ownerName  = session.user.name ?? "Owner"
+  const multiGym   = allGymIds.length > 1
+
+  // Derive plan tier for UI gating (server-side, never trust client)
+  const planSlug   = subscription?.planSlug ?? "free"
+  const isExpired  = subscription?.isExpired ?? true
+  const hasPremium = !isExpired && (subscription?.limits.hasFullAnalytics ?? false)
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -271,6 +280,8 @@ export default async function OwnerDashboardPage({
               range={safeRange}
               customStart={customStart}
               customEnd={customEnd}
+              hasPremium={hasPremium}
+              planSlug={planSlug}
             />
           </Suspense>
 

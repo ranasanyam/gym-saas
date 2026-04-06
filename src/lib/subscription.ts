@@ -651,3 +651,32 @@ export async function requirePlanFeature(
   }
   return checkFeature(featureGetter(sub), featureLabel)
 }
+
+// ── Reusable subscription guard ───────────────────────────────────────────────
+// Plan hierarchy for access checks.
+// "pro" and "enterprise" are treated as equals at tier 5.
+const PLAN_ORDER: Record<string, number> = {
+  "free":       1,
+  "free trial": 1,
+  "basic":      2,
+  "starter":    3,
+  "growth":     4,
+  "pro":        5,
+  "enterprise": 5,
+  "lifetime":   6,
+}
+
+export type Plan = "free" | "basic" | "pro" | "enterprise"
+
+/**
+ * Returns true when the user's plan meets or exceeds the required plan tier.
+ * Safe to use in middleware, API routes, server components, and client UI.
+ *
+ * @example
+ * if (!hasAccess(userPlan, "pro")) return NextResponse.json({ error: "Upgrade required" }, { status: 403 })
+ */
+export function hasAccess(userPlan: string, requiredPlan: string): boolean {
+  const userLevel = PLAN_ORDER[userPlan.toLowerCase().trim()] ?? 0
+  const reqLevel  = PLAN_ORDER[requiredPlan.toLowerCase().trim()] ?? 999
+  return userLevel >= reqLevel
+}

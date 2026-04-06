@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
   { label: "Diet Plans",    href: "/owner/diets",        icon: UtensilsCrossed, featureKey: "hasDietPlans" },
   // { label: "Refer & Earn",  href: "/owner/referral",     icon: Gift,            featureKey: "hasReferAndEarn" },
   { label: "Notifications", href: "/owner/notifications", icon: Bell },
-  { label: "Reports",       href: "/owner/reports",      icon: BarChart3,       featureKey: "hasFullReports" },
+  { label: "Reports",       href: "/owner/reports",      icon: BarChart3,       featureKey: "hasFullReports"  },
   { label: "Subscriptions",  href: "/owner/subscriptions",      icon: Zap },
   { label: "Profile",      href: "/owner/profile",     icon: CircleUserRound },
 ]
