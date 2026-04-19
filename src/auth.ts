@@ -284,19 +284,101 @@
 
 
 // src/auth.ts
-// src/auth.ts
 import NextAuth, { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 
-// Custom typed errors — code is passed through to signIn()'s res.error on the client
+// ── Subscription check ────────────────────────────────────────────────────────
+// Called on sign-in and on trigger="update" to store plan status in the JWT.
+// Grace period: 7 days after currentPeriodEnd before hasActivePlan flips false.
+const GRACE_DAYS = 7
+const INACTIVE_PLAN_STATUS = { hasActivePlan: false, planExpired: false }
+
+async function checkHasActivePlan(profileId: string): Promise<{
+  hasActivePlan: boolean
+  planExpired:   boolean
+}> {
+  const now         = new Date()
+  const graceCutoff = new Date(now.getTime() - GRACE_DAYS * 24 * 60 * 60 * 1000)
+
+  const sub = await prisma.saasSubscription.findFirst({
+    where:   { profileId },
+    orderBy: { createdAt: "desc" },
+    select:  { status: true, currentPeriodEnd: true },
+  })
+
+  if (!sub) return { hasActivePlan: false, planExpired: false }
+
+  // Lifetime plans never expire
+  if (sub.status === "LIFETIME") return { hasActivePlan: true, planExpired: false }
+
+  const validStatuses = ["ACTIVE", "TRIALING"]
+  if (!validStatuses.includes(sub.status)) return { hasActivePlan: false, planExpired: true }
+
+  // Null currentPeriodEnd = unlimited duration (shouldn't happen for non-LIFETIME but handle it)
+  if (sub.currentPeriodEnd === null) return { hasActivePlan: true, planExpired: false }
+
+  // Within grace window: currentPeriodEnd > graceCutoff → still considered active
+  if (sub.currentPeriodEnd > graceCutoff) return { hasActivePlan: true, planExpired: false }
+
+  // Past grace period — fully expired
+  return { hasActivePlan: false, planExpired: true }
+}
+
+async function getPlanStatusForRole(
+  profileId: string,
+  role: string | null | undefined,
+  ownerPlanStatus: string | null | undefined,
+) {
+  if (role !== "owner") return INACTIVE_PLAN_STATUS
+  if (ownerPlanStatus !== "ACTIVE") return INACTIVE_PLAN_STATUS
+
+  try {
+    return await checkHasActivePlan(profileId)
+  } catch (error) {
+    console.error("Failed to read SaaS plan status during auth:", error)
+    return INACTIVE_PLAN_STATUS
+  }
+}
+
+async function getOwnerPlanStatusForRole(profileId: string, role: string | null | undefined) {
+  if (role !== "owner") return null
+
+  try {
+    const profile = await prisma.profile.findUnique({
+      where:  { id: profileId },
+      select: { ownerPlanStatus: true },
+    })
+    return profile?.ownerPlanStatus ?? null
+  } catch (error) {
+    console.error("Failed to read owner plan status during auth:", error)
+    return null
+  }
+}
+
+// ── Custom typed errors — code is passed through to signIn()'s res.error on the client
 class OAuthAccountError extends CredentialsSignin {
-  code = "oauth_account" // account exists but was created via Google
+  code = "oauth_account"   // account exists but was created via Google — no password
 }
 class InvalidCredentialsError extends CredentialsSignin {
   code = "invalid_credentials"
+}
+class AccountNotFoundError extends CredentialsSignin {
+  code = "account_not_found"
+}
+class ProfileInvitedError extends CredentialsSignin {
+  code = "profile_invited" // owner-added user who hasn't completed their profile yet
+}
+
+// Detect whether an identifier looks like a mobile number (10 digits, optionally +91)
+function isMobile(identifier: string): boolean {
+  return /^(\+91)?[6-9]\d{9}$/.test(identifier.replace(/[\s-]/g, ""))
+}
+
+function normaliseMobile(raw: string): string {
+  return raw.replace(/[\s\-+]/g, "").slice(-10)
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -312,24 +394,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
     Credentials({
       credentials: {
-        email:    { label: "Email",    type: "email"    },
-        password: { label: "Password", type: "password" },
+        // "email" field doubles as mobile-number input — detected at runtime
+        email:    { label: "Email or Mobile", type: "text"     },
+        password: { label: "Password",        type: "password" },
       },
       async authorize(credentials) {
-        const email    = (credentials?.email    as string | undefined)?.trim().toLowerCase()
-        const password = (credentials?.password as string | undefined)
+        const identifier = (credentials?.email    as string | undefined)?.trim() ?? ""
+        const password   = (credentials?.password as string | undefined) ?? ""
 
-        if (!email || !password) return null
+        if (!identifier || !password) return null
 
-        const profile = await prisma.profile.findUnique({
-          where:  { email },
-          select: { id: true, passwordHash: true, role: true },
-        })
+        let profile: { id: string; passwordHash: string | null; role: string | null; status: string } | null = null
 
-        // No account at all
-        if (!profile) throw new InvalidCredentialsError()
+        if (isMobile(identifier)) {
+          // Mobile login — look up by normalised mobile number
+          const mobile = normaliseMobile(identifier)
+          profile = await prisma.profile.findFirst({
+            where:  { mobileNumber: { endsWith: mobile } },
+            select: { id: true, passwordHash: true, role: true, status: true },
+          })
+        } else {
+          // Email login
+          const email = identifier.toLowerCase()
+          profile = await prisma.profile.findUnique({
+            where:  { email },
+            select: { id: true, passwordHash: true, role: true, status: true },
+          })
+        }
 
-        // Account exists but was created via Google — no password set
+        if (!profile) throw new AccountNotFoundError()
+
+        // INVITED = owner added by mobile only; profile not yet completed
+        if (profile.status === "INVITED") throw new ProfileInvitedError()
+
+        // OAuth-only account — no password set
         if (!profile.passwordHash) throw new OAuthAccountError()
 
         const isValid = await bcrypt.compare(password, profile.passwordHash)
@@ -364,10 +462,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // ── First sign-in: credentials ────────────────────────────────────────
       // user.id is profile.id (returned directly from authorize above)
       if (user && account?.provider === "credentials") {
+        const profileId = user.id as string
+        const role = (user as any).role ?? null
+        const ownerPlanStatus = await getOwnerPlanStatusForRole(profileId, role)
+        const planStatus = await getPlanStatusForRole(profileId, role, ownerPlanStatus)
+
         return {
-          sub:       user.id,
-          profileId: user.id,
-          role:      (user as any).role ?? null,
+          sub:             profileId,
+          profileId,
+          role,
+          hasActivePlan:   planStatus.hasActivePlan,
+          planExpired:     planStatus.planExpired,
+          ownerPlanStatus,
         }
       }
 
@@ -379,10 +485,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           select: { id: true, role: true },
         })
         if (profile) {
+          const ownerPlanStatus = await getOwnerPlanStatusForRole(profile.id, profile.role)
+          const planStatus = await getPlanStatusForRole(profile.id, profile.role, ownerPlanStatus)
           return {
-            sub:       token.sub,
-            profileId: profile.id,
-            role:      profile.role,
+            sub:             token.sub,
+            profileId:       profile.id,
+            role:            profile.role,
+            hasActivePlan:   planStatus.hasActivePlan,
+            planExpired:     planStatus.planExpired,
+            ownerPlanStatus,
           }
         }
         return token
@@ -396,17 +507,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.profileId = token.sub
       }
 
-      // Re-fetch role when:
-      //   • session.update() is called (e.g. after role is assigned)
-      //   • role key is absent from the token (e.g. first request after deploy with old JWT)
-      // NOTE: do NOT use !token.role here — that would hit DB on every request for
+      // Re-fetch role and plan status when:
+      //   • session.update() is called (e.g. after role/plan is assigned)
+      //   • role key is absent from the token (first request after deploy with old JWT)
+      //   • hasActivePlan is absent (old token before this feature was added)
+      // NOTE: do NOT use !token.role — that would hit DB on every request for
       // null-role users (fresh signups) and risks picking up a stale role mid-flow.
-      if ((trigger === "update" || token.role === undefined) && token.profileId) {
+      if (
+        (trigger === "update" || token.role === undefined || token.hasActivePlan === undefined) &&
+        token.profileId
+      ) {
         const profile = await prisma.profile.findUnique({
           where:  { id: token.profileId as string },
-          select: { role: true },
+          select: { role: true, ownerPlanStatus: true },
         })
-        if (profile) token.role = profile.role
+        const role = profile?.role ?? token.role
+        const ownerPlanStatus = profile?.ownerPlanStatus ?? await getOwnerPlanStatusForRole(token.profileId as string, role)
+        const planStatus = await getPlanStatusForRole(token.profileId as string, role, ownerPlanStatus)
+
+        if (profile) {
+          token.role            = profile.role
+          token.ownerPlanStatus = ownerPlanStatus
+        }
+        token.hasActivePlan = planStatus.hasActivePlan
+        token.planExpired   = planStatus.planExpired
       }
 
       return token
@@ -416,6 +540,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const profileId = (token.profileId ?? token.sub) as string | undefined
       if (profileId) session.user.id = profileId
       if (token.role) session.user.role = token.role as string
+      if (token.hasActivePlan !== undefined) session.user.hasActivePlan = token.hasActivePlan as boolean
+      if (token.ownerPlanStatus !== undefined) (session.user as any).ownerPlanStatus = token.ownerPlanStatus
       return session
     },
   },

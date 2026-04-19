@@ -75,6 +75,7 @@
 // src/app/api/owner/members/[memberId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
 import { sendPushToProfile } from "@/lib/push"
 
@@ -88,6 +89,10 @@ async function ownsGym(ownerId: string, memberId: string) {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { memberId } = await params
 
   const member = await prisma.gymMember.findFirst({
@@ -120,6 +125,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ memb
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { memberId } = await params
   const existing = await ownsGym(profileId, memberId)
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -185,6 +194,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ me
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { memberId } = await params
   const member = await ownsGym(profileId, memberId)
   if (!member) return NextResponse.json({ error: "Not found" }, { status: 404 })

@@ -190,10 +190,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
-function getRolePath(role: string | null | undefined): string {
-  if (role === "owner")   return "/owner/dashboard"
-  if (role === "trainer") return "/trainer/dashboard"
-  if (role === "member")  return "/member/dashboard"
+function getRolePath(profile: { role?: string | null; ownerPlanStatus?: string | null } | null): string {
+  if (profile?.role === "owner") {
+    return profile.ownerPlanStatus === "ACTIVE" ? "/owner/dashboard" : "/owner/choose-plan"
+  }
+  if (profile?.role === "trainer") return "/trainer/dashboard"
+  if (profile?.role === "member")  return "/member/dashboard"
   return "/select-role"
 }
 
@@ -216,6 +218,7 @@ export default function LoginPage() {
         redirect: false,
       })
 
+      console.log("login res", res);
       if (res?.error) {
         // res.code contains our typed error code from authorize()
         if (res.code === "oauth_account") {
@@ -223,6 +226,19 @@ export default function LoginPage() {
             variant: "destructive",
             title: "Use Google to sign in",
             description: "This account was created with Google. Click \"Continue with Google\" below.",
+          })
+        } else if (res.code === "profile_invited") {
+          toast({
+            variant: "destructive",
+            title: "Account not yet activated",
+            description: "You were added by your gym. Complete your profile first.",
+          })
+          window.location.href = "/complete-profile"
+        } else if (res.code === "account_not_found") {
+          toast({
+            variant: "destructive",
+            title: "Account not found",
+            description: "No account found with this email or mobile number.",
           })
         } else {
           toast({
@@ -240,7 +256,7 @@ export default function LoginPage() {
       // cache or stale useSession() data carrying over from a previous login.
       const profileRes = await fetch("/api/profile/me")
       const profile    = profileRes.ok ? await profileRes.json() : null
-      window.location.href = getRolePath(profile?.role)
+      window.location.href = getRolePath(profile)
     } catch {
       toast({
         variant: "destructive",
@@ -256,13 +272,13 @@ export default function LoginPage() {
     <AuthLayout title="Welcome back" subtitle="Sign in to continue to GymStack">
       <form onSubmit={handleSubmit} className="space-y-5">
 
-        {/* Email */}
+        {/* Email or Mobile */}
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-white/65 text-sm">Email address</Label>
+          <Label htmlFor="email" className="text-white/65 text-sm">Email or Mobile number</Label>
           <Input
-            id="email" type="email" placeholder="you@example.com"
+            id="email" type="text" placeholder="you@example.com or 9876543210"
             value={email} onChange={(e) => setEmail(e.target.value)}
-            required autoComplete="email"
+            required autoComplete="username"
             className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11"
           />
         </div>

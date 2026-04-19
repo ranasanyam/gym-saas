@@ -1,52 +1,137 @@
 // src/app/trainer/diets/page.tsx
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { UtensilsCrossed, Plus, X, Loader2, Flame, Users, Edit, Trash2 } from "lucide-react"
+import Link from "next/link"
+import {
+  UtensilsCrossed, Plus, X, Loader2, Flame, Users, Edit, Trash2, Search, Copy, Building2,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+
+interface MealItem { name: string; quantity: string; calories: string; protein: string; carbs: string; fat: string }
+type PlanData = Record<string, MealItem[]>
+const emptyMeal = (): MealItem => ({ name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "" })
+
 interface DietPlan {
-  id: string; title: string; description: string | null; goal: string | null
-  caloriesTarget: number | null; proteinG: number | null; carbsG: number | null; fatG: number | null
+  id: string; title: string; goal: string | null; caloriesTarget: number | null
+  proteinG: number | null; carbsG: number | null; fatG: number | null
   isGlobal: boolean; createdAt: string; planData: any
-  assignedMember: { id: string; profile: { fullName: string; avatarUrl: string | null } } | null
-  creator: { fullName: string }
+  assignedMember: { id: string; profile: { fullName: string } } | null
   gym: { name: string }
 }
 
-const DAYS      = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
-const MEAL_TIMES = ["Breakfast","Mid-Morning Snack","Lunch","Evening Snack","Dinner","Post-Workout"]
+const inp = "bg-[hsl(220_25%_11%)] border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-10 rounded-xl text-sm"
 
-interface MealItem { name: string; quantity: string; calories: string; protein: string; carbs: string; fat: string }
-type DayMeals = Record<string, MealItem[]>
-const emptyMeal = (): MealItem => ({ name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "" })
+function timeToMinutes(t: string): number {
+  const m = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+  if (!m) return 0
+  let h = parseInt(m[1]); const min = parseInt(m[2]); const p = m[3].toUpperCase()
+  if (p === "AM" && h === 12) h = 0
+  if (p === "PM" && h !== 12) h += 12
+  return h * 60 + min
+}
+
+function getSlotsForDay(planData: PlanData, day: string): string[] {
+  return Object.keys(planData)
+    .filter(k => k.startsWith(`${day}__`))
+    .map(k => k.slice(`${day}__`.length))
+    .sort((a, b) => timeToMinutes(a) - timeToMinutes(b))
+}
+
+function TimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const parse = (v: string) => {
+    const m = v.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+    if (m) return { h: m[1].padStart(2,"0"), min: m[2], period: m[3].toUpperCase() as "AM"|"PM" }
+    return { h: "08", min: "00", period: "AM" as const }
+  }
+  const { h, min, period } = parse(value)
+  const emit = (nh: string, nm: string, np: string) => onChange(`${nh}:${nm} ${np}`)
+  const sel = "bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-lg px-2 h-9 text-sm focus:outline-none focus:border-primary cursor-pointer"
+  return (
+    <div className="flex items-center gap-1.5">
+      <select value={h} onChange={e => emit(e.target.value, min, period)} className={sel}>
+        {Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0")).map(v => <option key={v} value={v}>{v}</option>)}
+      </select>
+      <span className="text-white/40 text-sm">:</span>
+      <select value={min} onChange={e => emit(h, e.target.value, period)} className={sel}>
+        {["00","15","30","45"].map(v => <option key={v} value={v}>{v}</option>)}
+      </select>
+      <select value={period} onChange={e => emit(h, min, e.target.value)} className={sel}>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  )
+}
+
+function AddTimeSlot({ day, existingSlots, onAdd }: { day: string; existingSlots: string[]; onAdd: (slot: string) => void }) {
+  const [show, setShow]     = useState(false)
+  const [newTime, setNewTime] = useState("08:00 AM")
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setShow(false) }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const handle = () => {
+    if (existingSlots.includes(newTime)) return
+    onAdd(newTime); setShow(false); setNewTime("08:00 AM")
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setShow(s => !s)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-medium hover:bg-primary/15 transition-all">
+        <Plus className="w-3 h-3" /> Add Meal Time
+      </button>
+      {show && (
+        <div className="absolute top-full mt-2 left-0 z-20 bg-[hsl(220_25%_12%)] border border-white/12 rounded-xl shadow-xl p-4 space-y-3 min-w-64">
+          <p className="text-white/60 text-xs font-medium">Select meal time for {day}</p>
+          <TimePicker value={newTime} onChange={setNewTime} />
+          {existingSlots.includes(newTime) && <p className="text-red-400 text-xs">This slot already exists</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setShow(false)}
+              className="flex-1 py-1.5 text-xs text-white/40 hover:text-white border border-white/10 rounded-lg transition-colors">Cancel</button>
+            <button type="button" onClick={handle} disabled={existingSlots.includes(newTime)}
+              className="flex-1 py-1.5 text-xs bg-primary text-white rounded-lg font-medium disabled:opacity-40 hover:opacity-90 transition-all">Add Slot</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function TrainerDietsPage() {
-  const { toast } = useToast()
+  const { toast }      = useToast()
+  const searchParams   = useSearchParams()
+  const preselMemberId = searchParams.get("memberId") ?? ""
+
   const [plans,   setPlans]   = useState<DietPlan[]>([])
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [formMode, setFormMode]       = useState<"create"|"edit"|null>(null)
+  const [searchQ, setSearchQ] = useState("")
+  const [formMode, setFormMode]       = useState<"create"|"edit"|null>(preselMemberId ? "create" : null)
   const [editingPlan, setEditingPlan] = useState<DietPlan | null>(null)
-  const [saving, setSaving]     = useState(false)
-  const [activeDay, setActiveDay]   = useState("Monday")
-  const [activeMeal, setActiveMeal] = useState("Breakfast")
-  const [dayMeals, setDayMeals]     = useState<DayMeals>({})
-  const [mealTimes, setMealTimes]   = useState<Record<string, string>>({}) // key: mealName → "HH:MM" 
+  const [saving, setSaving]           = useState(false)
+  const [deletingId, setDeletingId]   = useState<string | null>(null)
+  const [activeDay, setActiveDay]     = useState("Monday")
+  const [planData, setPlanData]       = useState<PlanData>({})
 
-  const blankForm = {
-    memberId: "", freeForAll: false,
-    title: "", description: "", goal: "",
-    caloriesTarget: "", proteinG: "", carbsG: "", fatG: "",
-    weekStartDate: new Date().toISOString().split("T")[0],
-  }
-  const [form, setForm] = useState(blankForm)
-  const mealKey = `${activeDay}__${activeMeal}`
+  const blankForm = (mId = "") => ({
+    memberId: mId, freeForAll: false,
+    title: "", goal: "", caloriesTarget: "", proteinG: "", carbsG: "", fatG: "",
+  })
+  const [form, setForm] = useState(blankForm(preselMemberId))
 
-  const load = () => {
+  const load = useCallback(() => {
     Promise.all([
       fetch("/api/trainer/diets").then(r => r.json()),
       fetch("/api/trainer/members").then(r => r.json()),
@@ -54,17 +139,24 @@ export default function TrainerDietsPage() {
       setPlans(Array.isArray(p) ? p : [])
       setMembers(Array.isArray(m) ? m : [])
     }).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
+  }, [])
+  useEffect(() => { load() }, [load])
 
-  const addMealItem    = () => setDayMeals(p => ({ ...p, [mealKey]: [...(p[mealKey] ?? []), emptyMeal()] }))
-  const removeMealItem = (idx: number) => setDayMeals(p => ({ ...p, [mealKey]: (p[mealKey] ?? []).filter((_: any, i: number) => i !== idx) }))
-  const updateMealItem = (idx: number, field: keyof MealItem, val: string) =>
-    setDayMeals(p => { const u = [...(p[mealKey] ?? [])]; u[idx] = { ...u[idx], [field]: val }; return { ...p, [mealKey]: u } })
+  const slots    = getSlotsForDay(planData, activeDay)
+  const addSlot  = (time: string) => { if (!planData[`${activeDay}__${time}`]) setPlanData(p => ({ ...p, [`${activeDay}__${time}`]: [] })) }
+  const removeSlot = (time: string) => setPlanData(p => { const n = { ...p }; delete n[`${activeDay}__${time}`]; return n })
+  const addMealItem    = (time: string) => setPlanData(p => ({ ...p, [`${activeDay}__${time}`]: [...(p[`${activeDay}__${time}`] ?? []), emptyMeal()] }))
+  const removeMealItem = (time: string, idx: number) => setPlanData(p => ({ ...p, [`${activeDay}__${time}`]: p[`${activeDay}__${time}`].filter((_,i) => i !== idx) }))
+  const updateMealItem = (time: string, idx: number, field: keyof MealItem, val: string) =>
+    setPlanData(p => { const u = [...(p[`${activeDay}__${time}`] ?? [])]; u[idx] = { ...u[idx], [field]: val }; return { ...p, [`${activeDay}__${time}`]: u } })
 
   const openCreate = () => {
-    setEditingPlan(null); setForm(blankForm); setDayMeals({})
-    setMealTimes({}); setActiveDay("Monday"); setActiveMeal("Breakfast"); setFormMode("create")
+    setEditingPlan(null)
+    setForm(blankForm(preselMemberId))
+    setPlanData({})
+    setActiveDay("Monday")
+    setFormMode("create")
+    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50)
   }
 
   const openEdit = (plan: DietPlan) => {
@@ -73,264 +165,316 @@ export default function TrainerDietsPage() {
       memberId:      plan.assignedMember?.id ?? "",
       freeForAll:    plan.isGlobal,
       title:         plan.title,
-      description:   plan.description ?? "",
       goal:          plan.goal ?? "",
-      caloriesTarget: plan.caloriesTarget ? String(plan.caloriesTarget) : "",
-      proteinG: plan.proteinG ? String(plan.proteinG) : "",
-      carbsG:   plan.carbsG   ? String(plan.carbsG)   : "",
-      fatG:     plan.fatG     ? String(plan.fatG)     : "",
-      weekStartDate: plan.planData?.weekStartDate ?? new Date().toISOString().split("T")[0],
-    })
-    setDayMeals(plan.planData?.meals ?? {})
-    setMealTimes(plan.planData?.mealTimes ?? {})
-    setActiveDay("Monday"); setActiveMeal("Breakfast"); setFormMode("edit")
-    window.scrollTo({ top: 0, behavior: "smooth" })
+      caloriesTarget: plan.caloriesTarget?.toString() ?? "",
+      proteinG:       plan.proteinG?.toString()       ?? "",
+      carbsG:         plan.carbsG?.toString()         ?? "",
+      fatG:           plan.fatG?.toString()            ?? "",
+    } as any)
+    setPlanData(plan.planData ?? {})
+    setActiveDay("Monday")
+    setFormMode("edit")
+    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50)
   }
 
-  const handleCancel = () => { setFormMode(null); setEditingPlan(null); setDayMeals({}); setMealTimes({}); setForm(blankForm) }
+  const handleCancel = () => { setFormMode(null); setEditingPlan(null) }
 
-  const submit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.title.trim()) { toast({ variant: "destructive", title: "Plan title is required" }); return }
+    if (!form.title.trim()) { toast({ variant: "destructive", title: "Title is required" }); return }
     setSaving(true)
     const payload = {
-      title: form.title, description: form.description, goal: form.goal,
-      caloriesTarget: form.caloriesTarget || null,
-      proteinG: form.proteinG || null, carbsG: form.carbsG || null, fatG: form.fatG || null,
-      isGlobal: form.freeForAll,
-      assignedToMemberId: (!form.freeForAll && form.memberId) ? form.memberId : null,
-      planData: { weekStartDate: form.weekStartDate, meals: dayMeals, mealTimes },
+      ...form, planData,
+      caloriesTarget: form.caloriesTarget ? Number(form.caloriesTarget) : null,
+      proteinG:       form.proteinG       ? Number(form.proteinG)       : null,
+      carbsG:         form.carbsG         ? Number(form.carbsG)         : null,
+      fatG:           form.fatG           ? Number(form.fatG)           : null,
+      isGlobal:       form.freeForAll,
     }
-    const isEdit = formMode === "edit" && editingPlan
-    const res = await fetch(
-      isEdit ? `/api/trainer/diets/${editingPlan.id}` : "/api/trainer/diets",
-      { method: isEdit ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
-    )
+    const url    = formMode === "edit" ? `/api/trainer/diets/${editingPlan!.id}` : "/api/trainer/diets"
+    const method = formMode === "edit" ? "PATCH" : "POST"
+    const res    = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
     if (res.ok) {
-      toast({ variant: "success", title: isEdit ? "Diet plan updated!" : "Diet plan created!" })
+      toast({ variant: "success", title: formMode === "edit" ? "Plan updated!" : "Plan created!" })
       handleCancel(); load()
-    } else toast({ variant: "destructive", title: "Failed to save plan" })
+    } else {
+      const d = await res.json()
+      toast({ variant: "destructive", title: d.error ?? "Failed to save" })
+    }
     setSaving(false)
   }
 
   const deletePlan = async (id: string) => {
-    if (!confirm("Archive this diet plan?")) return
-    await fetch(`/api/trainer/diets/${id}`, { method: "DELETE" })
-    toast({ variant: "success", title: "Plan archived" }); load()
+    setDeletingId(id)
+    const res = await fetch(`/api/trainer/diets/${id}`, { method: "DELETE" })
+    if (res.ok) { toast({ variant: "success", title: "Plan archived" }); load() }
+    else toast({ variant: "destructive", title: "Failed to archive" })
+    setDeletingId(null)
   }
 
-  const macroBar = (val: number | null, total: number, color: string) => {
-    if (!val || !total) return null
-    return <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${Math.min(Math.round((val * 4 / total) * 100), 100)}%` }} />
-  }
-
-  const inp = "bg-[hsl(220_25%_11%)] border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-10 rounded-xl text-sm"
+  const filtered = plans.filter(p =>
+    p.title.toLowerCase().includes(searchQ.toLowerCase()) ||
+    (p.goal ?? "").toLowerCase().includes(searchQ.toLowerCase())
+  )
 
   return (
-    <div className="max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-5xl space-y-5">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-display font-bold text-white">Diet Plans</h2>
           <p className="text-white/35 text-sm mt-0.5">{plans.length} plan{plans.length !== 1 ? "s" : ""}</p>
         </div>
-        <Button onClick={openCreate} className="bg-gradient-primary hover:opacity-90 text-white h-10 gap-2">
-          <Plus className="w-4 h-4" /> Create Plan
-        </Button>
+        {!formMode && (
+          <Button onClick={openCreate} className="bg-linear-to-r from-primary to-orange-400 text-white h-10 gap-2">
+            <Plus className="w-4 h-4" /> Create Plan
+          </Button>
+        )}
       </div>
 
-      {/* Create / Edit form */}
+      {/* Form */}
       {formMode && (
-        <div className="bg-[hsl(220_25%_9%)] border border-primary/20 rounded-2xl p-6 mb-6 space-y-5">
+        <div className="bg-[hsl(220_25%_9%)] border border-primary/20 rounded-2xl p-6 space-y-5">
           <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-white font-semibold text-base">{formMode === "edit" ? "Edit Diet Plan" : "Create Diet Plan"}</h3>
-              <p className="text-white/40 text-xs mt-0.5">Build a daily nutrition plan with meals</p>
-            </div>
+            <h3 className="text-white font-semibold">{formMode === "edit" ? "Edit Diet Plan" : "Create Diet Plan"}</h3>
             <button onClick={handleCancel} className="text-white/30 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
 
-          <form onSubmit={submit} className="space-y-5">
-            {/* Free for all */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Global toggle */}
             <div className="flex items-center justify-between p-4 bg-white/4 rounded-xl border border-white/6">
               <div>
-                <p className="text-white text-sm font-medium">Free Plan for All Members</p>
-                <p className="text-white/40 text-xs mt-0.5">Make available to all members in your gym</p>
+                <p className="text-white text-sm font-medium">Make available to all members</p>
+                <p className="text-white/40 text-xs mt-0.5">Share this plan with your entire gym</p>
               </div>
-              <button type="button" onClick={() => setForm(p => ({ ...p, freeForAll: !p.freeForAll, memberId: "" }))}
-                className={`relative w-11 h-6 rounded-full transition-colors ${form.freeForAll ? "bg-primary" : "bg-white/15"}`}>
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${form.freeForAll ? "left-6" : "left-1"}`} />
+              <button type="button"
+                onClick={() => setForm(p => ({ ...p, freeForAll: !p.freeForAll, memberId: p.freeForAll ? p.memberId : "" }))}
+                className={`relative w-11 h-6 rounded-full transition-colors ${(form as any).freeForAll ? "bg-primary" : "bg-white/15"}`}>
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${(form as any).freeForAll ? "left-6" : "left-1"}`} />
               </button>
             </div>
 
-            {/* Member */}
+            {/* Assign to member */}
             <div className="space-y-1.5">
               <Label className="text-white/55 text-sm">Assign to Member</Label>
-              <select value={form.memberId} disabled={form.freeForAll}
+              <select value={(form as any).memberId} disabled={(form as any).freeForAll}
                 onChange={e => setForm(p => ({ ...p, memberId: e.target.value }))}
-                className={`w-full bg-[hsl(220_25%_11%)] border border-white/10 text-white rounded-xl px-4 h-10 text-sm focus:outline-none focus:border-primary ${form.freeForAll ? "opacity-40 cursor-not-allowed" : ""}`}>
+                className={`w-full bg-[hsl(220_25%_11%)] border border-white/10 text-white rounded-xl px-4 h-10 text-sm focus:outline-none focus:border-primary ${(form as any).freeForAll ? "opacity-40 cursor-not-allowed" : ""}`}>
                 <option value="">— No specific member —</option>
-                {members.map((m: any) => <option key={m.id} value={m.id}>{m.profile?.fullName ?? m.id}</option>)}
+                {members.map((m: any) => <option key={m.id} value={m.id}>{m.profile?.fullName}</option>)}
               </select>
             </div>
 
-            {/* Details */}
+            {/* Metadata */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+              <div className="col-span-2 space-y-1.5">
                 <Label className="text-white/55 text-sm">Plan Title <span className="text-primary">*</span></Label>
-                <Input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. High Protein Bulk" className={inp} />
+                <Input value={(form as any).title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+                  placeholder="e.g. High Protein Fat Loss" className={inp} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-white/55 text-sm">Goal</Label>
-                <Input value={form.goal} onChange={e => setForm(p => ({ ...p, goal: e.target.value }))} placeholder="e.g. Muscle gain" className={inp} />
+                <Input value={(form as any).goal} onChange={e => setForm(p => ({ ...p, goal: e.target.value }))}
+                  placeholder="e.g. Fat loss" className={inp} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-white/55 text-sm">Daily Calories (kcal)</Label>
-                <Input type="number" value={form.caloriesTarget} onChange={e => setForm(p => ({ ...p, caloriesTarget: e.target.value }))} placeholder="2000" className={inp} />
+                <Label className="text-white/55 text-sm">Calories Target (kcal/day)</Label>
+                <Input type="number" value={(form as any).caloriesTarget}
+                  onChange={e => setForm(p => ({ ...p, caloriesTarget: e.target.value }))}
+                  placeholder="e.g. 2200" className={inp} />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-white/55 text-sm">Week Starting</Label>
-                <Input type="date" value={form.weekStartDate} onChange={e => setForm(p => ({ ...p, weekStartDate: e.target.value }))} className={inp} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              {(["proteinG","carbsG","fatG"] as const).map(field => (
+              {([["proteinG","Protein (g)"],["carbsG","Carbs (g)"],["fatG","Fat (g)"]] as [string,string][]).map(([field, label]) => (
                 <div key={field} className="space-y-1.5">
-                  <Label className="text-white/55 text-sm">
-                    {field === "proteinG" ? "Protein (g)" : field === "carbsG" ? "Carbs (g)" : "Fat (g)"}
-                  </Label>
-                  <Input type="number" value={(form as any)[field]} onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))} className={inp} />
+                  <Label className="text-white/55 text-sm">{label}</Label>
+                  <Input type="number" value={(form as any)[field]}
+                    onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
+                    placeholder="g" className={inp} />
                 </div>
               ))}
             </div>
 
-            {/* Day + Meal tabs */}
-            <div className="space-y-3">
-              <div className="overflow-x-auto">
-                <div className="flex gap-1 border-b border-white/8 min-w-max">
-                  {DAYS.map(d => (
-                    <button key={d} type="button" onClick={() => setActiveDay(d)}
-                      className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all border-b-2 ${activeDay === d ? "border-primary text-primary" : "border-transparent text-white/40 hover:text-white/70"}`}>
-                      {d.slice(0,3)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {MEAL_TIMES.map(mt => {
-                  const count = dayMeals[`${activeDay}__${mt}`]?.length ?? 0
+            {/* Day tabs */}
+            <div>
+              <Label className="text-white/55 text-sm mb-2 block">Meal Schedule</Label>
+              <div className="flex gap-1 bg-white/4 rounded-xl p-1 mb-4 overflow-x-auto">
+                {DAYS.map(d => {
+                  const daySlots = getSlotsForDay(planData, d)
+                  const itemCount = daySlots.reduce((s, t) => s + (planData[`${d}__${t}`]?.length ?? 0), 0)
                   return (
-                    <button key={mt} type="button" onClick={() => setActiveMeal(mt)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${activeMeal === mt ? "bg-primary/15 border-primary/40 text-primary font-medium" : "bg-white/4 border-white/8 text-white/45 hover:border-white/20"}`}>
-                      {mt}{count > 0 && <span className="ml-1.5 bg-primary/25 text-primary text-[10px] px-1.5 py-0.5 rounded-full">{count}</span>}
+                    <button key={d} type="button" onClick={() => setActiveDay(d)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all relative ${
+                        activeDay === d ? "bg-[hsl(220_25%_13%)] text-white shadow" : "text-white/40 hover:text-white/70"
+                      }`}>
+                      {d.slice(0,3)}
+                      {itemCount > 0 && <span className="ml-1 text-primary text-[9px]">({itemCount})</span>}
                     </button>
                   )
                 })}
               </div>
-              <div className="space-y-2">
-                {(dayMeals[mealKey] ?? []).length === 0 ? (
-                  <div className="text-center py-8 text-white/25">
-                    <UtensilsCrossed className="w-7 h-7 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No items for {activeMeal} on {activeDay}</p>
+
+              {/* Time slots for active day */}
+              <div className="space-y-3">
+                {slots.length === 0 && (
+                  <div className="text-center py-6 text-white/25 text-sm border border-dashed border-white/10 rounded-xl">
+                    No meal times added for {activeDay}
                   </div>
-                ) : (dayMeals[mealKey] ?? []).map((item: MealItem, idx: number) => (
-                  <div key={idx} className="bg-white/4 border border-white/8 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Input value={item.name} onChange={e => updateMealItem(idx, "name", e.target.value)}
-                        placeholder="Food item (e.g. Chicken Breast)"
-                        className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-9 rounded-xl text-sm" />
-                      <button type="button" onClick={() => removeMealItem(idx)} className="text-white/20 hover:text-red-400 shrink-0"><X className="w-4 h-4" /></button>
-                    </div>
-                    <div className="grid grid-cols-5 gap-2">
-                      {(["quantity","calories","protein","carbs","fat"] as (keyof MealItem)[]).map(f => (
-                        <div key={f} className="space-y-1">
-                          <p className="text-white/35 text-[10px] capitalize">{f}</p>
-                          <Input value={item[f]} onChange={e => updateMealItem(idx, f, e.target.value)}
-                            placeholder={f === "quantity" ? "100g" : "—"}
-                            className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-8 rounded-lg text-xs" />
+                )}
+                {slots.map(time => {
+                  const key   = `${activeDay}__${time}`
+                  const items = planData[key] ?? []
+                  return (
+                    <div key={key} className="bg-[hsl(220_25%_11%)] border border-white/8 rounded-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 bg-white/3 border-b border-white/6">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-lg">{time}</span>
+                          <span className="text-white/40 text-xs">{items.length} item{items.length !== 1 ? "s" : ""}</span>
                         </div>
-                      ))}
+                        <button type="button" onClick={() => removeSlot(time)} className="text-white/25 hover:text-red-400 transition-colors">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="p-3 space-y-2">
+                        {items.map((item, idx) => (
+                          <div key={idx} className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-white/25 text-xs w-4 shrink-0">{idx+1}.</span>
+                              <Input value={item.name} onChange={e => updateMealItem(time, idx, "name", e.target.value)}
+                                placeholder="Food name (e.g. Chicken Breast)"
+                                className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-9 rounded-xl text-sm" />
+                              <button type="button" onClick={() => removeMealItem(time, idx)} className="text-white/20 hover:text-red-400 transition-colors shrink-0">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-5 gap-2">
+                              {(["quantity","calories","protein","carbs","fat"] as (keyof MealItem)[]).map(f => (
+                                <div key={f} className="space-y-1">
+                                  <p className="text-white/30 text-[10px] capitalize">{f === "quantity" ? "Qty" : f}</p>
+                                  <Input value={item[f]} onChange={e => updateMealItem(time, idx, f, e.target.value)}
+                                    placeholder={f === "quantity" ? "100g" : f === "calories" ? "165" : "30g"}
+                                    className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-8 rounded-lg text-xs" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => addMealItem(time)}
+                          className="w-full py-2 rounded-xl border border-dashed border-white/10 text-white/35 hover:border-primary/30 hover:text-primary/60 transition-all text-xs flex items-center justify-center gap-1.5">
+                          <Plus className="w-3.5 h-3.5" /> Add Food Item
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
+                <AddTimeSlot day={activeDay} existingSlots={slots} onAdd={addSlot} />
               </div>
-              <button type="button" onClick={addMealItem}
-                className="w-full py-3 rounded-xl border border-dashed border-white/15 text-white/40 hover:border-primary/40 hover:text-primary/70 transition-all text-sm flex items-center justify-center gap-2">
-                <Plus className="w-4 h-4" /> Add Food Item
-              </button>
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex gap-3 pt-2 border-t border-white/6">
               <Button type="button" variant="outline" onClick={handleCancel}
-                className="border-white/10 text-white/60 hover:text-white h-10 text-sm">Cancel</Button>
+                className="border-white/10 text-white/60 hover:text-white bg-transparent h-10 flex-1">Cancel</Button>
               <Button type="submit" disabled={saving}
-                className="bg-gradient-primary hover:opacity-90 text-white font-semibold h-10 text-sm px-7">
-                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : formMode === "edit" ? "Save Changes" : "Create Plan"}
+                className="bg-linear-to-r from-primary to-orange-400 text-white font-semibold h-10 flex-1">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : formMode === "edit" ? "Save Changes" : "Create Plan"}
               </Button>
             </div>
           </form>
         </div>
       )}
 
+      {/* Search */}
+      {!formMode && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search diet plans…"
+            className="w-full bg-[hsl(220_25%_9%)] border border-white/8 rounded-xl pl-10 pr-4 h-10 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-primary" />
+        </div>
+      )}
+
       {/* Plan cards */}
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(3)].map((_, i) => <div key={i} className="h-36 bg-white/3 rounded-2xl animate-pulse" />)}
+          {[...Array(6)].map((_, i) => <div key={i} className="h-44 bg-white/3 rounded-2xl animate-pulse" />)}
         </div>
-      ) : plans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 gap-3 bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl">
-          <UtensilsCrossed className="w-10 h-10 text-white/15" />
-          <p className="text-white/30 text-sm">No diet plans yet — create your first one</p>
-        </div>
+      ) : filtered.length === 0 ? (
+        !searchQ && members.length === 0 ? (
+          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-12 flex flex-col items-center gap-4 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
+              <Building2 className="w-8 h-8 text-white/20" />
+            </div>
+            <div>
+              <h3 className="text-white font-semibold text-lg">No clients yet</h3>
+              <p className="text-white/40 text-sm mt-1.5 max-w-xs mx-auto">
+                Join a gym and get assigned members before you can create diet plans for them.
+              </p>
+            </div>
+            <Link href="/trainer/discover"
+              className="flex items-center gap-2 bg-gradient-primary text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
+              <Building2 className="w-4 h-4" /> Discover Gyms
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <UtensilsCrossed className="w-10 h-10 text-white/15" />
+            <p className="text-white/30 text-sm">{searchQ ? "No plans match your search" : "No diet plans yet"}</p>
+            {!searchQ && <button onClick={openCreate} className="text-primary text-sm hover:underline">Create your first plan</button>}
+          </div>
+        )
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {plans.map(p => (
-            <div key={p.id} className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5 hover:border-white/12 transition-colors">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex gap-1.5">
-                  {p.isGlobal && <span className="text-xs bg-purple-500/15 text-purple-400 px-2.5 py-1 rounded-full">All Members</span>}
-                </div>
-                {p.caloriesTarget && (
-                  <span className="flex items-center gap-1 text-xs text-primary/80 ml-auto">
-                    <Flame className="w-3 h-3" /> {p.caloriesTarget} kcal
-                  </span>
-                )}
-              </div>
-              <h3 className="text-white font-semibold mb-1">{p.title}</h3>
-              {p.goal && <p className="text-primary/70 text-xs mb-3">Goal: {p.goal}</p>}
-              {p.caloriesTarget && (
-                <div className="space-y-1.5 mb-3">
-                  {[
-                    { label: "Protein", val: p.proteinG, color: "bg-blue-400" },
-                    { label: "Carbs",   val: p.carbsG,   color: "bg-yellow-400" },
-                    { label: "Fat",     val: p.fatG,     color: "bg-red-400" },
-                  ].map(m => m.val ? (
-                    <div key={m.label}>
-                      <div className="flex justify-between text-xs text-white/40 mb-0.5"><span>{m.label}</span><span>{Number(m.val)}g</span></div>
-                      <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">{macroBar(Number(m.val), p.caloriesTarget!, m.color)}</div>
+          {filtered.map(plan => {
+            const allSlots   = Object.keys(plan.planData ?? {})
+            const totalItems = Object.values(plan.planData ?? {}).reduce((s: number, arr: any) => s + arr.length, 0)
+            const daysWithData = [...new Set(allSlots.map(k => k.split("__")[0]))].length
+            const isDeleting = deletingId === plan.id
+            return (
+              <div key={plan.id}
+                className={`bg-[hsl(220_25%_9%)] border rounded-2xl p-5 hover:border-white/12 transition-all flex flex-col ${isDeleting ? "border-red-500/20 opacity-60" : "border-white/6"}`}>
+                <Link href={`/trainer/diets/${plan.id}`} className="flex flex-col flex-1 mb-3">
+                  <div className="flex items-start justify-between mb-3">
+                    {plan.isGlobal && <span className="text-xs bg-purple-500/15 text-purple-400 px-2 py-0.5 rounded-full">All Members</span>}
+                    {plan.caloriesTarget && (
+                      <span className="text-xs bg-orange-500/15 text-orange-400 px-2.5 py-1 rounded-full flex items-center gap-1 ml-auto">
+                        <Flame className="w-3 h-3" /> {plan.caloriesTarget} kcal
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-white font-semibold mb-1 line-clamp-1">{plan.title}</h3>
+                  {plan.goal && <p className="text-primary/70 text-xs mb-2">🎯 {plan.goal}</p>}
+                  {(plan.proteinG || plan.carbsG || plan.fatG) && (
+                    <div className="flex gap-1.5 mb-3 flex-wrap">
+                      {plan.proteinG && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">P: {plan.proteinG}g</span>}
+                      {plan.carbsG   && <span className="text-[10px] bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full">C: {plan.carbsG}g</span>}
+                      {plan.fatG     && <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full">F: {plan.fatG}g</span>}
                     </div>
-                  ) : null)}
+                  )}
+                  <div className="flex items-center gap-3 mb-3 text-xs text-white/25">
+                    <span>{totalItems} food item{totalItems !== 1 ? "s" : ""}</span>
+                    {daysWithData > 0 && <span>· {daysWithData} day{daysWithData !== 1 ? "s" : ""}</span>}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-white/35 border-t border-white/5 pt-3">
+                    <span className="truncate">{plan.gym?.name}</span>
+                    {plan.assignedMember
+                      ? <span className="flex items-center gap-1 shrink-0"><Users className="w-3 h-3" /> {plan.assignedMember.profile.fullName}</span>
+                      : <span className="text-white/20">Unassigned</span>}
+                  </div>
+                </Link>
+                <div className="flex gap-1 pt-2 border-t border-white/5">
+                  <button onClick={() => openEdit(plan)}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-xs text-primary hover:text-primary/80 py-2 transition-colors rounded-lg hover:bg-primary/5">
+                    <Edit className="w-3 h-3" /> Edit
+                  </button>
+                  <button onClick={() => { setForm({ ...blankForm(), title: `${plan.title} (copy)`, goal: plan.goal ?? "" } as any); setPlanData(plan.planData ?? {}); setFormMode("create"); setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50) }}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-xs text-white/40 hover:text-white/70 py-2 transition-colors rounded-lg hover:bg-white/5">
+                    <Copy className="w-3 h-3" /> Duplicate
+                  </button>
+                  <button onClick={() => deletePlan(plan.id)} disabled={isDeleting}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-xs text-red-400/60 hover:text-red-400 py-2 transition-colors rounded-lg hover:bg-red-500/5 disabled:opacity-40">
+                    {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                    {isDeleting ? "Archiving…" : "Archive"}
+                  </button>
                 </div>
-              )}
-              <div className="border-t border-white/5 pt-3 space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-white/35">
-                  <span className="flex items-center gap-1">🏋️ {p.gym?.name ?? "—"}</span>
-                  {p.assignedMember ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span> : <span>Unassigned</span>}
-                </div>
-                <p className="text-xs text-white/25">By {p.creator.fullName}</p>
               </div>
-              <div className="flex gap-2 pt-3 mt-1 border-t border-white/5">
-                <button onClick={() => openEdit(p)}
-                  className="flex-1 flex items-center justify-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1.5 transition-colors">
-                  <Edit className="w-3 h-3" /> Edit
-                </button>
-                <button onClick={() => deletePlan(p.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 text-xs text-red-400/60 hover:text-red-400 py-1.5 transition-colors">
-                  <Trash2 className="w-3 h-3" /> Archive
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

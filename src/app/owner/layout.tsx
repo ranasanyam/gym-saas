@@ -32,7 +32,7 @@ const navItems: NavItem[] = [
   { label: "Trainers",      href: "/owner/trainers",     icon: UserCheck },
   { label: "Attendance",    href: "/owner/attendance",   icon: CalendarCheck,   featureKey: "hasAttendance" },
   { label: "Payments",      href: "/owner/payments",     icon: CreditCard,      featureKey: "hasPayments" },
-  { label: "Plans",         href: "/owner/plans",        icon: Tag },
+  { label: "Membership Plans",         href: "/owner/plans",        icon: Tag },
   { label: "Expenses",      href: "/owner/expenses",     icon: IndianRupee },
   { label: "Lockers",       href: "/owner/lockers",      icon: Lock },
   { label: "Supplements",   href: "/owner/supplements",  icon: ShoppingBag,     featureKey: "hasSupplements" },
@@ -52,6 +52,13 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
   const sub       = useSubscription()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [signingOut,  setSigningOut]  = useState(false)
+
+  // ── Standalone pages: render without the owner sidebar shell ─────────────
+  // These pages provide their own full-screen layout (e.g. onboarding flows).
+  // All hooks above must still be called (React rules), then early-return here.
+  if (pathname === "/owner/choose-plan") {
+    return <>{children}</>
+  }
 
   // ── Unread notification count — polls every 60 s ────────────────────────
   const [unreadCount, setUnreadCount] = useState(0)

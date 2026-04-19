@@ -24,6 +24,8 @@ const INTERVAL_MONTHS: Record<string, number | null> = {
     LIFETIME:    null,
 }
 
+export const runtime = "nodejs"
+
 function verifyRazorpaySignature(
     orderId: string,
     paymentId: string,
@@ -88,7 +90,13 @@ export async function POST(req: NextRequest) {
                 profileId,
                 status: { in: ["ACTIVE", "TRIALING", "LIFETIME"] },
             },
-            data: { status: "CANCELED" },
+            data: { status: "CANCELLED" },
+        })
+
+        // Mark the owner as having explicitly selected a plan.
+        await tx.profile.update({
+            where: { id: profileId },
+            data:  { ownerPlanStatus: "ACTIVE" },
         })
 
         // Create new subscription
@@ -113,7 +121,7 @@ export async function POST(req: NextRequest) {
                 discountAmount:    0,
                 finalAmount:       plan.price,
                 currency:          plan.currency,
-                status:            isPaid ? "COMPLETED" : "COMPLETED",
+                status:            "COMPLETED",
                 razorpayPaymentId: razorpayPaymentId ?? null,
                 razorpayOrderId:   razorpayOrderId   ?? null,
             },

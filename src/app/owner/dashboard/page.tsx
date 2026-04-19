@@ -162,6 +162,7 @@ import { getOwnerSubscription } from "@/lib/subscription"
 import {
   UserPlus, CalendarCheck,
   ShoppingBag, BarChart3, Building2, ArrowRight, IndianRupee,
+  Crown, Zap,
 } from "lucide-react"
 import type { DashRange }         from "@/lib/dashboard-queries"
 import { Controls }               from "./_components/Controls"
@@ -206,6 +207,40 @@ function QuickActions() {
         ))}
       </div>
     </div>
+  )
+}
+
+// ── Subscription Badge ──────────────────────────────────────────────────────
+function SubscriptionBadge({ planSlug, isExpired }: { planSlug: string; isExpired: boolean }) {
+  const planName = planSlug === "free" ? "Free" : planSlug.charAt(0).toUpperCase() + planSlug.slice(1)
+  const isEnterprise = planSlug === "enterprise"
+
+  if (isEnterprise && !isExpired) return null // Don't show for enterprise users
+
+  return (
+    <Link href="/owner/subscriptions"
+      className="block bg-linear-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-2xl p-4 hover:border-purple-500/40 transition-all group cursor-pointer">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+            {isExpired ? (
+              <Zap className="w-5 h-5 text-purple-400" />
+            ) : (
+              <Crown className="w-5 h-5 text-purple-400" />
+            )}
+          </div>
+          <div>
+            <p className="text-white font-semibold text-sm">
+              Current Plan: {planName} {isExpired && "(Expired)"}
+            </p>
+            <p className="text-white/60 text-xs">
+              Upgrade to Enterprise for unlimited gyms, advanced analytics, and premium features
+            </p>
+          </div>
+        </div>
+        <ArrowRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition-transform" />
+      </div>
+    </Link>
   )
 }
 
@@ -255,6 +290,9 @@ export default async function OwnerDashboardPage({
       {/* Controls — rendered immediately (no Suspense needed) */}
       <Controls gyms={gyms} ownerName={ownerName} />
 
+      {/* Subscription Badge */}
+      <SubscriptionBadge planSlug={planSlug} isExpired={isExpired} />
+
       {/* No gyms yet */}
       {allGymIds.length === 0 ? (
         <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-10 text-center space-y-4">
@@ -265,7 +303,7 @@ export default async function OwnerDashboardPage({
               Create a gym to start adding members and tracking revenue.
             </p>
           </div>
-          <Link href="/owner/setup"
+          <Link href="/owner/choose-plan"
             className="inline-flex items-center gap-2 bg-linear-to-r from-primary to-orange-400 text-white font-semibold px-6 py-3 rounded-xl hover:opacity-90 transition-all text-sm">
             Get Started <ArrowRight className="w-4 h-4" />
           </Link>

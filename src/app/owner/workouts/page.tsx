@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react"
 import { PageHeader } from "@/components/owner/PageHeader"
 import { EmptyState } from "@/components/owner/EmptyState"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 import {
   ClipboardList, Plus, Users, X, Loader2, Dumbbell, Edit, Trash2,
   BookOpen, Save, ChevronRight, Sparkles, Search, Copy
@@ -442,24 +443,26 @@ export default function WorkoutsPage() {
             const totalEx = DAYS.reduce((s, d) => s + ((p.planData?.[d])?.length ?? 0), 0)
             return (
               <div key={p.id} className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5 hover:border-white/12 transition-all flex flex-col">
-                <div className="flex items-start justify-between mb-3">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${DIFF_COLORS[p.difficulty] ?? "bg-white/8 text-white/40"}`}>{p.difficulty}</span>
-                  <div className="flex gap-1.5 flex-wrap justify-end">
-                    {p.isGlobal && <span className="text-xs bg-purple-500/15 text-purple-400 px-2 py-0.5 rounded-full">All Members</span>}
-                    {p.isTemplate && <span className="text-xs bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded-full">Template</span>}
+                <Link href={`/owner/workouts/${p.id}`} className="flex flex-col flex-1 mb-3">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${DIFF_COLORS[p.difficulty] ?? "bg-white/8 text-white/40"}`}>{p.difficulty}</span>
+                    <div className="flex gap-1.5 flex-wrap justify-end">
+                      {p.isGlobal && <span className="text-xs bg-purple-500/15 text-purple-400 px-2 py-0.5 rounded-full">All Members</span>}
+                      {p.isTemplate && <span className="text-xs bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded-full">Template</span>}
+                    </div>
                   </div>
-                </div>
-                <h3 className="text-white font-semibold mb-1 flex-1">{p.title}</h3>
-                {p.goal && <p className="text-primary/70 text-xs mb-1">🎯 {p.goal}</p>}
-                <p className="text-white/25 text-xs mb-3">{totalEx} exercise{totalEx !== 1 ? "s" : ""} · {DAYS.filter(d => p.planData?.[d]?.length > 0).length} active days</p>
-                <div className="flex items-center justify-between text-xs text-white/35 border-t border-white/5 pt-3">
-                  <span>{p.gym?.name}</span>
-                  {p.assignedMember
-                    ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span>
-                    : <span className="text-white/25">Unassigned</span>
-                  }
-                </div>
-                <div className="flex gap-2 pt-3 mt-1 border-t border-white/5">
+                  <h3 className="text-white font-semibold mb-1 flex-1">{p.title}</h3>
+                  {p.goal && <p className="text-primary/70 text-xs mb-1">🎯 {p.goal}</p>}
+                  <p className="text-white/25 text-xs mb-3">{totalEx} exercise{totalEx !== 1 ? "s" : ""} · {DAYS.filter(d => p.planData?.[d]?.length > 0).length} active days</p>
+                  <div className="flex items-center justify-between text-xs text-white/35 border-t border-white/5 pt-3">
+                    <span>{p.gym?.name}</span>
+                    {p.assignedMember
+                      ? <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {p.assignedMember.profile.fullName}</span>
+                      : <span className="text-white/25">Unassigned</span>
+                    }
+                  </div>
+                </Link>
+                <div className="flex gap-2 pt-2 border-t border-white/5">
                   <button onClick={() => openEdit(p)} className="flex-1 flex items-center justify-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1.5 transition-colors">
                     <Edit className="w-3 h-3" /> Edit
                   </button>

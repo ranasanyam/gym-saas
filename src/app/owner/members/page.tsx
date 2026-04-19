@@ -208,10 +208,16 @@ function MembersContent() {
             <UpgradeButton label="Upgrade for more members" />
           </div>
         ) : (
-          <Link href="/owner/members/new"
-            className="ml-auto flex items-center gap-2 bg-gradient-to-r from-primary to-orange-400 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90">
-            <UserPlus className="w-4 h-4" /> Add Member
-          </Link>
+          <div className="ml-auto flex items-center gap-2">
+            <Link href="/owner/members/bulk"
+              className="flex items-center gap-2 border border-white/10 bg-white/5 text-white/70 hover:text-white text-sm px-4 py-2.5 rounded-xl hover:border-white/20 transition-all">
+              <Users className="w-4 h-4" /> Bulk Add
+            </Link>
+            <Link href="/owner/members/new"
+              className="flex items-center gap-2 bg-linear-to-r from-primary to-orange-400 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90">
+              <UserPlus className="w-4 h-4" /> Add Member
+            </Link>
+          </div>
         )}
       </div>
 
@@ -258,7 +264,9 @@ function MembersContent() {
                     </td>
                     <td className="px-4 py-3 text-white/50 text-xs">
                       {m.endDate
-                        ? expiring !== null && expiring <= 7
+                        ? expiring !== null && expiring < 0
+                          ? <span className="text-red-400">{Math.abs(expiring)} days ago expired</span>
+                          : expiring !== null && expiring <= 7
                           ? <span className="text-yellow-400">⚠ {expiring}d left</span>
                           : new Date(m.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
                         : "—"}

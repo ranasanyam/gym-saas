@@ -13,19 +13,11 @@ export async function GET(req: NextRequest) {
   })
   if (!trainer) return NextResponse.json({ error: "Trainer not found" }, { status: 404 })
 
-  const myMemberIds = (await prisma.gymMember.findMany({
-    where: { assignedTrainerId: trainer.id },
-    select: { id: true },
-  })).map(m => m.id)
-
   const plans = await prisma.dietPlan.findMany({
     where: {
       gymId: trainer.gymId,
       isActive: true,
-      OR: [
-        { createdBy: profileId },
-        { assignedToMemberId: { in: myMemberIds } },
-      ],
+      createdBy: profileId,
     },
     include: {
       assignedMember: { include: { profile: { select: { fullName: true, avatarUrl: true } } } },

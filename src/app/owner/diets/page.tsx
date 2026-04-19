@@ -865,6 +865,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
+import Link from "next/link"
 import { PageHeader } from "@/components/owner/PageHeader"
 import { useToast }   from "@/hooks/use-toast"
 import {
@@ -1028,6 +1029,108 @@ function AddTimeSlot({
             <button type="button" onClick={handle} disabled={existingSlots.includes(newTime)}
               className="flex-1 py-1.5 text-xs bg-primary text-white rounded-lg font-medium disabled:opacity-40 hover:opacity-90 transition-all">
               Add Slot
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Copy Day Popover ──────────────────────────────────────────────────────────
+function CopyDayPopover({
+  sourceDay, onCopy,
+}: {
+  sourceDay: string
+  onCopy: (targetDays: string[]) => void
+}) {
+  const [show,     setShow]     = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setShow(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const otherDays = DAYS.filter(d => d !== sourceDay)
+
+  const toggle = (day: string) =>
+    setSelected(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
+
+  const toggleAll = () =>
+    setSelected(prev => prev.length === otherDays.length ? [] : [...otherDays])
+
+  const handleCopy = () => {
+    if (selected.length === 0) return
+    onCopy(selected)
+    setShow(false)
+    setSelected([])
+  }
+
+  const Tick = () => (
+    <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none">
+      <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/50 text-xs font-medium hover:bg-white/8 hover:text-white transition-all"
+      >
+        <Copy className="w-3 h-3" /> Copy to days
+      </button>
+
+      {show && (
+        <div className="absolute top-full mt-2 right-0 z-30 bg-[hsl(220_25%_12%)] border border-white/12 rounded-xl shadow-xl p-4 space-y-3 min-w-52">
+          <div className="flex items-center justify-between">
+            <p className="text-white/60 text-xs font-medium">Copy <span className="text-white">{sourceDay}</span>'s meals to:</p>
+            <button type="button" onClick={() => setShow(false)} className="text-white/25 hover:text-white transition-colors">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Select all */}
+          <button type="button" onClick={toggleAll}
+            className="flex items-center gap-2 w-full text-xs text-white/50 hover:text-white transition-colors">
+            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+              selected.length === otherDays.length ? "bg-primary border-primary" : "border-white/25 bg-transparent"
+            }`}>
+              {selected.length === otherDays.length && <Tick />}
+            </div>
+            Select all days
+          </button>
+
+          {/* Individual days */}
+          <div className="space-y-1 border-t border-white/6 pt-2">
+            {otherDays.map(day => (
+              <button key={day} type="button" onClick={() => toggle(day)}
+                className="flex items-center gap-2.5 w-full text-xs transition-colors hover:text-white text-white/55 py-0.5">
+                <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                  selected.includes(day) ? "bg-primary border-primary" : "border-white/25 bg-transparent"
+                }`}>
+                  {selected.includes(day) && <Tick />}
+                </div>
+                {day}
+              </button>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-1 border-t border-white/6">
+            <button type="button" onClick={() => { setShow(false); setSelected([]) }}
+              className="flex-1 py-1.5 text-xs text-white/40 hover:text-white border border-white/10 rounded-lg transition-colors">
+              Cancel
+            </button>
+            <button type="button" onClick={handleCopy} disabled={selected.length === 0}
+              className="flex-1 py-1.5 text-xs bg-primary text-white rounded-lg font-medium disabled:opacity-40 hover:opacity-90 transition-all">
+              Copy {selected.length > 0 ? `(${selected.length})` : ""}
             </button>
           </div>
         </div>
@@ -1236,6 +1339,25 @@ export default function DietsPage() {
       arr[idx] = { ...arr[idx], [field]: val }
       return { ...p, [key]: arr }
     })
+  }
+
+  const copyDayMeals = (targetDays: string[]) => {
+    const sourceDaySlots = getSlotsForDay(planData, activeDay)
+    if (sourceDaySlots.length === 0) return
+    setPlanData(prev => {
+      const next = { ...prev }
+      for (const targetDay of targetDays) {
+        // Remove existing slots for the target day first
+        Object.keys(next).forEach(k => { if (k.startsWith(`${targetDay}__`)) delete next[k] })
+        // Copy each slot from source day
+        for (const slot of sourceDaySlots) {
+          next[`${targetDay}__${slot}`] = (prev[`${activeDay}__${slot}`] ?? []).map(item => ({ ...item }))
+        }
+      }
+      return next
+    })
+    const label = targetDays.length === 1 ? targetDays[0] : `${targetDays.length} days`
+    toast({ variant: "success", title: `Copied ${activeDay}'s meals to ${label}` })
   }
 
   // ── Open create ────────────────────────────────────────────────────────────
@@ -1529,7 +1651,12 @@ export default function DietsPage() {
                 {/* Add time slot button */}
                 <div className="flex items-center justify-between">
                   <p className="text-white/40 text-xs font-medium">{activeDay}</p>
-                  <AddTimeSlot day={activeDay} existingSlots={slots} onAdd={addSlot} />
+                  <div className="flex items-center gap-2">
+                    {slots.length > 0 && (
+                      <CopyDayPopover sourceDay={activeDay} onCopy={copyDayMeals} />
+                    )}
+                    <AddTimeSlot day={activeDay} existingSlots={slots} onAdd={addSlot} />
+                  </div>
                 </div>
 
                 {slots.length === 0 ? (
@@ -1691,36 +1818,38 @@ export default function DietsPage() {
                   )}
                 </div>
 
-                <h3 className="text-white font-semibold mb-1 flex-1 line-clamp-1">{plan.title}</h3>
-                {plan.goal && <p className="text-primary/70 text-xs mb-2">🎯 {plan.goal}</p>}
+                <Link href={`/owner/diets/${plan.id}`} className="flex flex-col flex-1 mb-3">
+                  <h3 className="text-white font-semibold mb-1 line-clamp-1">{plan.title}</h3>
+                  {plan.goal && <p className="text-primary/70 text-xs mb-2">🎯 {plan.goal}</p>}
 
-                {/* Macros */}
-                {(plan.proteinG || plan.carbsG || plan.fatG) && (
-                  <div className="flex gap-2 mb-3 flex-wrap">
-                    {plan.proteinG && <MacroBadge label="Protein" value={`${plan.proteinG}g`} color="bg-blue-500/10 text-blue-400" />}
-                    {plan.carbsG   && <MacroBadge label="Carbs"   value={`${plan.carbsG}g`}   color="bg-yellow-500/10 text-yellow-400" />}
-                    {plan.fatG     && <MacroBadge label="Fat"     value={`${plan.fatG}g`}     color="bg-red-500/10 text-red-400" />}
-                  </div>
-                )}
-
-                {/* Stats */}
-                <div className="flex items-center gap-3 mb-3">
-                  <p className="text-white/25 text-xs">{totalItems} food item{totalItems !== 1 ? "s" : ""}</p>
-                  {daysWithData > 0 && (
-                    <p className="text-white/25 text-xs">· {daysWithData} day{daysWithData !== 1 ? "s" : ""}</p>
+                  {/* Macros */}
+                  {(plan.proteinG || plan.carbsG || plan.fatG) && (
+                    <div className="flex gap-2 mb-3 flex-wrap">
+                      {plan.proteinG && <MacroBadge label="Protein" value={`${plan.proteinG}g`} color="bg-blue-500/10 text-blue-400" />}
+                      {plan.carbsG   && <MacroBadge label="Carbs"   value={`${plan.carbsG}g`}   color="bg-yellow-500/10 text-yellow-400" />}
+                      {plan.fatG     && <MacroBadge label="Fat"     value={`${plan.fatG}g`}     color="bg-red-500/10 text-red-400" />}
+                    </div>
                   )}
-                </div>
 
-                {/* Gym + member */}
-                <div className="flex items-center justify-between text-xs text-white/35 border-t border-white/5 pt-3 mb-3">
-                  <span className="truncate">{plan.gym?.name}</span>
-                  {plan.assignedMember
-                    ? <span className="flex items-center gap-1 shrink-0">
-                        <Users className="w-3 h-3" /> {plan.assignedMember.profile.fullName}
-                      </span>
-                    : <span className="text-white/20">Unassigned</span>
-                  }
-                </div>
+                  {/* Stats */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <p className="text-white/25 text-xs">{totalItems} food item{totalItems !== 1 ? "s" : ""}</p>
+                    {daysWithData > 0 && (
+                      <p className="text-white/25 text-xs">· {daysWithData} day{daysWithData !== 1 ? "s" : ""}</p>
+                    )}
+                  </div>
+
+                  {/* Gym + member */}
+                  <div className="flex items-center justify-between text-xs text-white/35 border-t border-white/5 pt-3">
+                    <span className="truncate">{plan.gym?.name}</span>
+                    {plan.assignedMember
+                      ? <span className="flex items-center gap-1 shrink-0">
+                          <Users className="w-3 h-3" /> {plan.assignedMember.profile.fullName}
+                        </span>
+                      : <span className="text-white/20">Unassigned</span>
+                    }
+                  </div>
+                </Link>
 
                 {/* Actions */}
                 <div className="flex gap-1 pt-2 border-t border-white/5">

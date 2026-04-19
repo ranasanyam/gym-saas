@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { getDashboardStats } from "@/lib/dashboard-queries"
 import type { DashRange } from "@/lib/dashboard-queries"
+import { ExpiryAlert } from "@/components/owner/ExpiryAlert"
 import { RevenueChart } from "./RevenueChart"
 
 const RANGE_LABELS: Record<DashRange, string> = {
@@ -152,35 +153,16 @@ export async function StatsSection({
     <div className="space-y-6">
 
       {/* ── Expiry alerts ─────────────────────────────────────────────────── */}
-      {d.expiringToday.length > 0 && (
-        <div className="bg-red-500/8 border border-red-500/25 rounded-2xl px-5 py-3.5 flex items-center gap-3">
-          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-          <p className="text-red-300 text-sm flex-1">
-            <span className="font-semibold">Last day today: </span>
-            {d.expiringToday.join(", ")} — collect payment now.
-          </p>
-          <Link href="/owner/members?filter=expiring" className="text-red-400 text-xs hover:underline shrink-0">View →</Link>
-        </div>
-      )}
-      {d.expiringMembers3 > 0 && d.expiringToday.length === 0 && (
-        <div className="bg-yellow-500/8 border border-yellow-500/20 rounded-2xl px-5 py-3.5 flex items-center gap-3">
-          <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
-          <p className="text-yellow-300 text-sm flex-1">
-            <span className="font-semibold">{d.expiringMembers3} membership{d.expiringMembers3 > 1 ? "s" : ""}</span>{" "}
-            expiring in the next 3 days.
-          </p>
-          <Link href="/owner/members?filter=expiring" className="text-yellow-400 text-xs hover:underline shrink-0">View →</Link>
-        </div>
-      )}
-      {d.expiringMembers > 0 && d.expiringMembers3 === 0 && (
-        <div className="bg-yellow-500/5 border border-yellow-500/12 rounded-2xl px-5 py-3 flex items-center gap-3">
-          <AlertTriangle className="w-3.5 h-3.5 text-yellow-500/60 shrink-0" />
-          <p className="text-yellow-400/60 text-xs flex-1">
-            {d.expiringMembers} membership{d.expiringMembers > 1 ? "s" : ""} expiring within 7 days.
-          </p>
-          <Link href="/owner/members?filter=expiring" className="text-yellow-500/60 text-xs hover:text-yellow-400 shrink-0">View →</Link>
-        </div>
-      )}
+      <div className="space-y-3">
+        <ExpiryAlert count={d.expiredMembers ?? 0} days={-1} />
+        <ExpiryAlert
+          names={d.expiringToday}
+          count={d.expiringToday?.length ?? 0}
+          days={0}
+        />
+        <ExpiryAlert count={d.expiringMembers3 ?? 0} days={3} />
+        <ExpiryAlert count={d.expiringMembers ?? 0} days={7} />
+      </div>
 
       {/* ── Today stats (all plans) ────────────────────────────────────────── */}
       {range !== "today" && (

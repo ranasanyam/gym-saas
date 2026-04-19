@@ -63,6 +63,16 @@ enum NotificationType {
   SYSTEM
 }
 
+enum ProfileStatus {
+  ACTIVE
+  INVITED
+}
+
+enum OwnerPlanStatus {
+  PENDING_SELECTION
+  ACTIVE
+}
+
 enum TargetRole {
   OWNER
   TRAINER
@@ -140,16 +150,18 @@ model Profile {
   id           String    @id @default(uuid())
   userId       String    @unique @map("user_id")       // NextAuth user id
   fullName     String    @map("full_name")
-  mobileNumber String?   @map("mobile_number")
-  email        String    @unique
+  mobileNumber String?       @map("mobile_number")          // NOT @unique in DB — enforced in app code for invites
+  email        String?       @unique                       // null for SMS-invited users until they complete profile
+  status       ProfileStatus @default(ACTIVE)              // INVITED = owner added by mobile, ACTIVE = completed profile
   gender       String?
   dateOfBirth  DateTime? @map("date_of_birth") @db.Date
   address      String?
   city         String?
   avatarUrl    String?   @map("avatar_url")
-  passwordHash String?   @map("password_hash")         // null for OAuth-only users
-  role         String?                                    // owner | trainer | member — null until user picks on /select-role
-  goals        String[]  @default([])
+  passwordHash String?   @map("password_hash")         // null for OAuth-only users or INVITED users
+  role            String?                                    // owner | trainer | member — null until user picks on /select-role
+  ownerPlanStatus OwnerPlanStatus? @map("owner_plan_status") // null for non-owners; PENDING_SELECTION until owner picks a plan
+  goals           String[]  @default([])
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
@@ -174,6 +186,7 @@ model Profile {
   referralsMade       Referral[]          @relation("ReferrerProfile")
   expensesAdded       GymExpense[]        @relation("ExpenseAdder")
   referredBy          Referral?           @relation("ReferredProfile")
+  inviteTokens        InviteToken[]
 
   @@map("profiles")
 }
@@ -1166,4 +1179,25 @@ model EmailOtp {
   @@index([email])
   @@index([expiresAt])
   @@map("email_otps")
+}
+
+// ────────────────────────────────────────────────────────────
+// INVITE TOKENS  (SMS-based onboarding for owner-added members/trainers)
+// ────────────────────────────────────────────────────────────
+
+model InviteToken {
+  id        String    @id @default(uuid())
+  profileId String    @map("profile_id")
+  gymId     String?   @map("gym_id")         // which gym sent the invite
+  gymName   String?   @map("gym_name")       // snapshot — survives gym deletion
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")     // 30 days
+  usedAt    DateTime? @map("used_at")        // null = not yet used
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([token])
+  @@map("invite_tokens")
 }

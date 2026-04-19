@@ -962,6 +962,9 @@ function ReportsContent() {
     ? `${new Date(data.dateRange.start).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${new Date(data.dateRange.end).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
     : ""
 
+
+    console.log('ispremium', isPremium)
+
   return (
     <>
       {/* Print styles — only active when window.print() is called */}

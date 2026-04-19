@@ -118,6 +118,9 @@ export async function POST(req: NextRequest) {
     if (!profile) {
       return NextResponse.json({ error: "no_account" }, { status: 404 })
     }
+    if (!profile.email) {
+      return NextResponse.json({ error: "no_account" }, { status: 404 })
+    }
 
     // Account exists but is Google-only (signed up via Google, never set a password)
     const isGoogleOnly = !profile.passwordHash && profile.oauthAccounts.length > 0

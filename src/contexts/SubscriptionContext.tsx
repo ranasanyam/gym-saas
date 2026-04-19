@@ -20,11 +20,14 @@ interface SubscriptionContextValue {
 
     // Convenience helpers
     isExpired: boolean
+    isInGracePeriod: boolean
     isLifetime: boolean
     isTrial: boolean
     planName: string
     limits: PlanLimits | null
     daysRemaining: number | null
+    // daysUntilExpiry: unclamped — negative during grace period
+    daysUntilExpiry: number | null
 
     // Limit check helpers (return false = blocked)
     canAddGym: boolean
@@ -117,11 +120,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
             refresh: fetch_,
 
             isExpired: subscription?.isExpired ?? false,
+            isInGracePeriod: subscription?.isInGracePeriod ?? false,
             isLifetime: subscription?.isLifetime ?? false,
             isTrial: subscription?.isTrial ?? false,
             planName: subscription?.planName ?? "No Plan",
             limits,
             daysRemaining: subscription?.daysRemaining ?? null,
+            daysUntilExpiry: subscription?.daysUntilExpiry ?? null,
 
             canAddGym,
             canAddMember,

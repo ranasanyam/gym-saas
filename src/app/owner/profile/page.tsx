@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { useProfile } from "@/contexts/ProfileContext"
 import { PageHeader } from "@/components/owner/PageHeader"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, User, Lock, Shield, Camera, MessageCircle, Check, Phone, ShieldCheck, MapPinIcon, EditIcon } from "lucide-react"
+import { Loader2, User, Lock, Shield, Camera, MessageCircle, Check, Phone, ShieldCheck, MapPinIcon, EditIcon, Eye, EyeOff } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,11 @@ export default function ProfilePage() {
   })
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "", newPassword: "", confirmPassword: "",
+  });
+  const [showPw, setShowPw] = useState({
+    currentPassword: false,
+    newPassword: false, 
+    confirmPassword: false
   })
 
   // WhatsApp settings
@@ -208,6 +213,7 @@ export default function ProfilePage() {
               <div key={field} className="space-y-1.5">
                 <Label className="text-white/50 text-xs">{label}</Label>
                 <Input type={type} value={(profileForm as any)[field]}
+                disabled={field === "mobileNumber"}
                   onChange={e => setProfileForm(p => ({ ...p, [field]: e.target.value }))}
                   className="bg-white/5 border-white/10 text-white focus:border-primary focus-visible:ring-0 h-11" />
               </div>
@@ -224,12 +230,23 @@ export default function ProfilePage() {
                 <Lock className="w-4 h-4 text-primary" /> Account Security
             </h3>
             <div className="space-y-4">
-                {[["currentPassword","Current Password"],["newPassword","New Password"],["confirmPassword","Confirm New Password"]].map(([field, label]) => (
+                {([["currentPassword","Current Password"],["newPassword","New Password"],["confirmPassword","Confirm New Password"]] as [keyof typeof passwordForm, string][]).map(([field, label]) => (
                 <div key={field} className="space-y-1.5">
                     <Label className="text-white/50 text-xs">{label}</Label>
-                    <Input type="password" value={(passwordForm as any)[field]}
+                    <div className="relative">
+                    <Input 
+                    type={showPw[field] ? "text" : "password"} 
+                    value={(passwordForm as any)[field]}
                     onChange={e => setPasswordForm(p => ({ ...p, [field]: e.target.value }))}
                     className="bg-white/5 border-white/10 text-white focus:border-primary focus-visible:ring-0 h-11" />
+                    <button 
+                    onClick={() => setShowPw(p => ({ ...p, [field]: !p[field] }))}
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
+                    >
+                      {showPw[field] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    </div>
                 </div>
                 ))}
             </div>

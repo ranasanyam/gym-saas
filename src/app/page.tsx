@@ -10,6 +10,7 @@ import {
   Trophy, Lock, Package, Receipt,
   Smartphone, Apple, Play, ChevronRight, MapPin,
   Activity, Globe, Shield, Building2, AlertTriangle,
+  UserCheck, Calendar, Banknote, IndianRupee, ShoppingBag, BrainCircuit, Rocket, Headphones,
 } from "lucide-react"
 import { features } from "process"
 
@@ -203,37 +204,102 @@ const ROLES = [
   },
 ]
 
-const PRICING_DURATIONS = [
-  { key: "quarterly",   label: "3 Months",  months: 3  },
-  { key: "half_yearly", label: "6 Months",  months: 6  },
-  { key: "yearly",      label: "12 Months", months: 12 },
+const DURATIONS = [
+  { label: "3 mo",  months: 3,  interval: "QUARTERLY"   },
+  { label: "6 mo",  months: 6,  interval: "HALF_YEARLY" },
+  { label: "12 mo", months: 12, interval: "YEARLY"      },
 ] as const
+type DurationInterval = typeof DURATIONS[number]["interval"]
 
-type PricingDuration = typeof PRICING_DURATIONS[number]["key"]
+// ── Plan tier definitions ─────────────────────────────────────────────────────
+interface PlanTier {
+  key:         string
+  name:        string
+  description: string
+  gradient:    string
+  ring:        string
+  textAccent:  string
+  badge?:      string
+  badgeClass?: string
+  prices:      Record<DurationInterval, number>
+  features:    { icon: React.ElementType; label: string }[]
+}
 
-const PRICING_TIERS = [
+const TIERS: PlanTier[] = [
   {
-    name: "Basic", key: "basic",
-    desc: "Core tools for single-gym owners.",
-    highlight: false, cta: "Get Basic",
-    prices: { quarterly: 999, half_yearly: 1799, yearly: 2999 },
-    features: ["1 gym location", "Unlimited members", "Workout & diet plans", "Attendance tracking", "Payment history & billing", "Expense tracker"],
+    key: "basic", name: "Basic", description: "Everything you need to run one gym",
+    gradient: "from-blue-500/10 to-cyan-500/4",
+    ring: "ring-blue-500/30", textAccent: "text-blue-400",
+    prices: { QUARTERLY: 999, HALF_YEARLY: 1649, YEARLY: 2999 },
+    features: [
+      { icon: Building2,         label: "1 Gym" },
+      { icon: Users,             label: "Unlimited members" },
+      { icon: UserCheck,         label: "Unlimited trainers" },
+      { icon: Calendar,          label: "Attendance tracking" },
+      { icon: ClipboardList,     label: "Membership plans" },
+      { icon: BarChart3,         label: "Basic reports & analytics" },
+      { icon: Bell,              label: "Unlimited Announcements" },
+      { icon: Headphones,        label: "Email support" },
+    ],
   },
   {
-    name: "Pro", key: "pro",
-    desc: "Everything you need to scale.",
-    highlight: true, cta: "Get Pro",
-    prices: { quarterly: 1999, half_yearly: 3499, yearly: 5999 },
-    features: ["Up to 5 gym locations", "Everything in Basic", "Supplement store", "Locker management", "Full analytics & reports", "Plan templates"],
+    key: "pro", name: "Pro", description: "Scale across multiple locations",
+    gradient: "from-primary/12 to-orange-500/4",
+    ring: "ring-primary/35", textAccent: "text-primary",
+    badge: "Most Popular", badgeClass: "bg-primary text-white",
+    prices: { QUARTERLY: 1499, HALF_YEARLY: 2499, YEARLY: 4499 },
+    features: [
+      { icon: Building2,         label: "1 Gym" },
+      { icon: Users,             label: "Unlimited members" },
+      { icon: UserCheck,         label: "Unlimited trainers" },
+      { icon: Calendar,          label: "Attendance tracking" },
+      { icon: ClipboardList,     label: "Membership plans" },
+      { icon: Lock,              label: "Locker management" },
+      { icon: Banknote,          label: "Payment management" },
+      { icon: IndianRupee,       label: "Expense management" },
+      { icon: Dumbbell,          label: "Workout plans" },
+      { icon: UtensilsCrossed,   label: "Diet plans" },
+      { icon: ShoppingBag,       label: "Supplement management" },
+      { icon: BarChart3,         label: "Full reports & analytics" },
+      { icon: Bell,              label: "Unlimited Announcements & notifications" },
+      { icon: Headphones,        label: "Priority support" },
+    ],
   },
   {
-    name: "Enterprise", key: "enterprise",
-    desc: "For serious multi-gym operations.",
-    highlight: false, cta: "Get Enterprise",
-    prices: { quarterly: 3999, half_yearly: 6999, yearly: 11999 },
-    features: ["Unlimited gym locations", "Everything in Pro", "Refer & earn system", "Priority support", "API access", "Early access to features"],
+    key: "enterprise", name: "Enterprise", description: "For large chains with no limits",
+    gradient: "from-purple-500/12 to-violet-500/4",
+    ring: "ring-purple-500/30", textAccent: "text-purple-400",
+    badge: "Unlimited Everything", badgeClass: "bg-purple-500 text-white",
+    prices: { QUARTERLY: 2999, HALF_YEARLY: 4999, YEARLY: 8999 },
+    features: [
+      { icon: Building2,          label: "Up to 5 gyms" },
+      { icon: Users,             label: "Unlimited members" },
+      { icon: UserCheck,         label: "Unlimited trainers" },
+      { icon: Calendar,          label: "Attendance tracking" },
+      { icon: ClipboardList,     label: "Membership plans" },
+      { icon: Lock,              label: "Locker management" },
+      { icon: Banknote,          label: "Payment management" },
+      { icon: IndianRupee,       label: "Expense management" },
+      { icon: Dumbbell,          label: "Workout plans" },
+      { icon: UtensilsCrossed,   label: "Diet plans" },
+      { icon: BrainCircuit,      label: "AI-powered workout/diet plans" },
+      { icon: ShoppingBag,       label: "Supplement management" },
+      { icon: BarChart3,         label: "Full reports & analytics" },
+      { icon: Bell,              label: "Unlimited Announcements & notifications" },
+      { icon: Rocket,            label: "Custom integrations" },
+      { icon: Headphones,        label: "Priority support" },
+    ],
   },
 ]
+
+// ── Savings badge helper ─────────────────────────────────────────────────────
+function savingsLabel(prices: PlanTier["prices"], interval: DurationInterval): string | null {
+  const monthly3 = prices.QUARTERLY  / 3
+  const perMonth = prices[interval]  / DURATIONS.find(d => d.interval === interval)!.months
+  if (interval === "QUARTERLY") return null
+  const pct = Math.round(((monthly3 - perMonth) / monthly3) * 100)
+  return pct > 0 ? `Save ${pct}%` : null
+}
 
 const FAQS = [
   {
@@ -466,7 +532,11 @@ export default function LandingPage() {
   const appRef        = useInView(0.1)
   const pricingRef    = useInView(0.05)
   const faqRef        = useInView(0.1)
-  const [pricingDuration, setPricingDuration] = useState<PricingDuration>("quarterly")
+  const [durations, setDurations] = useState<Record<string, DurationInterval>>({
+    basic:      "HALF_YEARLY",
+    pro:        "HALF_YEARLY",
+    enterprise: "HALF_YEARLY",
+  })
 
   return (
     <div className="min-h-screen text-white overflow-x-hidden" style={{ backgroundColor: "#080c12" }}>
@@ -887,26 +957,6 @@ export default function LandingPage() {
               Plans that grow with you
             </h2>
             <p className="text-white/45 text-lg mb-8">Start free. Upgrade when you're ready. No hidden fees ever.</p>
-
-            {/* Duration toggle */}
-            <div className="inline-flex bg-white/5 border border-white/10 rounded-2xl p-1 gap-1">
-              {PRICING_DURATIONS.map(d => (
-                <button
-                  key={d.key}
-                  onClick={() => setPricingDuration(d.key)}
-                  className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
-                    pricingDuration === d.key
-                      ? "bg-[#f97316] text-white shadow-lg shadow-orange-500/25"
-                      : "text-white/45 hover:text-white/70"
-                  }`}
-                >
-                  {d.label}
-                  {d.key === "yearly" && (
-                    <span className="ml-1.5 text-[10px] font-bold bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">Save 25%</span>
-                  )}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Free plan banner */}
@@ -937,63 +987,103 @@ export default function LandingPage() {
           </div>
 
           {/* Paid tiers */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
-            {PRICING_TIERS.map(({ name, desc, highlight, cta, features: planF, prices }, i) => {
-              const price  = prices[pricingDuration]
-              const dur    = PRICING_DURATIONS.find(d => d.key === pricingDuration)!
-              const perMo  = Math.round(price / dur.months)
+          <div className="grid sm:grid-cols-3 gap-5">
+            {TIERS.map((tier) => {
+              const selectedInterval = durations[tier.key]
+              const price            = tier.prices[selectedInterval]
+              const selectedDuration = DURATIONS.find(d => d.interval === selectedInterval)!
+              const isPopular        = tier.key === "pro"
+
               return (
-                <div key={name}
-                  className={`rounded-3xl p-7 relative transition-all duration-500 hover:scale-[1.02] ${
-                    highlight ? "pricing-shine" : "border border-white/8 bg-white/2"
-                  }`}
+                <div
+                  key={tier.key}
+                  className={`relative bg-linear-to-br ${tier.gradient} border rounded-2xl flex flex-col transition-all hover:border-white/15`}
                   style={{
                     opacity:    pricingRef.inView ? 1 : 0,
                     transform:  pricingRef.inView ? "translateY(0)" : "translateY(24px)",
-                    transition: `opacity 0.5s ease ${(i + 1) * 80}ms, transform 0.5s ease ${(i + 1) * 80}ms`,
-                  }}>
-                  {highlight && (
-                    <>
-                      <div className="absolute inset-0 bg-linear-to-b from-[#f97316]/5 to-transparent pointer-events-none rounded-3xl" />
-                      <div className="absolute -top-4 inset-x-0 flex justify-center">
-                        <span className="bg-linear-to-r from-[#f97316] to-[#fb923c] text-white text-xs font-black px-5 py-1.5 rounded-full shadow-lg shadow-orange-500/30">
-                          ✦ Most Popular
-                        </span>
-                      </div>
-                    </>
+                    transition: `opacity 0.5s ease 0ms, transform 0.5s ease 0ms`,
+                  }}
+                >
+                  {/* Top badge — centered */}
+                  {tier.badge && (
+                    <div className="absolute -top-3 inset-x-0 flex justify-center w-full m-auto pointer-events-none">
+                      <span className={`text-[11px] font-bold px-3 py-1 rounded-full whitespace-nowrap ${tier.badgeClass}`}>
+                        {tier.badge}
+                      </span>
+                    </div>
                   )}
 
-                  <div className="relative">
-                    <div className="flex items-start justify-between mb-1">
-                      <h3 className="text-white font-display font-bold text-xl">{name}</h3>
-                      {highlight && <Zap className="w-4 h-4 text-[#f97316]" />}
+                  <div className="p-6 flex flex-col gap-5 flex-1">
+                    {/* Plan name + description */}
+                    <div>
+                      <h3 className="text-white font-bold text-xl">{tier.name}</h3>
+                      <p className="text-white/40 text-xs mt-1">{tier.description}</p>
                     </div>
-                    <p className="text-white/35 text-xs mb-5">{desc}</p>
 
-                    <div className="mb-7">
-                      <div className="flex items-end gap-1.5">
-                        <span className="text-4xl font-black text-white font-display">₹{price.toLocaleString("en-IN")}</span>
-                        <span className="text-white/35 text-sm mb-1">/ {dur.label.toLowerCase()}</span>
+                    {/* Duration picker */}
+                    <div className="flex gap-1.5 bg-white/4 p-1 rounded-xl border border-white/6">
+                      {DURATIONS.map((d) => {
+                        const isSelected = d.interval === selectedInterval
+                        const sav = savingsLabel(tier.prices, d.interval)
+                        return (
+                          <button
+                            key={d.interval}
+                            onClick={() => setDurations(prev => ({ ...prev, [tier.key]: d.interval }))}
+                            className={`flex-1 flex flex-col items-center justify-center py-1.5 rounded-lg transition-all ${
+                              isSelected
+                                ? `bg-white/10 ${tier.textAccent} border border-white/12`
+                                : "text-white/40 hover:text-white/65"
+                            }`}
+                          >
+                            <span className="text-xs font-semibold leading-tight">{d.label}</span>
+                            {sav ? (
+                              <span className={`text-[9px] font-bold leading-tight mt-0.5 ${isSelected ? "text-green-400" : "text-green-500/70"}`}>{sav}</span>
+                            ) : (
+                              <span className="text-[9px] leading-tight mt-0.5 opacity-0">-</span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Price */}
+                    <div className="flex items-end gap-1.5">
+                      <span className="text-4xl font-bold text-white leading-none">
+                        ₹{price.toLocaleString("en-IN")}
+                      </span>
+                      <div className="mb-1">
+                        <span className="text-white/35 text-xs">/ {selectedDuration.months} mo</span>
                       </div>
-                      <p className="text-white/30 text-xs mt-1">₹{perMo.toLocaleString("en-IN")} per month</p>
                     </div>
 
-                    <ul className="space-y-2.5 mb-8">
-                      {planF.map(f => (
-                        <li key={f} className="flex items-start gap-2.5">
-                          <CheckCircle className="w-4 h-4 text-[#f97316] shrink-0 mt-0.5" />
-                          <span className="text-white/55 text-sm">{f}</span>
+                    {/* Per-month breakdown */}
+                    <p className="text-white/30 text-[11px] -mt-3">
+                      ≈ ₹{Math.round(price / selectedDuration.months).toLocaleString("en-IN")} / month
+                    </p>
+
+                    {/* Divider */}
+                    <div className="h-px bg-white/6" />
+
+                    {/* Features */}
+                    <ul className="space-y-2.5 flex-1">
+                      {tier.features.map((f, fi) => (
+                        <li key={fi} className="flex items-center gap-2.5 text-sm py-1 text-white/65">
+                          <f.icon className={`w-3.5 h-3.5 ${tier.textAccent} opacity-70 shrink-0`} />
+                          {f.label}
                         </li>
                       ))}
                     </ul>
 
+                    {/* CTA */}
                     <Link href="/signup"
-                      className={`block text-center text-sm font-bold py-3.5 rounded-xl transition-all ${
-                        highlight
-                          ? "bg-[#f97316] hover:bg-[#ea580c] text-white shadow-lg shadow-orange-500/25"
-                          : "border border-white/12 text-white/60 hover:text-white hover:border-white/25 hover:bg-white/4"
+                      className={`w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                        isPopular
+                          ? "bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 shadow-lg shadow-primary/20"
+                          : tier.key === "enterprise"
+                            ? "bg-purple-500 text-white hover:opacity-90"
+                            : "bg-white/8 hover:bg-white/15 text-white border border-white/10"
                       }`}>
-                      {cta}
+                      <CreditCard className="w-4 h-4" /> Subscribe — ₹{price.toLocaleString("en-IN")}
                     </Link>
                   </div>
                 </div>

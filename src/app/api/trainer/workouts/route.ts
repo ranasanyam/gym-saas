@@ -17,17 +17,7 @@ export async function GET(req: NextRequest) {
     where: {
       gymId: trainer.gymId,
       isActive: true,
-      OR: [
-        { createdBy: profileId },
-        {
-          assignedToMemberId: {
-            in: (await prisma.gymMember.findMany({
-              where: { assignedTrainerId: trainer.id },
-              select: { id: true },
-            })).map(m => m.id),
-          },
-        },
-      ],
+      createdBy: profileId,
     },
     include: {
       assignedMember: { include: { profile: { select: { fullName: true, avatarUrl: true } } } },

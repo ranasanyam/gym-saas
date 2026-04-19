@@ -1,6 +1,7 @@
 // src/app/api/owner/lockers/[lockerId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
 
 async function verifyLockerOwnership(profileId: string, lockerId: string) {
@@ -12,6 +13,10 @@ async function verifyLockerOwnership(profileId: string, lockerId: string) {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ lockerId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { lockerId } = await params
 
   const locker = await prisma.locker.findFirst({
@@ -35,6 +40,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lock
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lockerId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { lockerId } = await params
 
   const existing = await verifyLockerOwnership(profileId, lockerId)
@@ -84,6 +93,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ lo
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ lockerId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { lockerId } = await params
 
   const existing = await verifyLockerOwnership(profileId, lockerId)

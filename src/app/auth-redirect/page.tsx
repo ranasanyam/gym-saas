@@ -69,14 +69,16 @@ export default async function AuthRedirectPage() {
   // The JWT may lag by milliseconds after the OAuth callback.
   const profile = await prisma.profile.findUnique({
     where:  { id: session.user.id },
-    select: { role: true },
+    select: { role: true, ownerPlanStatus: true },
   })
 
   if (!profile) {
     redirect("/login")
   }
 
-  if (profile.role === "owner")   redirect("/owner/dashboard")
+  if (profile.role === "owner") {
+    redirect(profile.ownerPlanStatus === "ACTIVE" ? "/owner/dashboard" : "/owner/choose-plan")
+  }
   if (profile.role === "trainer") redirect("/trainer/dashboard")
   if (profile.role === "member")  redirect("/member/dashboard")
 

@@ -98,7 +98,7 @@ export default function SelectRoleClient() {
       await refresh()
 
       // Hard navigate so router cache doesn't serve a stale page
-      window.location.href = selected === "owner" ? "/owner/setup" : `/${selected}/dashboard`
+      window.location.href = selected === "owner" ? "/owner/choose-plan" : `/${selected}/dashboard`
     } catch {
       toast({ variant: "destructive", title: "Something went wrong", description: "Please try again." })
     } finally {

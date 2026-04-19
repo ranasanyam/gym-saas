@@ -9,9 +9,11 @@ import { useProfile } from "@/contexts/ProfileContext"
 import {
   Dumbbell, LayoutDashboard, Building2, ClipboardList,
   UtensilsCrossed, CalendarCheck, CreditCard, Bell, Gift,
-  Compass, UserCircle, LogOut, Menu, X, Search, Loader2
+  Compass, UserCircle, LogOut, Menu, X, Search, Loader2,
+  ShoppingBag, Megaphone,
 } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
+import { MemberGymProvider } from "@/contexts/MemberGymContext"
 
 const navItems = [
   { label: "Dashboard",     href: "/member/dashboard",      icon: LayoutDashboard },
@@ -20,8 +22,10 @@ const navItems = [
   { label: "Diet Plan",     href: "/member/diet",           icon: UtensilsCrossed },
   { label: "Attendance",    href: "/member/attendance",     icon: CalendarCheck },
   { label: "Payments",      href: "/member/payments",       icon: CreditCard },
-  { label: "Refer & Earn",  href: "/member/referral",       icon: Gift },
-  { label: "Notifications", href: "/member/notifications",  icon: Bell },
+  // { label: "Refer & Earn",  href: "/member/referral",       icon: Gift },
+  { label: "Notifications",  href: "/member/notifications",  icon: Bell },
+  { label: "Supplements",   href: "/member/supplements",    icon: ShoppingBag },
+  // { label: "Announcements", href: "/member/announcements",  icon: Megaphone },
   { label: "Discover Gyms", href: "/member/discover",       icon: Compass },
   { label: "Profile",       href: "/member/profile",        icon: UserCircle },
 ]
@@ -145,7 +149,9 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
         </header>
 
         <main className="flex-1 p-6 overflow-auto">
-          {children}
+          <MemberGymProvider>
+            {children}
+          </MemberGymProvider>
         </main>
       </div>
     </div>

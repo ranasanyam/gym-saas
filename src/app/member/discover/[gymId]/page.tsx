@@ -66,24 +66,11 @@ export default function GymDiscoverDetailPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`/api/member/discover?gymId=${gymId}`)
+    fetch(`/api/member/discover/${gymId}`)
       .then(r => r.json())
-      .then(d => {
-        const found = (d.gyms ?? []).find((g: any) => g.id === gymId) ?? d.gym ?? null
-        setGym(found)
-      })
+      .then(d => setGym(d.error ? null : d))
       .finally(() => setLoading(false))
   }, [gymId])
-
-  // Fallback: fetch all and find by id
-  useEffect(() => {
-    if (loading) return
-    if (!gym) {
-      fetch("/api/member/discover")
-        .then(r => r.json())
-        .then(d => setGym((d.gyms ?? []).find((g: any) => g.id === gymId) ?? null))
-    }
-  }, [loading])
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -119,10 +106,10 @@ export default function GymDiscoverDetailPage() {
               <h2 className="text-white text-xl font-display font-bold">{gym.name}</h2>
               {gym.isEnrolled && (
                 <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                  gym.isActive ? "bg-green-500/15 text-green-400" : "bg-white/8 text-white/40"
+                  gym.memberIsActive ? "bg-green-500/15 text-green-400" : "bg-white/8 text-white/40"
                 }`}>
                   <CheckCircle2 className="w-3 h-3" />
-                  {gym.isActive ? "Active Member" : "Past Member"}
+                  {gym.memberIsActive ? "Active Member" : "Past Member"}
                 </span>
               )}
             </div>
@@ -131,7 +118,7 @@ export default function GymDiscoverDetailPage() {
               {[gym.address, gym.city, gym.state].filter(Boolean).join(", ")}
             </p>
             <div className="flex items-center gap-4 mt-2 flex-wrap text-xs">
-              <span className="flex items-center gap-1 text-white/35"><Users className="w-3 h-3" />{gym._count?.members ?? 0} members</span>
+              {/* <span className="flex items-center gap-1 text-white/35"><Users className="w-3 h-3" />{gym._count?.members ?? 0} members</span> */}
               {contactNumber && (
                 <a href={`tel:${contactNumber}`}
                   className="flex items-center gap-1 text-green-400 hover:text-green-300 transition-colors">

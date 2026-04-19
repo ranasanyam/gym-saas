@@ -512,10 +512,16 @@ export interface ActiveSubscription {
   planSlug:         string
   limits:           PlanLimits
   currentPeriodEnd: Date | null
+  // isExpired: true ONLY after the 7-day grace period has passed
   isExpired:        boolean
+  // isInGracePeriod: currentPeriodEnd has passed but we're still within the 7-day grace window
+  isInGracePeriod:  boolean
   isLifetime:       boolean
   isTrial:          boolean
+  // daysRemaining: days until currentPeriodEnd, clamped to 0 (for backward compat)
   daysRemaining:    number | null
+  // daysUntilExpiry: unclamped — negative during grace period (used by banner to show "X days ago")
+  daysUntilExpiry:  number | null
 }
 
 // ── Resolve limits from plan name ─────────────────────────────────────────────
@@ -527,7 +533,16 @@ export function getLimitsForPlan(planName: string): PlanLimits {
 
 // ── Fetch the active subscription + resolved limits for an owner ──────────────
 
+const GRACE_PERIOD_DAYS = 7
+
 export async function getOwnerSubscription(profileId: string): Promise<ActiveSubscription | null> {
+  const profile = await prisma.profile.findUnique({
+    where:  { id: profileId },
+    select: { ownerPlanStatus: true },
+  })
+
+  if (profile?.ownerPlanStatus !== "ACTIVE") return null
+
   const sub = await prisma.saasSubscription.findFirst({
     where:   { profileId },
     include: { saasPlan: true },
@@ -536,16 +551,28 @@ export async function getOwnerSubscription(profileId: string): Promise<ActiveSub
 
   if (!sub) return null
 
-  const now        = new Date()
-  const isLifetime = sub.status === "LIFETIME" || sub.saasPlan.interval === "LIFETIME"
-  const isExpired  = !isLifetime && sub.currentPeriodEnd !== null && sub.currentPeriodEnd < now
-  const isActive   = (sub.status === "ACTIVE" || sub.status === "TRIALING" || isLifetime) && !isExpired
-  const isTrial    = sub.status === "TRIALING"
+  const now         = new Date()
+  const graceCutoff = new Date(now.getTime() - GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000)
 
-  let daysRemaining: number | null = null
+  const isLifetime = sub.status === "LIFETIME" || sub.saasPlan.interval === "LIFETIME"
+
+  // isExpired = true ONLY after the grace period window has closed
+  const isExpired = !isLifetime && sub.currentPeriodEnd !== null && sub.currentPeriodEnd < graceCutoff
+
+  // isInGracePeriod = plan's period has ended but we're still within the 7-day grace window
+  const isInGracePeriod = !isLifetime && !isExpired
+    && sub.currentPeriodEnd !== null && sub.currentPeriodEnd < now
+
+  const isActive = (sub.status === "ACTIVE" || sub.status === "TRIALING" || isLifetime) && !isExpired
+  const isTrial  = sub.status === "TRIALING"
+
+  // daysUntilExpiry: unclamped (negative = days since expiry, used for grace period display)
+  let daysUntilExpiry: number | null = null
   if (!isLifetime && sub.currentPeriodEnd) {
-    daysRemaining = Math.max(0, Math.ceil((sub.currentPeriodEnd.getTime() - now.getTime()) / 86400000))
+    daysUntilExpiry = Math.ceil((sub.currentPeriodEnd.getTime() - now.getTime()) / 86400000)
   }
+
+  const daysRemaining = daysUntilExpiry !== null ? Math.max(0, daysUntilExpiry) : null
 
   const limits = isActive ? getLimitsForPlan(sub.saasPlan.name) : EXPIRED_LIMITS
 
@@ -557,9 +584,11 @@ export async function getOwnerSubscription(profileId: string): Promise<ActiveSub
     limits,
     currentPeriodEnd: sub.currentPeriodEnd,
     isExpired,
+    isInGracePeriod,
     isLifetime,
     isTrial,
     daysRemaining,
+    daysUntilExpiry,
   }
 }
 

@@ -89,12 +89,14 @@
 
 // src/app/api/profile/me/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { resolveProfileId } from "@/lib/mobileAuth"
+import { resolveWebProfileId } from "@/lib/serverAuth"
 import { prisma } from "@/lib/prisma"
+
+export const runtime = "nodejs"
 
 export async function GET(req: NextRequest) {
   try {
-    const profileId = await resolveProfileId(req)
+    const profileId = await resolveWebProfileId(req)
 
     if (!profileId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -112,6 +114,7 @@ export async function GET(req: NextRequest) {
         gender: true,
         dateOfBirth: true,
         role: true,
+        ownerPlanStatus: true,
         wallet: {
           select: { balance: true },
         },
@@ -160,6 +163,7 @@ export async function GET(req: NextRequest) {
       gender: profile.gender,
       dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.toISOString() : null,
       role: profile.role,
+      ownerPlanStatus: profile.ownerPlanStatus,
       wallet: profile.wallet
         ? { balance: Number(profile.wallet.balance) }
         : null,

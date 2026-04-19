@@ -171,6 +171,7 @@
 // src/app/api/owner/reports/route.ts
 import { NextRequest, NextResponse }          from "next/server"
 import { resolveProfileId }                   from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma }                             from "@/lib/prisma"
 import { getOwnerSubscription, checkFeature } from "@/lib/subscription"
 import { getRangeWindow, buildBuckets }       from "@/lib/dashboard-queries"
@@ -181,6 +182,10 @@ export type { DashRange }
 export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
 
   // ── Subscription gate ────────────────────────────────────────────────────
   const sub = await getOwnerSubscription(profileId)
