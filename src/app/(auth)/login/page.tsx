@@ -191,6 +191,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
 function getRolePath(profile: { role?: string | null; ownerPlanStatus?: string | null } | null): string {
+  console.log('get role path', profile);
   if (profile?.role === "owner") {
     return profile.ownerPlanStatus === "ACTIVE" ? "/owner/dashboard" : "/owner/choose-plan"
   }
