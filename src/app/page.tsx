@@ -378,10 +378,11 @@ function Navbar() {
     }`}>
       <div className="max-w-7xl mx-auto px-6 h-17 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-linear-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:shadow-orange-500/50 transition-shadow">
-            <Dumbbell className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-black text-white tracking-tight">GymStack</span>
+          {/* <div className="w-9 h-9 rounded-xl bg-linear-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:shadow-orange-500/50 transition-shadow"> */}
+            {/* <Dumbbell className="w-5 h-5 text-white" /> */}
+            <img src="../../logo.png" alt="Logo" className="w-16 h-16" />
+          {/* </div> */}
+          {/* <span className="text-xl font-black text-white tracking-tight">GymStack</span> */}
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">

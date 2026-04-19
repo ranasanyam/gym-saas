@@ -62,7 +62,6 @@ interface AuthLayoutProps {
   subtitle?: string
   children: React.ReactNode
 }
-
 export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4 relative overflow-hidden">
@@ -75,10 +74,11 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
 
         {/* Logo */}
         <Link href="/" className="flex items-center justify-center gap-3 mb-8 group w-fit mx-auto">
-          <div className="p-2.5 bg-gradient-primary rounded-xl shadow-lg group-hover:opacity-90 transition-opacity">
-            <Dumbbell className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-2xl font-display font-bold text-white tracking-tight">GymStack</span>
+          {/* <div className="p-2.5 bg-gradient-primary rounded-xl shadow-lg group-hover:opacity-90 transition-opacity"> */}
+            {/* <Dumbbell className="w-6 h-6 text-white" /> */}
+            <img src="../../logo.png" alt="logo" className="w-20 h-20" />
+          {/* </div> */}
+          {/* <span className="text-2xl font-display font-bold text-white tracking-tight">GymStack</span> */}
         </Link>
 
         {/* Card */}
