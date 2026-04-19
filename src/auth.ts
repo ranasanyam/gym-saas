@@ -514,7 +514,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // NOTE: do NOT use !token.role — that would hit DB on every request for
       // null-role users (fresh signups) and risks picking up a stale role mid-flow.
       if (
-        (trigger === "update" || token.role === undefined || token.hasActivePlan === undefined) &&
+        (trigger === "update" || token.role === undefined || token.hasActivePlan === undefined || token.role === null) &&
         token.profileId
       ) {
         const profile = await prisma.profile.findUnique({

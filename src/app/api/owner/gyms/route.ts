@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       where: { ownerId: profileId },
       include: {
         _count: { select: { members: true, trainers: true } },
-        membershipPlans: { where: { isActive: true }, select: { id: true, name: true, price: true } },
+        membershipPlans: { where: { isActive: true }, select: { id: true, name: true, price: true, durationMonths: true } },
       },
       orderBy: { createdAt: "desc" },
     })

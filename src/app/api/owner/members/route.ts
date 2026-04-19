@@ -339,7 +339,10 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { gymId, fullName, mobileNumber, membershipPlanId, startDate, endDate, paymentReceived } = body
+  const {
+    gymId, fullName, mobileNumber, membershipPlanId, startDate, endDate, paymentReceived,
+    email, gender, dateOfBirth, address, goals, avatarUrl,
+  } = body
 
   if (!gymId)                return NextResponse.json({ error: "Gym is required" },              { status: 400 })
   if (!fullName?.trim())     return NextResponse.json({ error: "Full name is required" },        { status: 400 })
@@ -367,6 +370,21 @@ export async function POST(req: NextRequest) {
   }
 
   const { outcome, profileId: memberProfileId } = result
+
+  // Persist optional profile fields for brand-new profiles only (don't overwrite existing user data)
+  if (outcome === "created") {
+    const optionalData: Record<string, any> = {}
+    if (email?.trim())    optionalData.email       = email.trim().toLowerCase()
+    if (gender)           optionalData.gender      = gender
+    if (dateOfBirth)      optionalData.dateOfBirth = new Date(dateOfBirth)
+    if (address?.trim())  optionalData.address     = address.trim()
+    if (Array.isArray(goals) && goals.length) optionalData.goals = goals
+    if (avatarUrl?.trim()) optionalData.avatarUrl  = avatarUrl.trim()
+
+    if (Object.keys(optionalData).length > 0) {
+      await prisma.profile.update({ where: { id: memberProfileId }, data: optionalData }).catch(() => {})
+    }
+  }
 
   // Check if already a member of THIS gym
   const existing = await findExistingGymMember(memberProfileId, gymId)

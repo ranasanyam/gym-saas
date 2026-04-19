@@ -69,8 +69,8 @@ const ROLES = [
 export default function SelectRoleClient() {
   const router     = useRouter()
   const { toast }  = useToast()
-  const { update } = useSession()
-  const { refresh } = useProfile()
+  useSession()
+  useProfile()
 
   const [selected, setSelected] = useState<Role | null>(null)
   const [loading,  setLoading]  = useState(false)
@@ -93,12 +93,11 @@ export default function SelectRoleClient() {
         return
       }
 
-      // Refresh session JWT so the new role is in the cookie
-      await update()
-      await refresh()
-
-      // Hard navigate so router cache doesn't serve a stale page
-      window.location.href = selected === "owner" ? "/owner/choose-plan" : `/${selected}/dashboard`
+      // router.refresh() re-runs the /select-role server component, which reads
+      // the updated role from DB and issues the correct server-side redirect
+      // (/owner/choose-plan or /{role}/dashboard). This avoids any stale JWT
+      // issues that arise from navigating directly with window.location.href.
+      router.refresh()
     } catch {
       toast({ variant: "destructive", title: "Something went wrong", description: "Please try again." })
     } finally {

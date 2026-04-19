@@ -32,6 +32,7 @@ type MobileStatus = "idle" | "checking" | "available" | "exists_active" | "exist
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function addMonths(dateStr: string, months: number): string {
+  console.log('data', dateStr)
   const d   = new Date(dateStr)
   const day = d.getDate()
   d.setMonth(d.getMonth() + months)
@@ -113,7 +114,7 @@ function AddMemberContent() {
   const [gyms,    setGyms]    = useState<Gym[]>([])
   const [loading, setLoading] = useState(false)
   const [errors,  setErrors]  = useState<FormErrors>({})
-
+  // Required fields
   const [gymId,            setGymId]            = useState("")
   const [membershipPlanId, setMembershipPlanId] = useState("")
   const [startDate,        setStartDate]        = useState(new Date().toISOString().split("T")[0])
@@ -122,6 +123,14 @@ function AddMemberContent() {
   const [fullName,         setFullName]         = useState("")
   const [mobileNumber,     setMobileNumber]     = useState("")
   const [mobileStatus,     setMobileStatus]     = useState<MobileStatus>("idle")
+
+  // Optional fields
+  const [email,       setEmail]       = useState("")
+  const [gender,      setGender]      = useState("")
+  const [dateOfBirth, setDateOfBirth] = useState("")
+  const [address,     setAddress]     = useState("")
+  const [goals,       setGoals]       = useState("")
+  const [avatarUrl,   setAvatarUrl]   = useState("")
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -140,8 +149,14 @@ function AddMemberContent() {
   // Auto-compute end date
   useEffect(() => {
     if (!membershipPlanId) { setEndDate(""); return }
+    console.log('gyms', gyms)
     const plan = gyms.find(g => g.id === gymId)?.membershipPlans.find(p => p.id === membershipPlanId)
-    if (plan) setEndDate(addMonths(startDate, plan.durationMonths))
+    if (plan) {
+      console.log('start', startDate);
+      console.log('duration', plan);
+      setEndDate(addMonths(startDate, plan.durationMonths))
+
+    }
   }, [membershipPlanId, startDate, gymId, gyms])
 
   // Debounced mobile uniqueness check
@@ -177,7 +192,7 @@ function AddMemberContent() {
     if (!membershipPlanId)        e.membershipPlanId = "Membership plan is required"
     if (!startDate)               e.startDate        = "Start date is required"
     if (!endDate)                 e.endDate          = "End date is required"
-    if (selectedPlan && paymentReceived === null)
+    if (paymentReceived === null)
                                   e.paymentReceived  = "Please confirm whether payment has been received"
     setErrors(e)
     return Object.keys(e).length === 0
@@ -203,6 +218,15 @@ function AddMemberContent() {
           startDate,
           endDate:          endDate || null,
           paymentReceived:  paymentReceived ?? false,
+          // Optional profile fields
+          email:       email.trim() || null,
+          gender:      gender || null,
+          dateOfBirth: dateOfBirth || null,
+          address:     address.trim() || null,
+          goals:       goals.trim()
+            ? goals.split(/[\n,]/).map(g => g.trim()).filter(Boolean)
+            : [],
+          avatarUrl: avatarUrl.trim() || null,
         }),
       })
 
@@ -295,6 +319,71 @@ function AddMemberContent() {
             />
             <MobileHint />
           </Field>
+
+          <div className="space-y-4 pt-1 border-t border-white/6">
+            <Field label="Profile Photo URL">
+              <Input
+                value={avatarUrl}
+                onChange={e => setAvatarUrl(e.target.value)}
+                placeholder="https://example.com/photo.jpg"
+                className={inp}
+              />
+            </Field>
+
+            <Field label="Email">
+              <Input
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="member@example.com"
+                type="email"
+                className={inp}
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Gender">
+                <select
+                  value={gender}
+                  onChange={e => setGender(e.target.value)}
+                  className={sel}
+                >
+                  <option value="">Select…</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </Field>
+
+              <Field label="Date of Birth">
+                <Input
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={e => setDateOfBirth(e.target.value)}
+                  className={inp}
+                />
+              </Field>
+            </div>
+
+            <Field label="Address">
+              <Input
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                placeholder="Street, city, state"
+                className={inp}
+              />
+            </Field>
+
+            <Field label="Goals">
+              <textarea
+                value={goals}
+                onChange={e => setGoals(e.target.value)}
+                placeholder="e.g. Weight loss, Build muscle, Improve fitness (one per line or comma-separated)"
+                rows={3}
+                className="w-full bg-[hsl(220_25%_11%)] border border-white/10 text-white placeholder:text-white/20 focus:border-primary focus:outline-none rounded-xl px-3 py-2.5 text-sm resize-none"
+              />
+            </Field>
+          </div>
         </div>
 
         {/* Gym + Plan */}

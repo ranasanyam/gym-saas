@@ -125,13 +125,13 @@ function ChoosePlanContent() {
       .catch(() => setError("Failed to load plans. Please refresh the page."))
       .finally(() => setLoading(false))
 
-    if (!document.getElementById("razorpay-checkout-js")) {
-      const s    = document.createElement("script")
-      s.id       = "razorpay-checkout-js"
-      s.src      = "https://checkout.razorpay.com/v1/checkout.js"
-      s.async    = true
-      document.head.appendChild(s)
-    }
+    // if (!document.getElementById("razorpay-checkout-js")) {
+    //   const s    = document.createElement("script")
+    //   s.id       = "razorpay-checkout-js"
+    //   s.src      = "https://checkout.razorpay.com/v1/checkout.js"
+    //   s.async    = true
+    //   document.head.appendChild(s)
+    // }
   }, [])
 
   // ── Plan lookup helpers ───────────────────────────────────────────────────

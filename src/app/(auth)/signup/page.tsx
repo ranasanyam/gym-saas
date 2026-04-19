@@ -422,11 +422,11 @@
 // src/app/(auth)/signup/page.tsx
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams }             from "next/navigation"
 import Link                                       from "next/link"
 import { motion, AnimatePresence }                from "framer-motion"
-import { Eye, EyeOff, ArrowRight, Loader2, Mail, ShieldCheck } from "lucide-react"
+import { Eye, EyeOff, ArrowRight, Loader2, Mail, ShieldCheck, CheckCircle2 } from "lucide-react"
 import { signIn }                                 from "next-auth/react"
 import { AuthLayout }                             from "@/components/auth/AuthLayout"
 import { Button }                                 from "@/components/ui/button"
@@ -511,11 +511,18 @@ function SignupContent() {
   const [showPw,      setShowPw]      = useState(false)
   const [otpCode,     setOtpCode]     = useState("")
   const [resendTimer, setResendTimer] = useState(0)
+  const [mobileError, setMobileError] = useState("")
+  const [mobileOk,    setMobileOk]    = useState(false)
+  const [emailError,  setEmailError]  = useState("")
+  const [emailOk,     setEmailOk]     = useState(false)
 
   const [form, setForm] = useState<FormData>({
     fullName: "", email: "", password: "",
     mobileNumber: "", city: "", gender: "", referralCode: "",
   })
+
+  const mobileDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const emailDebounce  = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const ref = searchParams.get("ref")
@@ -529,6 +536,44 @@ function SignupContent() {
     return () => clearTimeout(t)
   }, [resendTimer])
 
+  const checkMobileUnique = useCallback((raw: string) => {
+    setMobileError("")
+    setMobileOk(false)
+    const digits = raw.replace(/\D/g, "").slice(-10)
+    if (digits.length !== 10) return
+    if (mobileDebounce.current) clearTimeout(mobileDebounce.current)
+    mobileDebounce.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(`/api/auth/check-mobile-status?mobile=${digits}`)
+        const data = await res.json()
+        if (data.status !== "NOT_FOUND") {
+          setMobileError("An account with this mobile number already exists")
+        } else {
+          setMobileOk(true)
+        }
+      } catch { /* ignore */ }
+    }, 500)
+  }, [])
+
+  const checkEmailUnique = useCallback((raw: string) => {
+    setEmailError("")
+    setEmailOk(false)
+    const email = raw.trim().toLowerCase()
+    if (!email || !email.includes("@") || !email.includes(".")) return
+    if (emailDebounce.current) clearTimeout(emailDebounce.current)
+    emailDebounce.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(`/api/auth/check-email-status?email=${encodeURIComponent(email)}`)
+        const data = await res.json()
+        if (data.status === "FOUND") {
+          setEmailError("An account with this email already exists")
+        } else {
+          setEmailOk(true)
+        }
+      } catch { /* ignore */ }
+    }, 500)
+  }, [])
+
   const set = (field: keyof FormData) =>
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm(p => ({ ...p, [field]: e.target.value }))
@@ -536,6 +581,7 @@ function SignupContent() {
   // ── Step 1: send OTP ───────────────────────────────────────────────────────
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (mobileError || emailError) return
     setLoading(true)
     try {
       const res  = await fetch("/api/auth/send-otp", {
@@ -668,8 +714,23 @@ function SignupContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-white/65 text-sm">Mobile <span className="text-primary">*</span></Label>
-                  <Input type="tel" placeholder="9876543210" value={form.mobileNumber} onChange={set("mobileNumber")} required
-                    className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+                  <Input
+                    type="tel"
+                    placeholder="9876543210"
+                    value={form.mobileNumber}
+                    onChange={e => {
+                      set("mobileNumber")(e)
+                      checkMobileUnique(e.target.value)
+                    }}
+                    required
+                    className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${mobileError ? "border-red-500/50" : ""}`}
+                  />
+                  {mobileError && <p className="text-red-400 text-xs">{mobileError}</p>}
+                  {mobileOk && !mobileError && (
+                    <p className="text-green-400 text-xs flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Available
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-white/65 text-sm">City <span className="text-primary">*</span></Label>
@@ -680,8 +741,24 @@ function SignupContent() {
 
               <div className="space-y-1.5">
                 <Label className="text-white/65 text-sm">Email <span className="text-primary">*</span></Label>
-                <Input type="email" placeholder="you@example.com" value={form.email} onChange={set("email")} required autoComplete="email"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={form.email}
+                  onChange={e => {
+                    set("email")(e)
+                    checkEmailUnique(e.target.value)
+                  }}
+                  required
+                  autoComplete="email"
+                  className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${emailError ? "border-red-500/50" : ""}`}
+                />
+                {emailError && <p className="text-red-400 text-xs">{emailError}</p>}
+                {emailOk && !emailError && (
+                  <p className="text-green-400 text-xs flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Available
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
