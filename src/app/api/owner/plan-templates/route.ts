@@ -3,13 +3,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 
 export async function GET(req: NextRequest) {
   // const session = await auth()
   // if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const profileId = await resolveProfileId(req)
-  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+;
 
   const { searchParams } = new URL(req.url)
   const type  = searchParams.get("type") ?? "WORKOUT"

@@ -8,20 +8,21 @@ import { signOut } from "next-auth/react"
 import { useProfile } from "@/contexts/ProfileContext"
 import {
   Dumbbell, LayoutDashboard, Users, CalendarCheck,
-  ClipboardList, UtensilsCrossed, Bell, UserCircle, Gift,
-  LogOut, Menu, X, Loader2
+  ClipboardList, UtensilsCrossed, Bell, UserCircle,
+  LogOut, Menu, X, Loader2, Building2, Search
 } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 
 const navItems = [
-  { label: "Dashboard",     href: "/trainer/dashboard",      icon: LayoutDashboard },
-  { label: "My Members",    href: "/trainer/members",         icon: Users },
-  { label: "Workout Plans", href: "/trainer/workouts",        icon: ClipboardList },
-  { label: "Diet Plans",    href: "/trainer/diets",           icon: UtensilsCrossed },
-  { label: "Attendance",    href: "/trainer/attendance",      icon: CalendarCheck },
-  { label: "Refer & Earn",  href: "/trainer/referral",        icon: Gift },
-  { label: "Notifications", href: "/trainer/notifications",   icon: Bell },
-  { label: "My Profile",    href: "/trainer/profile",         icon: UserCircle },
+  { label: "Dashboard",     href: "/trainer/dashboard",    icon: LayoutDashboard },
+  { label: "My Members",    href: "/trainer/members",       icon: Users },
+  { label: "Workout Plans", href: "/trainer/workouts",      icon: ClipboardList },
+  { label: "Diet Plans",    href: "/trainer/diets",         icon: UtensilsCrossed },
+  { label: "Attendance",    href: "/trainer/attendance",    icon: CalendarCheck },
+  { label: "Discover Gyms", href: "/trainer/discover",      icon: Search },
+  { label: "My Gym",        href: "/trainer/gyms",          icon: Building2 },
+  { label: "Notifications", href: "/trainer/notifications", icon: Bell },
+  { label: "My Profile",    href: "/trainer/profile",       icon: UserCircle },
 ]
 
 export default function TrainerLayout({ children }: { children: React.ReactNode }) {
@@ -39,7 +40,7 @@ export default function TrainerLayout({ children }: { children: React.ReactNode 
   }, [loading, profile, router])
 
   useEffect(() => {
-    fetch("/api/trainer/notifications?page=1")
+    fetch("/api/trainer/notifications?type=inbox&page=1")
       .then(r => r.json())
       .then(d => setUnread((d.notifications ?? []).filter((n: any) => !n.isRead).length))
       .catch(() => {})

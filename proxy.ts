@@ -95,7 +95,7 @@
 // proxy.ts
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { jwtVerify } from "jose"
+import { getToken } from "next-auth/jwt"
 
 const PUBLIC_ROUTES = ["/", "/login", "/signup", "/forgot-password", "/reset-password"]
 
@@ -112,28 +112,36 @@ const SELF_ROUTING = [
 
 async function getSessionFromRequest(req: NextRequest) {
   try {
-    const cookieName =
-      process.env.NODE_ENV === "production"
-        ? "__Secure-authjs.session-token"
-        : "authjs.session-token"
-
-    const token = req.cookies.get(cookieName)?.value
-    if (!token) return null
-
-    const secret = new TextEncoder().encode(process.env.AUTH_SECRET)
-    const { payload } = await jwtVerify(token, secret)
-    return payload
+    return await getToken({
+      req,
+      secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+    })
   } catch {
     return null
   }
 }
 
-function roleToDashboard(role: string | undefined): string {
-  if (role === "owner")   return "/owner/dashboard"
+function roleToDashboard(
+  role: string | undefined,
+  ownerPlanStatus?: string | null,
+  hasActivePlan?: boolean,
+): string {
+  if (role === "owner") {
+    return ownerPlanStatus === "ACTIVE" && hasActivePlan !== false
+      ? "/owner/dashboard"
+      : "/owner/choose-plan"
+  }
   if (role === "trainer") return "/trainer/dashboard"
   if (role === "member")  return "/member/dashboard"
   return "/select-role"
 }
+
+// Owner routes always accessible regardless of plan status
+const OWNER_PLAN_EXEMPT = [
+  "/owner/choose-plan",
+  "/owner/billing",
+  "/owner/subscriptions",
+]
 
 export async function proxy(req: NextRequest) {
   const { nextUrl } = req
@@ -149,6 +157,8 @@ export async function proxy(req: NextRequest) {
   const session    = await getSessionFromRequest(req)
   const isLoggedIn = !!session
   const role       = session?.role as string | undefined
+  const ownerPlanStatus = session?.ownerPlanStatus as string | null | undefined
+  const hasActivePlan = session?.hasActivePlan as boolean | undefined
 
   // ── Public routes ────────────────────────────────────────────────────────
   const isPublic = PUBLIC_ROUTES.some(
@@ -158,7 +168,7 @@ export async function proxy(req: NextRequest) {
   if (isPublic) {
     // Redirect already-logged-in users away from login/signup
     if (isLoggedIn && ["/login", "/signup"].includes(pathname)) {
-      return NextResponse.redirect(new URL(roleToDashboard(role), nextUrl))
+      return NextResponse.redirect(new URL(roleToDashboard(role, ownerPlanStatus, hasActivePlan), nextUrl))
     }
     return NextResponse.next()
   }
@@ -174,7 +184,7 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith("/select-role")) {
     if (role) {
       // Already has a role → skip the page entirely
-      return NextResponse.redirect(new URL(roleToDashboard(role), nextUrl))
+      return NextResponse.redirect(new URL(roleToDashboard(role, ownerPlanStatus, hasActivePlan), nextUrl))
     }
     return NextResponse.next()
   }
@@ -190,6 +200,22 @@ export async function proxy(req: NextRequest) {
 
   // ── API routes handle their own auth ─────────────────────────────────────
   if (pathname.startsWith("/api")) return NextResponse.next()
+
+  // ── Owner plan gate ───────────────────────────────────────────────────────
+  // hasActivePlan === false (strictly, not undefined) means the owner has no
+  // active subscription or their plan has fully expired past the grace period.
+  // undefined = old token without the field — pass through to avoid breaking
+  // existing sessions on deploy.
+  if (role === "owner" && (ownerPlanStatus !== "ACTIVE" || hasActivePlan === false)) {
+    const isExempt = OWNER_PLAN_EXEMPT.some(
+      p => pathname === p || pathname.startsWith(p + "/")
+    )
+    if (!isExempt) {
+      const dest = new URL("/owner/choose-plan", nextUrl)
+      if (session?.planExpired) dest.searchParams.set("expired", "true")
+      return NextResponse.redirect(dest)
+    }
+  }
 
   return NextResponse.next()
 }

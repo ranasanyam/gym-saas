@@ -1,6 +1,7 @@
 // src/app/api/owner/referral/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
 
 const REFERRAL_REWARD = 500 // Owners get more — ₹500 per gym owner referral
@@ -8,6 +9,10 @@ const REFERRAL_REWARD = 500 // Owners get more — ₹500 per gym owner referral
 export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
 
   const profile = await prisma.profile.findUnique({
     where:  { id: profileId },

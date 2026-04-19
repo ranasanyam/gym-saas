@@ -527,7 +527,7 @@ interface TrainerRow {
 
 const SERVICES   = ["Weight Training","Cardio","Yoga","Zumba","CrossFit","Boxing","Swimming","Cycling","Pilates","HIIT","Personal Training","Massage","Diet Planning","Supplements","Sports Training"]
 const FACILITIES = ["Locker Room","Shower","Parking","AC","WiFi","Cafeteria","Steam Room","Sauna","Pro Shop","Child Care","Changing Room","Water Cooler","First Aid","CCTV","Music System"]
-const TABS = ["Details","Members","Trainers","Facilities","Services","Plans","Photos"]
+const TABS = ["Details","Members","Trainers","Services","Facilities","Plans","Photos"]
 
 
 export default function GymDetailPage() {
@@ -542,6 +542,9 @@ export default function GymDetailPage() {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<any>({})
   const [saving, setSaving]   = useState(false)
+
+  const [facilityInput, setFacilityInput] = useState("")
+  const [serviceInput,  setServiceInput]  = useState("")
 
   const [carouselIdx, setCarouselIdx] = useState(0)
   const carouselTimer = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -643,6 +646,26 @@ export default function GymDetailPage() {
 
   const toggleFacility = (v: string) => setEditForm((p: any) => ({ ...p, facilities: (p.facilities ?? []).includes(v) ? p.facilities.filter((x: string) => x !== v) : [...(p.facilities ?? []), v] }))
   const toggleService  = (v: string) => setEditForm((p: any) => ({ ...p, services:   (p.services   ?? []).includes(v) ? p.services.filter((x: string)   => x !== v) : [...(p.services   ?? []), v] }))
+
+  const addCustomFacility = () => {
+    const val = facilityInput.trim()
+    if (!val) return
+    setEditForm((p: any) => ({ ...p, facilities: [...new Set([...(p.facilities ?? []), val])] }))
+    setFacilityInput("")
+    if (!editing) setEditing(true)
+  }
+  const removeCustomFacility = (v: string) =>
+    setEditForm((p: any) => ({ ...p, facilities: (p.facilities ?? []).filter((f: string) => f !== v) }))
+
+  const addCustomService = () => {
+    const val = serviceInput.trim()
+    if (!val) return
+    setEditForm((p: any) => ({ ...p, services: [...new Set([...(p.services ?? []), val])] }))
+    setServiceInput("")
+    if (!editing) setEditing(true)
+  }
+  const removeCustomService = (v: string) =>
+    setEditForm((p: any) => ({ ...p, services: (p.services ?? []).filter((s: string) => s !== v) }))
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
   if (!gym)    return <div className="text-white/40 text-center py-20">Gym not found</div>
@@ -848,35 +871,177 @@ export default function GymDetailPage() {
 
       {/* Facilities */}
       {tab === "Facilities" && (
-        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-5">
+        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6 space-y-5">
+          <div className="flex items-center justify-between">
             <h3 className="text-white font-semibold text-sm">Facilities</h3>
-            {!editing && <button onClick={() => setEditing(true)} className="text-primary text-xs hover:underline flex items-center gap-1"><Edit className="w-3 h-3" /> Edit</button>}
+            {!editing && (
+              <button onClick={() => setEditing(true)} className="text-primary text-xs hover:underline flex items-center gap-1">
+                <Edit className="w-3 h-3" /> Edit
+              </button>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {FACILITIES.map(f => {
-              const active = (editing ? editForm.facilities : gym.facilities)?.includes(f)
-              return <button key={f} type="button" onClick={() => editing && toggleFacility(f)} className={`text-sm px-4 py-2 rounded-full border transition-all ${active?"bg-primary/15 border-primary/40 text-primary":"bg-white/4 border-white/8 text-white/50"} ${editing?"cursor-pointer hover:border-white/20":"cursor-default"}`}>{f}</button>
-            })}
+
+          {/* Custom entry input — edit mode only */}
+          {editing && (
+            <div className="flex gap-2">
+              <Input
+                value={facilityInput}
+                onChange={e => setFacilityInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomFacility() } }}
+                placeholder="Add a custom facility…"
+                className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-9 text-sm"
+              />
+              <button
+                type="button"
+                onClick={addCustomFacility}
+                disabled={!facilityInput.trim()}
+                className="h-9 w-9 rounded-xl bg-primary hover:opacity-90 text-white flex items-center justify-center disabled:opacity-40 transition-all shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Custom items (not in predefined list) */}
+          {(() => {
+            const current = (editing ? editForm.facilities : gym.facilities) ?? []
+            const custom = current.filter((f: string) => !FACILITIES.includes(f))
+            return custom.length > 0 ? (
+              <div>
+                <p className="text-white/30 text-xs mb-2.5">Custom</p>
+                <div className="flex flex-wrap gap-2">
+                  {custom.map((f: string) => (
+                    <span key={f} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border bg-primary/15 border-primary/40 text-primary">
+                      {f}
+                      {editing && (
+                        <button type="button" onClick={() => removeCustomFacility(f)} className="hover:text-white transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null
+          })()}
+
+          {/* Predefined toggle chips */}
+          <div>
+            <p className="text-white/30 text-xs mb-2.5">{editing ? "Tap to add / remove" : "Predefined"}</p>
+            <div className="flex flex-wrap gap-2">
+              {FACILITIES.map(f => {
+                const active = (editing ? editForm.facilities : gym.facilities)?.includes(f)
+                return (
+                  <button key={f} type="button" onClick={() => editing && toggleFacility(f)}
+                    className={`text-sm px-4 py-2 rounded-full border transition-all ${
+                      active ? "bg-primary/15 border-primary/40 text-primary" : "bg-white/4 border-white/8 text-white/50"
+                    } ${editing ? "cursor-pointer hover:border-white/20" : "cursor-default"}`}>
+                    {f}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          {editing && <div className="flex gap-3 mt-5 pt-4 border-t border-white/6"><Button onClick={saveGym} disabled={saving} className="bg-gradient-primary hover:opacity-90 text-white h-9 text-sm">{saving?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:"Save"}</Button><Button variant="outline" onClick={()=>{setEditing(false);setEditForm({...gym})}} className="border-white/10 text-white/60 h-9 text-sm">Cancel</Button></div>}
+
+          {editing && (
+            <div className="flex gap-3 pt-2 border-t border-white/6">
+              <Button onClick={saveGym} disabled={saving} className="bg-gradient-primary hover:opacity-90 text-white h-9 text-sm">
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
+              </Button>
+              <Button variant="outline" onClick={() => { setEditing(false); setEditForm({ ...gym }); setFacilityInput("") }}
+                className="border-white/10 text-white/60 h-9 text-sm">
+                Cancel
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Services */}
       {tab === "Services" && (
-        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-5">
+        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6 space-y-5">
+          <div className="flex items-center justify-between">
             <h3 className="text-white font-semibold text-sm">Services</h3>
-            {!editing && <button onClick={() => setEditing(true)} className="text-primary text-xs hover:underline flex items-center gap-1"><Edit className="w-3 h-3" /> Edit</button>}
+            {!editing && (
+              <button onClick={() => setEditing(true)} className="text-primary text-xs hover:underline flex items-center gap-1">
+                <Edit className="w-3 h-3" /> Edit
+              </button>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {SERVICES.map(s => {
-              const active = (editing ? editForm.services : gym.services)?.includes(s)
-              return <button key={s} type="button" onClick={() => editing && toggleService(s)} className={`text-sm px-4 py-2 rounded-full border transition-all ${active?"bg-primary/15 border-primary/40 text-primary":"bg-white/4 border-white/8 text-white/50"} ${editing?"cursor-pointer hover:border-white/20":"cursor-default"}`}>{s}</button>
-            })}
+
+          {/* Custom entry input — edit mode only */}
+          {editing && (
+            <div className="flex gap-2">
+              <Input
+                value={serviceInput}
+                onChange={e => setServiceInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomService() } }}
+                placeholder="Add a custom service…"
+                className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-9 text-sm"
+              />
+              <button
+                type="button"
+                onClick={addCustomService}
+                disabled={!serviceInput.trim()}
+                className="h-9 w-9 rounded-xl bg-primary hover:opacity-90 text-white flex items-center justify-center disabled:opacity-40 transition-all shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Custom items (not in predefined list) */}
+          {(() => {
+            const current = (editing ? editForm.services : gym.services) ?? []
+            const custom = current.filter((s: string) => !SERVICES.includes(s))
+            return custom.length > 0 ? (
+              <div>
+                <p className="text-white/30 text-xs mb-2.5">Custom</p>
+                <div className="flex flex-wrap gap-2">
+                  {custom.map((s: string) => (
+                    <span key={s} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border bg-primary/15 border-primary/40 text-primary">
+                      {s}
+                      {editing && (
+                        <button type="button" onClick={() => removeCustomService(s)} className="hover:text-white transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null
+          })()}
+
+          {/* Predefined toggle chips */}
+          <div>
+            <p className="text-white/30 text-xs mb-2.5">{editing ? "Tap to add / remove" : "Predefined"}</p>
+            <div className="flex flex-wrap gap-2">
+              {SERVICES.map(s => {
+                const active = (editing ? editForm.services : gym.services)?.includes(s)
+                return (
+                  <button key={s} type="button" onClick={() => editing && toggleService(s)}
+                    className={`text-sm px-4 py-2 rounded-full border transition-all ${
+                      active ? "bg-primary/15 border-primary/40 text-primary" : "bg-white/4 border-white/8 text-white/50"
+                    } ${editing ? "cursor-pointer hover:border-white/20" : "cursor-default"}`}>
+                    {s}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          {editing && <div className="flex gap-3 mt-5 pt-4 border-t border-white/6"><Button onClick={saveGym} disabled={saving} className="bg-gradient-primary hover:opacity-90 text-white h-9 text-sm">{saving?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:"Save"}</Button><Button variant="outline" onClick={()=>{setEditing(false);setEditForm({...gym})}} className="border-white/10 text-white/60 h-9 text-sm">Cancel</Button></div>}
+
+          {editing && (
+            <div className="flex gap-3 pt-2 border-t border-white/6">
+              <Button onClick={saveGym} disabled={saving} className="bg-gradient-primary hover:opacity-90 text-white h-9 text-sm">
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
+              </Button>
+              <Button variant="outline" onClick={() => { setEditing(false); setEditForm({ ...gym }); setServiceInput("") }}
+                className="border-white/10 text-white/60 h-9 text-sm">
+                Cancel
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

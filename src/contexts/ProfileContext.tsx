@@ -31,6 +31,7 @@ export interface ProfileData {
   gender: string | null
   dateOfBirth: string | null
   role: UserRole
+  ownerPlanStatus: "PENDING_SELECTION" | "ACTIVE" | null
   wallet: { balance: number } | null
   referralCode: string | null
   gym: GymSummary | null

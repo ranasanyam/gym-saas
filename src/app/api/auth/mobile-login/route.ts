@@ -113,6 +113,15 @@ const ACCESS_EXPIRY_SECONDS  = 15 * 60            // 15 minutes
 const REFRESH_EXPIRY_DAYS    = 90
 const REFRESH_EXPIRY_SECONDS = REFRESH_EXPIRY_DAYS * 24 * 60 * 60
 
+// Detect whether an identifier looks like a mobile number (10 digits, optionally +91)
+function isMobile(identifier: string): boolean {
+  return /^(\+91)?[6-9]\d{9}$/.test(identifier.replace(/[\s-]/g, ""))
+}
+
+function normaliseMobile(raw: string): string {
+  return raw.replace(/[\s\-+]/g, "").slice(-10)
+}
+
 function issueAccessToken(profileId: string, role: string | null): string {
   return jwt.sign(
     { profileId, role, type: "access" },
@@ -163,24 +172,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    const profile = await prisma.profile.findUnique({
-      where:  { email: email.toLowerCase().trim() },
-      select: {
-        id: true, fullName: true, email: true, role: true,
-        avatarUrl: true, mobileNumber: true, city: true, gender: true,
-        passwordHash: true,
-        wallet: { select: { balance: true } },
-        referralCode: { select: { code: true } },
-      },
-    })
+    let profile: any = null
 
-    if (!profile || !profile.passwordHash) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+    if (isMobile(email)) {
+      // Mobile login — look up by normalised mobile number
+      const mobile = normaliseMobile(email)
+      profile = await prisma.profile.findFirst({
+        where: { mobileNumber: { endsWith: mobile } },
+        select: {
+          id: true, fullName: true, email: true, role: true,
+          avatarUrl: true, mobileNumber: true, city: true, gender: true,
+          passwordHash: true,
+          wallet: { select: { balance: true } },
+          referralCode: { select: { code: true } },
+        },
+      })
+    } else {
+      // Email login
+      const emailLower = email.toLowerCase().trim()
+      profile = await prisma.profile.findUnique({
+        where: { email: emailLower },
+        select: {
+          id: true, fullName: true, email: true, role: true,
+          avatarUrl: true, mobileNumber: true, city: true, gender: true,
+          passwordHash: true,
+          wallet: { select: { balance: true } },
+          referralCode: { select: { code: true } },
+        },
+      })
+    }
+
+    if (!profile) {
+      return NextResponse.json({ error: "No account found with this email or mobile number" }, { status: 404 })
+    }
+
+    if (!profile.passwordHash) {
+      return NextResponse.json({ error: "Account exists but no password set (OAuth account)" }, { status: 401 })
     }
 
     const valid = await bcrypt.compare(password, profile.passwordHash)
     if (!valid) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      return NextResponse.json({ error: "Invalid password" }, { status: 401 })
     }
 
     const [accessToken, refreshToken] = await Promise.all([

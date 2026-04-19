@@ -3,6 +3,7 @@
 // // src/app/api/owner/members/route.ts
 // import { NextRequest, NextResponse } from "next/server"
 // import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 // import { prisma } from "@/lib/prisma"
 // import bcrypt from "bcryptjs"
 // import { sendPushToProfile } from "@/lib/push"
@@ -237,61 +238,29 @@
 // }
 
 // src/app/api/owner/members/route.ts
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
-import { resolveProfileId } from "@/lib/mobileAuth"
-import { prisma } from "@/lib/prisma"
-import bcrypt from "bcryptjs"
-import { sendPushToProfile } from "@/lib/push"
-import { sendMemberWelcomeEmail } from "@/lib/email"
+import { NextRequest, NextResponse }   from "next/server"
+import { resolveProfileId }            from "@/lib/mobileAuth"
+import { prisma }                      from "@/lib/prisma"
+import { sendPushToProfile }           from "@/lib/push"
 import { getOwnerSubscription, getOwnerUsage, checkLimit, checkFeature } from "@/lib/subscription"
-import crypto from "crypto"
-
-function generateReferralCode(name: string): string {
-  const base = name.split(" ")[0].toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6) || "MEM"
-  return `${base}${Math.floor(1000 + Math.random() * 9000)}`
-}
+import { resolveInvitedProfile, findExistingGymMember, notifyLinkedProfile } from "@/lib/inviteHelpers"
 
 function addMonths(date: Date, months: number): Date {
-  const d = new Date(date)
+  const d   = new Date(date)
   const day = d.getDate()
   d.setMonth(d.getMonth() + months)
   if (d.getDate() !== day) d.setDate(0)
   return d
 }
 
-async function sendPasswordSetupEmail(
-  email: string, fullName: string, gymName: string, ownerName: string, resetLink: string
-) {
-  await sendMemberWelcomeEmail({
-    to:         email,
-    memberName: fullName,
-    gymName,
-    ownerName,
-    setupLink:  resetLink,
-  }).catch(err => console.error("[Email] Member welcome failed:", err))
-}
-
-async function createPasswordSetupToken(profileId: string): Promise<string> {
-  await prisma.refreshToken.deleteMany({
-    where: { profileId, tokenHash: { startsWith: "pwd_reset_" }, revoked: false },
-  })
-  const rawToken    = crypto.randomBytes(32).toString("hex")
-  const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex")
-  await prisma.refreshToken.create({
-    data: {
-      profileId,
-      tokenHash: `pwd_reset_${hashedToken}`,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    },
-  })
-  return rawToken
-}
-
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
 
   const { searchParams } = new URL(req.url)
   const gymId  = searchParams.get("gymId")
@@ -321,7 +290,7 @@ export async function GET(req: NextRequest) {
     prisma.gymMember.findMany({
       where,
       include: {
-        profile:        { select: { fullName: true, email: true, mobileNumber: true, avatarUrl: true } },
+        profile:        { select: { fullName: true, email: true, mobileNumber: true, avatarUrl: true, status: true } },
         membershipPlan: { select: { name: true, price: true } },
         gym:            { select: { name: true } },
       },
@@ -336,9 +305,15 @@ export async function GET(req: NextRequest) {
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
+// Accepts: { gymId, fullName, mobileNumber, membershipPlanId?, startDate? }
+// Email, password, gender etc. are collected by the member via /complete-profile.
 export async function POST(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
 
   // ── Subscription check ────────────────────────────────────────────────────
   const [sub, usage] = await Promise.all([
@@ -364,15 +339,18 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const {
-    gymId, fullName, email, mobileNumber, gender, dateOfBirth, city,
-    avatarUrl, membershipPlanId, startDate, heightCm, weightKg,
-    medicalNotes, emergencyContactName, emergencyContactPhone,
-    workoutStartTime, workoutEndTime,
-  } = body
+  const { gymId, fullName, mobileNumber, membershipPlanId, startDate, endDate, paymentReceived } = body
 
-  if (!gymId || !fullName?.trim() || !startDate)
-    return NextResponse.json({ error: "gymId, fullName, and startDate are required" }, { status: 400 })
+  if (!gymId)                return NextResponse.json({ error: "Gym is required" },              { status: 400 })
+  if (!fullName?.trim())     return NextResponse.json({ error: "Full name is required" },        { status: 400 })
+  if (!mobileNumber?.trim()) return NextResponse.json({ error: "Mobile number is required" },   { status: 400 })
+  if (!membershipPlanId)     return NextResponse.json({ error: "Membership plan is required" }, { status: 400 })
+  if (typeof paymentReceived !== "boolean") {
+    return NextResponse.json(
+      { error: "paymentReceived must be explicitly true or false.", code: "PAYMENT_RECEIVED_REQUIRED" },
+      { status: 400 }
+    )
+  }
 
   const gym = await prisma.gym.findFirst({
     where:  { id: gymId, ownerId: profileId },
@@ -380,58 +358,33 @@ export async function POST(req: NextRequest) {
   })
   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
 
-  const ownerProfile = await prisma.profile.findUnique({
-    where:  { id: profileId },
-    select: { fullName: true },
-  })
-
-  // Use a distinct name to avoid shadowing the outer `profileId` (the owner's ID)
-  let memberProfileId: string
-  let isNewProfile = false
-  const finalEmail  = email?.trim().toLowerCase() || `${crypto.randomUUID()}@noemail.gymstack`
-
-  const existingProfile = await prisma.profile.findUnique({ where: { email: finalEmail } })
-
-  if (existingProfile) {
-    memberProfileId = existingProfile.id
-    const alreadyMember = await prisma.gymMember.findFirst({
-      where: { gymId, profileId: memberProfileId },
-    })
-    if (alreadyMember) return NextResponse.json({ error: "This member is already enrolled in this gym" }, { status: 409 })
-  } else {
-    const newProfile = await prisma.$transaction(async (tx) => {
-      const p = await tx.profile.create({
-        data: {
-          userId:       crypto.randomUUID(),
-          fullName:     fullName.trim(),
-          email:        finalEmail,
-          mobileNumber: mobileNumber?.trim() || null,
-          passwordHash: null,
-          gender:       gender || null,
-          dateOfBirth:  dateOfBirth ? new Date(dateOfBirth) : null,
-          city:         city?.trim() || null,
-          avatarUrl:    avatarUrl   || null,
-          role:         "member",
-        },
-      })
-      await tx.wallet.create({ data: { profileId: p.id, balance: 0 } })
-      let code = generateReferralCode(fullName)
-      const codeExists = await tx.referralCode.findUnique({ where: { code } })
-      if (codeExists) code = `${code.slice(0, 5)}${Math.floor(100 + Math.random() * 900)}`
-      await tx.referralCode.create({ data: { profileId: p.id, code } })
-      return p
-    })
-    memberProfileId = newProfile.id
-    isNewProfile    = true
-    const rawToken  = await createPasswordSetupToken(memberProfileId)
-    const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${rawToken}`
-    await sendPasswordSetupEmail(finalEmail, fullName.trim(), gym.name, ownerProfile?.fullName ?? "Your gym owner", resetLink)
+  // ── Resolve profile (create / reinvite / link) ────────────────────────────
+  let result: Awaited<ReturnType<typeof resolveInvitedProfile>>
+  try {
+    result = await resolveInvitedProfile("member", gymId, gym.name, fullName.trim(), mobileNumber.trim())
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 400 })
   }
 
-  let endDate: Date | null = null
+  const { outcome, profileId: memberProfileId } = result
+
+  // Check if already a member of THIS gym
+  const existing = await findExistingGymMember(memberProfileId, gymId)
+  if (existing) {
+    return NextResponse.json({ error: "This member is already enrolled in this gym" }, { status: 409 })
+  }
+
+  // ── Create GymMember record ───────────────────────────────────────────────
+  const effectiveStart = startDate ? new Date(startDate) : new Date()
+  let plan: { name: string; price: any; durationMonths: number } | null = null
+  let effectiveEnd: Date | null = null
+
   if (membershipPlanId) {
-    const plan = await prisma.membershipPlan.findUnique({ where: { id: membershipPlanId } })
-    if (plan) endDate = addMonths(new Date(startDate), plan.durationMonths)
+    plan = await prisma.membershipPlan.findUnique({ where: { id: membershipPlanId } })
+    if (plan) {
+      // Use explicit end date from client if provided, otherwise auto-calculate
+      effectiveEnd = endDate ? new Date(endDate) : addMonths(effectiveStart, plan.durationMonths)
+    }
   }
 
   const member = await prisma.gymMember.create({
@@ -439,41 +392,55 @@ export async function POST(req: NextRequest) {
       gymId,
       profileId:        memberProfileId,
       membershipPlanId: membershipPlanId || null,
-      startDate:        new Date(startDate),
-      endDate,
+      startDate:        effectiveStart,
+      endDate:          effectiveEnd,
       status:           "ACTIVE",
-      heightCm:         heightCm ? parseFloat(heightCm) : null,
-      weightKg:         weightKg ? parseFloat(weightKg) : null,
-      medicalNotes:     medicalNotes || null,
-      emergencyContactName:  emergencyContactName || null,
-      emergencyContactPhone: emergencyContactPhone || null,
-      workoutStartTime:      workoutStartTime  || null,
-      workoutEndTime:        workoutEndTime    || null,
       gymNameSnapshot:  gym.name,
     },
   })
 
-  if (membershipPlanId) {
-    const plan = await prisma.membershipPlan.findUnique({ where: { id: membershipPlanId }, select: { name: true } })
+  // ── Record payment if owner received cash ────────────────────────────────
+  if (paymentReceived && membershipPlanId && plan) {
+    await prisma.payment.create({
+      data: {
+        gymId,
+        memberId:        member.id,
+        membershipPlanId,
+        amount:          plan.price,
+        status:          "COMPLETED",
+        paymentMethod:   "CASH",
+        paymentDate:     new Date(),
+        planNameSnapshot: plan.name,
+      },
+    }).catch(() => {}) // non-fatal
+  }
+
+  // ── Post-create side-effects ──────────────────────────────────────────────
+  if (outcome === "linked") {
+    // ACTIVE profile silently added — send in-app notification only
+    await notifyLinkedProfile(memberProfileId, gymId, gym.name, "member")
+  }
+
+  if (membershipPlanId && outcome !== "created" && outcome !== "reinvited") {
+    // Enrolled ACTIVE member into a plan — notify them
+    const enrolledPlan = await prisma.membershipPlan.findUnique({ where: { id: membershipPlanId }, select: { name: true } })
+    const plan = enrolledPlan
     if (plan) {
-      const notifTitle = "🎉 Welcome to " + gym.name + "!"
-      const notifMsg   = `You've been enrolled in the ${plan.name} membership plan at ${gym.name}.`
+      const title = `Welcome to ${gym.name}!`
+      const msg   = `You've been enrolled in the ${plan.name} membership plan.`
       await Promise.allSettled([
         prisma.notification.create({
-          data: { gymId, profileId: memberProfileId, title: notifTitle, message: notifMsg, type: "BILLING" },
+          data: { gymId, profileId: memberProfileId, title, message: msg, type: "BILLING" },
         }),
         sendPushToProfile(memberProfileId, {
-          title: notifTitle,
-          body:  `Your ${plan.name} membership at ${gym.name} is now active. Welcome!`,
-          url:   "/member/payments",
-          tag:   "membership-enrolled",
+          title, body: msg, url: "/member/payments", tag: "membership-enrolled",
         }).catch(() => {}),
       ])
     }
   }
 
   return NextResponse.json(
-    { status: isNewProfile ? "CREATED" : "ENROLLED", id: member.id, gymMemberId: member.id },
+    { outcome, id: member.id, gymMemberId: member.id },
     { status: 201 }
   )
 }

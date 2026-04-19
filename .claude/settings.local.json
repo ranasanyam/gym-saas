@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(python3)",
+      "Bash(python3 -c \" import json, sys with open\\('C:/Users/Sanyam/.claude/projects/d--Projects-gym-saas/b6e0a562-3591-45cd-8223-ad35d75f5c7b.jsonl', encoding='utf-8'\\) as f: lines = f.readlines\\(\\) obj = json.loads\\(lines[2]\\) msg = obj.get\\('message', {}\\) content = msg.get\\('content', ''\\) if isinstance\\(content, list\\): for c in content: if isinstance\\(c, dict\\) and c.get\\('type'\\) == 'text': sys.stdout.buffer.write\\(c['text'].encode\\('utf-8'\\)\\) \")",
+      "Bash(echo \"MISSING\" cat src/app/api/trainer/members/[memberId]/body-metrics/route.ts)",
+      "Bash(npx prisma:*)",
+      "Bash(node -e \"require\\('zod'\\)\")",
+      "Bash(grep -E \"^zod$\")",
+      "Bash(npm install *)",
+      "Bash(grep -E \"^\\(zustand|zod|@tanstack|react-hook-form|@hookform\\)$\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

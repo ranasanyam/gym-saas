@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
 
 async function verifyOwnership(profileId: string, expenseId: string) {
@@ -13,6 +14,10 @@ async function verifyOwnership(profileId: string, expenseId: string) {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ expenseId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { expenseId } = await params
   const expense = await verifyOwnership(profileId, expenseId)
   if (!expense) return NextResponse.json({ error: "Expense not found" }, { status: 404 })
@@ -22,6 +27,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ expe
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ expenseId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { expenseId } = await params
 
   const existing = await verifyOwnership(profileId, expenseId)
@@ -53,6 +62,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ex
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ expenseId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { expenseId } = await params
 
   const existing = await verifyOwnership(profileId, expenseId)

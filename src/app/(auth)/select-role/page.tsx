@@ -232,11 +232,13 @@ export default async function SelectRolePage() {
 
   const profile = await prisma.profile.findUnique({
     where:  { id: session.user.id },
-    select: { role: true },
+    select: { role: true, ownerPlanStatus: true },
   })
 
   // Already has a role — redirect on the server, zero flash
-  if (profile?.role === "owner")   redirect("/owner/dashboard")
+  if (profile?.role === "owner") {
+    redirect(profile.ownerPlanStatus === "ACTIVE" ? "/owner/dashboard" : "/owner/choose-plan")
+  }
   if (profile?.role === "trainer") redirect("/trainer/dashboard")
   if (profile?.role === "member")  redirect("/member/dashboard")
 

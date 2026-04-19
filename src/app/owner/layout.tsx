@@ -32,7 +32,7 @@ const navItems: NavItem[] = [
   { label: "Trainers",      href: "/owner/trainers",     icon: UserCheck },
   { label: "Attendance",    href: "/owner/attendance",   icon: CalendarCheck,   featureKey: "hasAttendance" },
   { label: "Payments",      href: "/owner/payments",     icon: CreditCard,      featureKey: "hasPayments" },
-  { label: "Plans",         href: "/owner/plans",        icon: Tag },
+  { label: "Membership Plans",         href: "/owner/plans",        icon: Tag },
   { label: "Expenses",      href: "/owner/expenses",     icon: IndianRupee },
   { label: "Lockers",       href: "/owner/lockers",      icon: Lock },
   { label: "Supplements",   href: "/owner/supplements",  icon: ShoppingBag,     featureKey: "hasSupplements" },
@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
   { label: "Diet Plans",    href: "/owner/diets",        icon: UtensilsCrossed, featureKey: "hasDietPlans" },
   // { label: "Refer & Earn",  href: "/owner/referral",     icon: Gift,            featureKey: "hasReferAndEarn" },
   { label: "Notifications", href: "/owner/notifications", icon: Bell },
-  { label: "Reports",       href: "/owner/reports",      icon: BarChart3,       featureKey: "hasFullReports" },
+  { label: "Reports",       href: "/owner/reports",      icon: BarChart3,       featureKey: "hasFullReports"  },
   { label: "Subscriptions",  href: "/owner/subscriptions",      icon: Zap },
   { label: "Profile",      href: "/owner/profile",     icon: CircleUserRound },
 ]
@@ -52,6 +52,8 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
   const sub       = useSubscription()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [signingOut,  setSigningOut]  = useState(false)
+
+
 
   // ── Unread notification count — polls every 60 s ────────────────────────
   const [unreadCount, setUnreadCount] = useState(0)
@@ -75,6 +77,12 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
   const handleSignOut = async () => {
     setSigningOut(true)
     await signOut({ callbackUrl: "/login" })
+  }
+    // ── Standalone pages: render without the owner sidebar shell ─────────────
+  // These pages provide their own full-screen layout (e.g. onboarding flows).
+  // All hooks above must still be called (React rules), then early-return here.
+  if (pathname === "/owner/choose-plan") {
+    return <>{children}</>
   }
 
   if (profileLoading) {

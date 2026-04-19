@@ -1,11 +1,16 @@
 // src/app/api/owner/plans/[planId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ planId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { planId } = await params
   const body = await req.json()
 
@@ -33,6 +38,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pl
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ planId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { planId } = await params
 
   const plan = await prisma.membershipPlan.findFirst({

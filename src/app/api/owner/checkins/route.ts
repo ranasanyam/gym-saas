@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma }           from "@/lib/prisma"
 import { startOfDay, addDays } from "date-fns"
 
@@ -10,6 +11,9 @@ export async function GET(req: NextRequest) {
   try {
     const profileId = await resolveProfileId(req)
     if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
 
     const { searchParams } = new URL(req.url)
     const gymIdParams = searchParams.getAll("gymId")

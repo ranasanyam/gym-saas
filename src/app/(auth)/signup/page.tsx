@@ -602,6 +602,8 @@ function SignupContent() {
         return
       }
 
+
+      console.log('verified otp', verifyData);
       // Register
       const regRes  = await fetch("/api/auth/register", {
         method:  "POST",
@@ -617,10 +619,13 @@ function SignupContent() {
         }),
       })
       const regData = await regRes.json()
+      console.log('registered user', regData);
       if (!regRes.ok) {
         toast({ variant: "destructive", title: regData.error ?? "Registration failed" })
         return
       }
+
+      console.log('before auto sign in');
 
       // Auto sign-in then go straight to select-role
       const signInRes = await signIn("credentials", {
@@ -628,8 +633,10 @@ function SignupContent() {
         email:     form.email.trim().toLowerCase(),
         password:  form.password,
       })
+      console.log('after sign in', signInRes)
       if (signInRes?.error) {
         // Sign-in failed for some reason — send to login
+        console.log('go error while auto sign in',signInRes?.error);
         toast({ title: "Account created!", description: "Please sign in to continue." })
         router.push("/login")
         return

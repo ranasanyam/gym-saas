@@ -4,6 +4,7 @@
 
 // import { NextRequest, NextResponse } from "next/server"
 // import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 // import { prisma } from "@/lib/prisma"
 
 // export async function POST(req: NextRequest, { params }: { params: Promise<{ lockerId: string }> }) {
@@ -169,6 +170,10 @@ export async function POST(
 ) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { lockerId } = await params
 
   // Verify locker ownership
@@ -285,6 +290,10 @@ export async function DELETE(
 ) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { lockerId } = await params
 
   const locker = await prisma.locker.findFirst({
@@ -319,6 +328,10 @@ export async function PATCH(
 ) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { lockerId } = await params
 
   const locker = await prisma.locker.findFirst({

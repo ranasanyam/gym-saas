@@ -54,9 +54,19 @@ const RANGES = [
 ]
 
 interface Expense {
-  id: string; title: string; amount: number; category: string
-  description: string | null; expenseDate: string; receiptUrl: string | null
-  gym: { name: string }; addedBy: { fullName: string }
+  id: string; 
+  title: string; 
+  amount: number; 
+  category: string
+  description: string | null; 
+  expenseDate: string; 
+  receiptUrl: string | null
+  gym: { 
+    name: string 
+  }; 
+  addedBy: { 
+    fullName: string 
+  }
 }
 
 interface ExpenseForm {
@@ -102,6 +112,7 @@ function ExpenseModal({
 
   if (!open) return null
   const set = (k: keyof ExpenseForm, v: string) => setForm(f => ({ ...f, [k]: v }))
+  console.log("gyms", gyms);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
@@ -113,7 +124,8 @@ function ExpenseModal({
         <div className="p-6 space-y-4">
           {/* Gym select */}
           {!initial && (
-            <div>
+            gyms.length > 1 ? (
+              <div>
               <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">Gym *</label>
               <AppSelect
                 value={form.gymId}
@@ -122,6 +134,12 @@ function ExpenseModal({
                 options={[...gyms.map(g => ({ value: g.id, label: g.name }))]}
               />
             </div>
+            ) : (
+              <div>
+                <div className="text-white/50 text-xs uppercase tracking-wider mb-2 block">Gym *</div>
+                <div className="text-white border border-white/10 py-3 px-4 bg-white/5 rounded-lg text-md">{gyms?.[0]?.name}</div>
+              </div>
+            )
           )}
 
           {/* Title */}

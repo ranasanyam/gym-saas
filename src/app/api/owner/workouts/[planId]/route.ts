@@ -1,11 +1,36 @@
 // src/app/api/owner/workouts/[planId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ planId: string }> }) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
+  const { planId } = await params
+  const plan = await prisma.workoutPlan.findFirst({
+    where: { id: planId, gym: { ownerId: profileId }, isActive: true },
+    include: {
+      assignedMember: { include: { profile: { select: { fullName: true, avatarUrl: true } } } },
+      creator: { select: { fullName: true } },
+      gym:     { select: { name: true } },
+    },
+  })
+  if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
+  return NextResponse.json(plan)
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ planId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { planId } = await params
   const body = await req.json()
 
@@ -35,6 +60,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pl
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ planId: string }> }) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const { planId } = await params
   const plan = await prisma.workoutPlan.findFirst({ where: { id: planId, gym: { ownerId: profileId } } })
   if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })

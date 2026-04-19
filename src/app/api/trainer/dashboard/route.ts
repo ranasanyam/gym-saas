@@ -9,48 +9,66 @@ export async function GET(req: NextRequest) {
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const trainer = await prisma.gymTrainer.findUnique({
-    where: { profileId: profileId },
+    where: { profileId },
     include: {
-      gym: { select: { id: true, name: true, city: true, gymImages: true, contactNumber: true } },
+      gym:     { select: { id: true, name: true, city: true } },
       profile: { select: { fullName: true, avatarUrl: true, email: true, mobileNumber: true } },
       assignedMembers: {
         include: {
-          profile: { select: { fullName: true, avatarUrl: true, email: true, mobileNumber: true } },
-          membershipPlan: { select: { name: true, durationMonths: true } },
-          attendance: { orderBy: { checkInTime: "desc" }, take: 1 },
+          profile:        { select: { fullName: true, avatarUrl: true, email: true } },
+          membershipPlan: { select: { name: true } },
+          workoutPlans:   { where: { isActive: true }, select: { id: true, title: true } },
+          dietPlans:      { where: { isActive: true }, select: { id: true, title: true } },
         },
         orderBy: { createdAt: "desc" },
       },
     },
   })
 
-  if (!trainer) return NextResponse.json({ error: "Trainer not found" }, { status: 404 })
+  if (!trainer) return NextResponse.json({ hasNoGym: true, trainerName: null, gymName: null, trainer: null, stats: { totalMembers: 0, activeMembers: 0, workoutPlans: 0, dietPlans: 0, attendanceThisMonth: 0 }, membersNeedingAttention: [], recentAttendance: [], expiringSoon: [] })
 
-  const now = new Date()
+  const now       = new Date()
   const memberIds = trainer.assignedMembers.map(m => m.id)
 
-  const [attendanceThisMonth, totalAttendance, recentAttendance] = await Promise.all([
+  const [workoutPlanCount, dietPlanCount, attendanceThisMonth, recentAttendance] = await Promise.all([
+    prisma.workoutPlan.count({
+      where: { createdBy: profileId, isActive: true },
+    }),
+    prisma.dietPlan.count({
+      where: { createdBy: profileId, isActive: true },
+    }),
     prisma.attendance.count({
       where: {
-        memberId: { in: memberIds },
+        memberId:    { in: memberIds },
         checkInTime: { gte: startOfMonth(now), lte: endOfMonth(now) },
       },
     }),
-    prisma.attendance.count({ where: { memberId: { in: memberIds } } }),
     prisma.attendance.findMany({
-      where: { memberId: { in: memberIds } },
+      where:   { memberId: { in: memberIds } },
       orderBy: { checkInTime: "desc" },
-      take: 8,
+      take:    10,
       include: {
         member: { include: { profile: { select: { fullName: true, avatarUrl: true } } } },
       },
     }),
   ])
 
-  const activeMembers  = trainer.assignedMembers.filter(m => m.status === "ACTIVE").length
-  const expiredMembers = trainer.assignedMembers.filter(m => m.status === "EXPIRED").length
+  const activeMembers = trainer.assignedMembers.filter(m => m.status === "ACTIVE").length
 
-  // Members expiring within next 7 days
+  // Members needing attention: no workout plan or no diet plan
+  const membersNeedingAttention = trainer.assignedMembers
+    .filter(m => m.workoutPlans.length === 0 || m.dietPlans.length === 0)
+    .slice(0, 5)
+    .map(m => ({
+      id:               m.id,
+      profile:          m.profile,
+      status:           m.status,
+      membershipPlan:   m.membershipPlan,
+      hasWorkoutPlan:   m.workoutPlans.length > 0,
+      hasDietPlan:      m.dietPlans.length > 0,
+    }))
+
+  // Expiring in next 7 days (keep for dashboard warning)
   const expiringSoon = trainer.assignedMembers.filter(m => {
     if (!m.endDate || m.status !== "ACTIVE") return false
     const days = Math.ceil((new Date(m.endDate).getTime() - now.getTime()) / 86400000)
@@ -58,8 +76,17 @@ export async function GET(req: NextRequest) {
   })
 
   return NextResponse.json({
+    trainerName: trainer.profile.fullName,
+    gymName:     trainer.gym.name,
     trainer,
-    stats: { totalMembers: trainer.assignedMembers.length, activeMembers, expiredMembers, attendanceThisMonth, totalAttendance },
+    stats: {
+      totalMembers:        trainer.assignedMembers.length,
+      activeMembers,
+      workoutPlans:        workoutPlanCount,
+      dietPlans:           dietPlanCount,
+      attendanceThisMonth,
+    },
+    membersNeedingAttention,
     recentAttendance,
     expiringSoon,
   })

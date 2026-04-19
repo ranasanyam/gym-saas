@@ -2,6 +2,7 @@
 // src/app/api/owner/notifications/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
+import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
 import { getOwnerSubscription, getOwnerUsage, checkLimit } from "@/lib/subscription"
 import { sendPushToProfiles } from "@/lib/push";
@@ -9,6 +10,10 @@ import { sendPushToProfiles } from "@/lib/push";
 export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const gymId = new URL(req.url).searchParams.get("gymId")
   const gyms = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
@@ -23,6 +28,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
 
   try {
     const { gymId, title, body, targetRole, expiresAt } = await req.json()
@@ -117,6 +126,10 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return planCheck.response
+
   const id = new URL(req.url).searchParams.get("id")
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
   await prisma.announcement.deleteMany({ where: { id, gym: { ownerId: profileId } } })

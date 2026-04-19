@@ -12,6 +12,8 @@ const razorpay = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET!,
 })
 
+export const runtime = "nodejs"
+
 export async function POST(req: NextRequest) {
     const profileId = await resolveProfileId(req)
     if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

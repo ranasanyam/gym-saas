@@ -179,6 +179,7 @@ export async function getDashboardStats(
   const todayEnd   = addDays(todayStart, 1)
   const in7Days    = new Date(now.getTime() + 7 * 86_400_000)
   const in3Days    = new Date(now.getTime() + 3 * 86_400_000)
+  const today      = startOfDay(now)
 
   const { start: rangeStart, end: rangeEnd } = getRangeWindow(range, customStart, customEnd)
   const { start: prevStart,  end: prevEnd   } = getPreviousWindow(range, rangeStart, rangeEnd)
@@ -191,11 +192,12 @@ export async function getDashboardStats(
     prevRevAgg,  prevSuppRevAgg,
     todayRevAgg, todaySuppRevAgg,
     todayAttendance, todayNewMembers,
-    expiringMembers7, expiringMembers3, expiringToday,
+    expiringMembers7, expiringMembers3, expiringToday, expiredMembers,
     rangeAttendance, rangeNewMembers,
     prevAttendance,  prevNewMembers,
     recentMembers, todayCheckins, recentSupplementSales,
     rangeExpenseAgg, todayExpenseAgg, prevExpenseAgg, recentExpenses,
+    lowStockRaw,
   ] = await Promise.all([
 
     fetchBuckets(gymIds, buckets),
@@ -244,6 +246,7 @@ export async function getDashboardStats(
       select: { profile: { select: { fullName: true } } },
       take:   5,
     }),
+    prisma.gymMember.count({ where: { gymId: { in: gymIds }, endDate: { lt: today } } }),
 
     // Range attendance / new members (current + previous)
     prisma.attendance.count({ where: { gymId: { in: gymIds }, checkInTime: { gte: rangeStart, lt: rangeEnd } } }),
@@ -301,6 +304,24 @@ export async function getDashboardStats(
       take:    5,
       select:  { id: true, title: true, amount: true, category: true, expenseDate: true, gym: { select: { name: true } } },
     }),
+
+    // Low-stock alerts: supplements where stock_qty <= low_stock_at (column-to-column, needs raw SQL)
+    prisma.$queryRaw<{
+      id: string; name: string; brand: string | null; category: string | null;
+      stockQty: number; lowStockAt: number; gymId: string; gymName: string | null;
+    }[]>`
+      SELECT s.id, s.name, s.brand, s.category,
+             s.stock_qty    AS "stockQty",
+             s.low_stock_at AS "lowStockAt",
+             s.gym_id       AS "gymId",
+             g.name         AS "gymName"
+      FROM   supplements s
+      JOIN   gyms g ON g.id = s.gym_id
+      WHERE  s.gym_id::text = ANY(${gymIds})
+        AND  s.is_active = true
+        AND  s.stock_qty <= s.low_stock_at
+      ORDER  BY s.stock_qty ASC
+    `,
   ])
 
   const rangeRevenue     = Number(rangeRevAgg._sum?.amount         ?? 0)
@@ -336,6 +357,7 @@ export async function getDashboardStats(
     expiringMembers:  expiringMembers7,
     expiringMembers3,
     expiringToday:    expiringToday.map(m => m.profile.fullName),
+    expiredMembers,
 
     dailyMembershipRevenue: chartData.map(d => ({ date: d.label, amount: d.membershipRevenue })),
     dailySupplementRevenue: chartData.map(d => ({ date: d.label, amount: d.supplementRevenue })),
@@ -345,6 +367,16 @@ export async function getDashboardStats(
     todayCheckins,
     recentSupplementSales,
     recentExpenses,
+    lowStockAlerts: lowStockRaw.map(r => ({
+      id:         r.id,
+      name:       r.name,
+      brand:      r.brand       ?? null,
+      category:   r.category    ?? null,
+      stockQty:   Number(r.stockQty),
+      lowStockAt: Number(r.lowStockAt),
+      gymId:      r.gymId,
+      gym:        r.gymName ? { name: r.gymName } : null,
+    })),
   }
 }
 
