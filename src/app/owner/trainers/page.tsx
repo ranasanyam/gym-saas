@@ -25,7 +25,7 @@ export default function TrainersPage() {
   return (
     <div className="max-w-6xl">
       <PageHeader title="Trainers" subtitle={`${trainers.length} trainers across your gyms`}
-        action={{ label: "Add Trainer", href: "/owner/trainers/new", icon: Plus }} />
+        action={{ label: "Add Trainer", href: "/owner/trainers/new", icon: Plus }} style="flex-row items-start" />
 
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">

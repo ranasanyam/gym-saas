@@ -453,8 +453,8 @@ export default function ExpensesPage() {
           ) : (
             <div className="divide-y divide-white/5">
               {expenses.map(e => (
-                <div key={e.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/3 transition-colors">
-                  <div className="flex-1 min-w-0">
+                <div key={e.id} className="flex items-center gap-4 overflow-x-scroll px-5 py-3.5 hover:bg-white/3 transition-colors">
+                  <div className="flex-1">
                     <p className="text-white text-sm font-medium truncate">{e.title}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`text-xs px-1.5 py-0.5 rounded-full border ${CATEGORY_COLORS[e.category] ?? CATEGORY_COLORS.MISCELLANEOUS}`}>

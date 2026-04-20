@@ -30,7 +30,6 @@ export async function RecentExpenses({ gymIds, range, customStart, customEnd }: 
     select:  { id: true, title: true, amount: true, category: true, expenseDate: true, gym: { select: { name: true } } },
   })
 
-  console.log('expenses', expenses)
 
   if (expenses.length === 0) return null
 

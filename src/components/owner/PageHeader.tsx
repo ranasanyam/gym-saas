@@ -15,15 +15,16 @@ interface Props {
   action?: ActionObject | ReactNode
   icon?: ReactNode
   breadcrumb?: { label: string; href: string }[]
+  style?: string;
 }
 
 function isActionObject(a: unknown): a is ActionObject {
   return !!a && typeof a === "object" && !isValidElement(a) && "label" in (a as object)
 }
 
-export function PageHeader({ title, subtitle, action, breadcrumb }: Props) {
+export function PageHeader({ title, subtitle, action, breadcrumb, style }: Props) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
+    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7 ${style}`}>
       <div>
         {breadcrumb && (
           <div className="flex items-center gap-1.5 text-xs text-white/35 mb-1.5">

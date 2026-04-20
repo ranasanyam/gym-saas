@@ -65,16 +65,13 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
   )
 
   const Sidebar = ({ mobile = false }) => (
-    <aside className={`${mobile ? "flex" : "hidden lg:flex"} flex-col w-54 min-h-screen bg-[hsl(220_25%_7%)] border-r border-white/5`}>
+    <aside className={`${mobile ? "flex" : "hidden lg:flex"} flex-col w-54 h-screen sticky top-0 shrink-0 bg-[hsl(220_25%_7%)] border-r border-white/5`}>
       <div className="flex items-center gap-2.5 px-5 h-16 border-b border-white/5">
-        <div className="p-2 bg-gradient-primary rounded-xl">
-          <Dumbbell className="w-4 h-4 text-white" />
-        </div>
-        <span className="text-lg font-display font-bold text-white">GymStack</span>
+        <img src="../../../logo.png" alt="Logo" className="w-10 h-10" />
       </div>
 
       <div className="flex-1 py-5 px-3 overflow-y-auto">
-        <p className="text-white/25 text-[10px] font-semibold uppercase tracking-widest px-3 mb-3">Menu</p>
+        {/* <p className="text-white/25 text-[10px] font-semibold uppercase tracking-widest px-3 mb-3">Menu</p> */}
         <nav className="space-y-0.5">
           {navItems.map(({ label, href, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/")

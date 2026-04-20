@@ -230,7 +230,8 @@ function MembersContent() {
           action={!atLimit ? { label: "Add Member", href: "/owner/members/new" } : undefined} />
       ) : (
         <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-scroll">
+            <table className="w-full text-sm overflow-x-scroll">
             <thead>
               <tr className="border-b border-white/5">
                 {["Member", "Gym", "Plan", "Status", "Expires", ""].map(h => (
@@ -279,6 +280,7 @@ function MembersContent() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

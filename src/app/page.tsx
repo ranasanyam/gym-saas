@@ -378,11 +378,7 @@ function Navbar() {
     }`}>
       <div className="max-w-7xl mx-auto px-6 h-17 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 group">
-          {/* <div className="w-9 h-9 rounded-xl bg-linear-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:shadow-orange-500/50 transition-shadow"> */}
-            {/* <Dumbbell className="w-5 h-5 text-white" /> */}
             <img src="../../logo.png" alt="Logo" className="w-16 h-16" />
-          {/* </div> */}
-          {/* <span className="text-xl font-black text-white tracking-tight">GymStack</span> */}
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
@@ -974,11 +970,11 @@ export default function LandingPage() {
                 <h3 className="text-white font-display font-bold text-lg">Free</h3>
                 <span className="text-xs font-semibold bg-white/8 text-white/50 px-2 py-0.5 rounded-full">1 Month</span>
               </div>
-              <p className="text-white/40 text-sm">Try everything at zero cost — no credit card required.</p>
+              <p className="text-white/40 text-sm">Try everything that are available in Basic Plan at zero cost — no credit card required.</p>
             </div>
             <div className="flex items-center gap-6 shrink-0">
               <div className="flex items-end gap-1">
-                <span className="text-3xl font-black text-white font-display">₹0</span>
+                <span className="text-4xl font-bold text-white leading-none">₹0</span>
                 <span className="text-white/35 text-sm mb-0.5">/ 1 month</span>
               </div>
               <Link href="/signup" className="px-5 py-2.5 rounded-xl border border-white/12 text-white/60 hover:text-white hover:border-white/25 hover:bg-white/4 text-sm font-bold transition-all whitespace-nowrap">
@@ -1162,10 +1158,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-10 mb-12">
             <div className="md:col-span-2">
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-9 h-9 rounded-xl bg-linear-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center shadow-lg shadow-orange-500/20">
-                  <Dumbbell className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-black text-white">GymStack</span>
+                <img src="../logo.png" alt="Logo" className="w-15 h-15"/>
               </div>
               <p className="text-white/35 text-sm leading-relaxed max-w-xs">
                 The all-in-one gym management platform for modern gym owners.

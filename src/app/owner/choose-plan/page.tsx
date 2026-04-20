@@ -7,9 +7,8 @@
 import { Suspense, useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
-import Link from "next/link"
 import {
-  Dumbbell, Check, Zap, AlertTriangle, Loader2, LogOut,
+  Check, Zap, AlertTriangle, Loader2, LogOut,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 
@@ -40,11 +39,13 @@ const PLAN_TIERS: PlanTierConfig[] = [
     description: "1 month trial — no credit card required",
     isFree:      true,
     features: [
-      "1 gym",
-      "Unlimited members & trainers",
-      "Attendance tracking",
-      "Basic reports",
-      "Announcements",
+      "1 Gym",
+      "Unlimited Members",
+      "Unlimited Trainers",
+      "Attendance Tracking",
+      "Membership Plans",
+      "Basic Reports & Analytics",
+      "Unlimited Announcements",
     ],
   },
   {
@@ -53,10 +54,14 @@ const PLAN_TIERS: PlanTierConfig[] = [
     description: "Everything you need to manage a gym",
     isFree:      false,
     features: [
-      "Everything in Free",
-      "Membership plans",
-      "Full reports & analytics",
-      "Refer & Earn",
+      "1 Gym",
+      "Unlimited Members",
+      "Unlimited Trainers",
+      "Attendance Tracking",
+      "Membership Plans",
+      "Basic Reports & Analytics",
+      "Unlimited Announcements",
+      "Email Support"
     ],
   },
   {
@@ -66,12 +71,20 @@ const PLAN_TIERS: PlanTierConfig[] = [
     description: "For gyms that need the full feature set",
     isFree:      false,
     features: [
-      "Everything in Basic",
+      "1 Gym",
+      "Unlimited Members",
+      "Unlimited Trainers",
+      "Attendance Tracking",
+      "Membership Plans",
+      "Locker Management",
+      "Payment Management",
+      "Expense Management",
       "Workout plans",
       "Diet plans",
-      "Supplement management",
-      "Payments & expenses",
-      "Lockers",
+      "Supplement Management",
+      "Advanced Reports & Analytics",
+      "Unlimited Announcements & Notifications",
+      "Priority Support"
     ],
   },
   {
@@ -80,11 +93,22 @@ const PLAN_TIERS: PlanTierConfig[] = [
     description: "For multi-gym businesses",
     isFree:      false,
     features: [
-      "Everything in Pro",
       "Up to 5 gyms",
-      "AI-powered plans",
-      "Custom integrations",
-      "Priority support",
+      "Unlimited members",
+      "Unlimited Trainers",
+      "Attendance Tracking",
+      "Unlimited Membership Plans",
+      "Locker Management",
+      "Payment Management",
+      "Expense Management",
+      "Workout Plans",
+      "Diet Plans",
+      "AI-Powered Workout/Diet Plans",
+      "Supplement Management",
+      "Advanced Reports & Analytics",
+      "Unlimited Announcements & Notifications",
+      "Custom Integrations",
+      "Priority Support"
     ],
   },
 ]
@@ -97,7 +121,6 @@ const INTERVAL_MAP: Record<number, string> = {
 }
 
 // ── Inner component (needs useSearchParams, wrapped in Suspense below) ────────
-
 function ChoosePlanContent() {
   const router               = useRouter()
   const searchParams         = useSearchParams()
@@ -264,11 +287,8 @@ function ChoosePlanContent() {
       {/* Header */}
       <div className="text-center mb-10 max-w-2xl mx-auto">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="p-2.5 bg-gradient-primary rounded-xl">
-            <Dumbbell className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-2xl font-display font-bold text-white">GymStack</span>
+        <div className="flex justify-center">
+          <img src="../../../../logo.png" alt="logo" className="w-25 h-25" />
         </div>
 
         {/* Expired banner */}

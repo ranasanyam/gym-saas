@@ -106,8 +106,34 @@ const TIERS: PlanTier[] = [
 ]
 
 // ── DB interfaces ─────────────────────────────────────────────────────────────
-interface DbPlan         { id: string; name: string; interval: string; price: number }
-interface DbSubscription { id: string; status: string; saasPlan: DbPlan; currentPeriodEnd: string | null }
+interface DbPlan {
+  id: string; name: string; interval: string; price: string
+}
+interface DbSubscription {
+  id: string
+  status: string
+  planName: string
+  planSlug: string
+  currentPeriodEnd: string | null
+  isExpired: boolean
+  isInGracePeriod: boolean
+  isLifetime: boolean
+  isTrial: boolean
+  daysRemaining: number
+  daysUntilExpiry: number
+  limits: {
+    maxGyms: number | null
+    maxMembers: number | null
+    maxTrainers: number | null
+    maxMembershipPlans: number | null
+    maxNotificationsPerMonth: number | null
+    hasWorkoutPlans: boolean
+    hasDietPlans: boolean
+    hasAttendance: boolean
+    hasSupplements: boolean
+    hasPayments: boolean
+  }
+}
 
 // ── Savings badge helper ──────────────────────────────────────────────────────
 function savingsLabel(prices: PlanTier["prices"], interval: DurationInterval): string | null {
@@ -145,20 +171,20 @@ export default function SubscriptionsPage() {
     }).finally(() => setLoading(false))
   }, [])
 
+
+  console.log('db plans', dbPlans);
+  console.log('db sub', dbSub);
   const findDbPlan = (tierKey: string, interval: DurationInterval): DbPlan | undefined =>
     dbPlans.find(p =>
       p.name.toLowerCase().includes(tierKey) &&
       p.interval === interval
     )
 
-  const activePlanKey = dbSub?.saasPlan?.name?.toLowerCase().trim() ?? null
-  const activeInterval = dbSub?.saasPlan?.interval ?? null
+  const activePlanKey = dbSub?.planName?.toLowerCase().trim() ?? null
   const isActiveSub = dbSub?.status === "ACTIVE" || dbSub?.status === "TRIALING"
 
-  const isCurrent = (tier: PlanTier, interval: DurationInterval) =>
-    isActiveSub &&
-    activePlanKey?.includes(tier.key) &&
-    activeInterval === interval
+  const isCurrent = (tier: PlanTier) =>
+    isActiveSub && activePlanKey?.includes(tier.key)
 
   const purchase = async (tier: PlanTier, interval: DurationInterval) => {
     const dbPlan = findDbPlan(tier.key, interval)
@@ -258,7 +284,7 @@ export default function SubscriptionsPage() {
             }
             <div>
               <p className="text-white text-sm font-semibold">
-                Current Plan: {dbSub?.saasPlan?.name}
+                Current Plan: {dbSub?.planName}
               </p>
               <p className="text-white/40 text-xs mt-0.5">
                 <span className={`capitalize font-medium ${sub.isExpired ? "text-red-400" : "text-primary"}`}>
@@ -320,7 +346,7 @@ export default function SubscriptionsPage() {
       )}
 
       {/* ── Free plan banner ──────────────────────────────────────────── */}
-      {(() => {
+      {/* {(() => {
         const freeIsActive = isActiveSub && activePlanKey?.includes("free")
         const freeBuying   = purchasing === "free"
         const freeDbPlan   = dbPlans.find(p => p.name.toLowerCase().includes("free"))
@@ -370,7 +396,7 @@ export default function SubscriptionsPage() {
             </button>
           </div>
         )
-      })()}
+      })()} */}
 
       {/* ── Paid plan cards ───────────────────────────────────────────── */}
       <div className="grid sm:grid-cols-3 gap-5">
@@ -378,7 +404,7 @@ export default function SubscriptionsPage() {
           const selectedInterval = durations[tier.key]
           const price            = tier.prices[selectedInterval]
           const selectedDuration = DURATIONS.find(d => d.interval === selectedInterval)!
-          const current          = isCurrent(tier, selectedInterval)
+          const current          = isCurrent(tier)
           const anyTierCurrent   = isActiveSub && activePlanKey?.includes(tier.key)
           const purchaseKey      = `${tier.key}-${selectedInterval}`
           const isBuying         = purchasing === purchaseKey

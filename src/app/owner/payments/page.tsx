@@ -382,7 +382,7 @@ function PaymentsContent() {
           />
         )}
         <button onClick={() => setShowForm(true)}
-          className="ml-auto flex items-center gap-2 bg-gradient-to-r from-primary to-orange-400 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90">
+          className="ml-auto flex items-center gap-2 bg-linear-to-r from-primary to-orange-400 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90">
           <Plus className="w-4 h-4" /> Record Payment
         </button>
       </div>
@@ -463,7 +463,8 @@ function PaymentsContent() {
         </div>
       ) : (
         <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-scroll">
+            <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/5">
                 {["Member", "Gym", "Plan", "Amount", "Method", "Date", "Status"].map(h => (
@@ -490,6 +491,7 @@ function PaymentsContent() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

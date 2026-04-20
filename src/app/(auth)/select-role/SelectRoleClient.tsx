@@ -117,11 +117,8 @@ export default function SelectRoleClient() {
         className="w-full max-w-4xl relative z-10"
       >
         {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-12">
-          <div className="p-2.5 bg-gradient-primary rounded-xl shadow-lg">
-            <Dumbbell className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-2xl font-display font-bold text-white tracking-tight">GymStack</span>
+        <div className="flex justify-center">
+          <img src="../../../../logo.png" alt="Logo" className="h-24 w-24" />
         </div>
 
         {/* Heading */}
