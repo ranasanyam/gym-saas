@@ -116,9 +116,18 @@ const SELF_ROUTING = [
 
 async function getSessionFromRequest(req: NextRequest) {
   try {
+    // In production, Auth.js session cookies are usually __Secure-*.
+    // Explicit secureCookie avoids false negatives when decoding at the edge.
+    const token = await getToken({
+      req,
+      secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+      secureCookie: req.nextUrl.protocol === "https:",
+    })
+    if (token) return token
     return await getToken({
       req,
       secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+      secureCookie: process.env.NODE_ENV === "production",
     })
   } catch {
     return null

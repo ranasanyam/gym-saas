@@ -60,6 +60,7 @@ export async function middleware(req: NextRequest) {
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+    secureCookie: req.nextUrl.protocol === "https:",
   })
 
   // Always allow public routes
@@ -116,8 +117,9 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run middleware on all routes except static assets
+  // Run middleware on non-API routes only.
+  // API handlers enforce auth themselves and should never be redirected by middleware.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|offline).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|offline).*)",
   ],
 }
