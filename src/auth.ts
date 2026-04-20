@@ -517,20 +517,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         (trigger === "update" || token.role === undefined || token.hasActivePlan === undefined || token.role === null) &&
         token.profileId
       ) {
-        const profile = await prisma.profile.findUnique({
-          where:  { id: token.profileId as string },
-          select: { role: true, ownerPlanStatus: true },
-        })
-        const role = profile?.role ?? token.role
-        const ownerPlanStatus = profile?.ownerPlanStatus ?? await getOwnerPlanStatusForRole(token.profileId as string, role)
-        const planStatus = await getPlanStatusForRole(token.profileId as string, role, ownerPlanStatus)
+        try {
+          const profile = await prisma.profile.findUnique({
+            where:  { id: token.profileId as string },
+            select: { role: true, ownerPlanStatus: true },
+          })
+          const role = profile?.role ?? token.role
+          const ownerPlanStatus = profile?.ownerPlanStatus ?? await getOwnerPlanStatusForRole(token.profileId as string, role)
+          const planStatus = await getPlanStatusForRole(token.profileId as string, role, ownerPlanStatus)
 
-        if (profile) {
-          token.role            = profile.role
-          token.ownerPlanStatus = ownerPlanStatus
+          if (profile) {
+            token.role            = profile.role
+            token.ownerPlanStatus = ownerPlanStatus
+          }
+          token.hasActivePlan = planStatus.hasActivePlan
+          token.planExpired   = planStatus.planExpired
+        } catch (err) {
+          console.error("[auth] jwt callback DB refresh failed — preserving existing token:", err)
+          // Preserve existing token fields so auth() doesn't fail and redirect to /login
+          if (token.hasActivePlan === undefined) token.hasActivePlan = false
+          if (token.planExpired   === undefined) token.planExpired   = false
         }
-        token.hasActivePlan = planStatus.hasActivePlan
-        token.planExpired   = planStatus.planExpired
       }
 
       return token

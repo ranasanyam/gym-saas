@@ -69,7 +69,7 @@ const ROLES = [
 export default function SelectRoleClient() {
   const router     = useRouter()
   const { toast }  = useToast()
-  useSession()
+  const { update } = useSession()
   useProfile()
 
   const [selected, setSelected] = useState<Role | null>(null)
@@ -97,6 +97,7 @@ export default function SelectRoleClient() {
       // the updated role from DB and issues the correct server-side redirect
       // (/owner/choose-plan or /{role}/dashboard). This avoids any stale JWT
       // issues that arise from navigating directly with window.location.href.
+      await update()   // refresh JWT with new role before middleware sees the redirect
       router.refresh()
     } catch {
       toast({ variant: "destructive", title: "Something went wrong", description: "Please try again." })
