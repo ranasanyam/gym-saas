@@ -99,6 +99,10 @@ import { getToken } from "next-auth/jwt"
 
 const PUBLIC_ROUTES = ["/", "/login", "/signup", "/forgot-password", "/reset-password"]
 
+// API routes are responsible for their own auth responses. In particular,
+// NextAuth/Auth.js endpoints must stay reachable before a session exists.
+const API_ROUTES = ["/api"]
+
 // Routes that handle their own auth/redirect logic.
 // Middleware must NEVER intercept these — they read from DB directly and
 // are responsible for routing the user to the correct destination.
@@ -151,6 +155,10 @@ export async function proxy(req: NextRequest) {
   // These pages read directly from the DB and handle their own redirects.
   // Middleware must not touch them — doing so causes race-condition flashes.
   if (SELF_ROUTING.some(r => pathname === r || pathname.startsWith(r + "/"))) {
+    return NextResponse.next()
+  }
+
+  if (API_ROUTES.some(r => pathname === r || pathname.startsWith(r + "/"))) {
     return NextResponse.next()
   }
 
