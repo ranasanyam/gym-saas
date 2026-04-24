@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Pagination } from "@/components/ui/Pagination"
 
 interface Announcement {
   id: string; title: string; body: string; targetRole: string | null
@@ -50,8 +51,11 @@ export default function NotificationsPage() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving]   = useState(false)
   const [activeFilter, setActiveFilter] = useState("All")
-  const [selectedGym, setSelectedGym] = useState("")    // for filtering list
+  const [selectedGym, setSelectedGym] = useState("")
   const [searchQ, setSearchQ] = useState("")
+  const [page,  setPage]  = useState(1)
+  const [pages, setPages] = useState(1)
+  const [total, setTotal] = useState(0)
 
   const [form, setForm] = useState({
     gymId: "", title: "", body: "",
@@ -59,18 +63,20 @@ export default function NotificationsPage() {
     expiresAt: "",
   })
 
-  const load = () => {
+  const load = (p = page) => {
+    setLoading(true)
     Promise.all([
-      fetch("/api/owner/notifications").then(r => r.json()),
+      fetch(`/api/owner/notifications?page=${p}`).then(r => r.json()),
       fetch("/api/owner/gyms").then(r => r.json()),
     ]).then(([a, g]) => {
-      setItems(Array.isArray(a) ? a : [])
+      setItems(a.announcements ?? [])
+      setTotal(a.total ?? 0)
+      setPages(a.pages ?? 1)
       setGyms(g)
       if (g.length > 0) setForm(prev => ({ ...prev, gymId: g[0].id }))
-      if (g.length > 0) setSelectedGym("")
     }).finally(() => setLoading(false))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [page])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -292,6 +298,8 @@ export default function NotificationsPage() {
           )}
         </div>
       )}
+
+      <Pagination page={page} pages={pages} total={total} limit={20} onChange={p => { setPage(p); load(p) }} />
     </div>
   )
 }

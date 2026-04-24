@@ -14,15 +14,24 @@ export async function GET(req: NextRequest) {
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
 
-  const gymId = new URL(req.url).searchParams.get("gymId")
-  const gyms = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
+  const sp     = new URL(req.url).searchParams
+  const gymId  = sp.get("gymId")
+  const page   = Math.max(1, parseInt(sp.get("page") ?? "1"))
+  const limit  = 20
+  const gyms   = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
-  const announcements = await prisma.announcement.findMany({
-    where: { gymId: { in: gymIds } },
-    include: { author: { select: { fullName: true } }, gym: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-  })
-  return NextResponse.json(announcements)
+  const where  = { gymId: { in: gymIds } }
+  const [announcements, total] = await Promise.all([
+    prisma.announcement.findMany({
+      where,
+      include: { author: { select: { fullName: true } }, gym: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.announcement.count({ where }),
+  ])
+  return NextResponse.json({ announcements, total, pages: Math.ceil(total / limit) })
 }
 
 export async function POST(req: NextRequest) {

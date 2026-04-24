@@ -752,6 +752,64 @@ function LineChart({
   )
 }
 
+// ── Dual-line chart (Revenue vs Expenses) — Pro/Enterprise only ──────────────
+function DualLineChart({
+  revenueSeries, expenseSeries,
+}: {
+  revenueSeries: { label: string; total: number }[]
+  expenseSeries: { label: string; amount: number }[]
+}) {
+  if (revenueSeries.length < 2) return (
+    <div className="h-24 flex items-center justify-center text-white/20 text-xs">No data for this period</div>
+  )
+  const expByLabel = new Map(expenseSeries.map(e => [e.label, e.amount]))
+  const H   = 72
+  const allVals = [
+    ...revenueSeries.map(d => d.total),
+    ...revenueSeries.map(d => expByLabel.get(d.label) ?? 0),
+  ]
+  const max = Math.max(...allVals, 1)
+
+  function toPoints(vals: number[]) {
+    return vals.map((v, i) => ({
+      x: (i / (vals.length - 1)) * 100,
+      y: H - (v / max) * (H - 8),
+    }))
+  }
+
+  const revPts = toPoints(revenueSeries.map(d => d.total))
+  const expPts = toPoints(revenueSeries.map(d => expByLabel.get(d.label) ?? 0))
+  const toPath = (pts: { x: number; y: number }[]) =>
+    pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ")
+
+  const revPath = toPath(revPts)
+  const expPath = toPath(expPts)
+
+  return (
+    <div className="relative h-24">
+      <svg viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" className="w-full h-full">
+        <defs>
+          <linearGradient id="dual-rev-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor={C.membership} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={C.membership} stopOpacity="0"    />
+          </linearGradient>
+          <linearGradient id="dual-exp-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor={C.expense} stopOpacity="0.15" />
+            <stop offset="100%" stopColor={C.expense} stopOpacity="0"    />
+          </linearGradient>
+        </defs>
+        <path d={`${revPath} L 100 ${H} L 0 ${H} Z`} fill="url(#dual-rev-grad)" />
+        <path d={revPath} stroke={C.membership} strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {revPts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="1.6" fill={C.membership} />)}
+
+        <path d={`${expPath} L 100 ${H} L 0 ${H} Z`} fill="url(#dual-exp-grad)" />
+        <path d={expPath} stroke={C.expense} strokeWidth="1.5" strokeDasharray="3 2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {expPts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="1.4" fill={C.expense} />)}
+      </svg>
+    </div>
+  )
+}
+
 // ── Range picker dropdown ─────────────────────────────────────────────────────
 function RangePicker({
   range, customS, customE, onApply,
@@ -1184,33 +1242,106 @@ function ReportsContent() {
           </div>
         )}
 
-        {/* ── Premium: expense trend (Pro/Enterprise) ─────────────────────── */}
+        {/* ── Premium: Revenue vs Expenses + Net Revenue (Pro/Enterprise) ── */}
         {isPremium && (
-          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-white font-semibold text-sm">Expense Trend</h3>
-                <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
+          <div className="grid lg:grid-cols-2 gap-5">
+            {/* Revenue vs Expenses dual chart */}
+            <div className="bg-[hsl(220_25%_9%)] border border-primary/12 rounded-2xl p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="text-white font-semibold text-sm">Revenue vs Expenses</h3>
+                  <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-5 h-0.5 rounded-full" style={{ background: C.membership }} />
+                    <span className="text-white/30 text-[10px]">Revenue</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-5 h-0.5 rounded-full border-dashed" style={{ borderTop: `2px dashed ${C.expense}` }} />
+                    <span className="text-white/30 text-[10px]">Expenses</span>
+                  </div>
+                </div>
               </div>
+              {loading
+                ? <div className="h-24 bg-white/3 rounded-xl animate-pulse" />
+                : <DualLineChart
+                    revenueSeries={data?.revenueSeries ?? []}
+                    expenseSeries={data?.expenseSeries ?? []}
+                  />
+              }
               {data && !loading && (
-                <p className="text-red-400 font-bold text-lg">{fmt(s?.totalExpenses ?? 0)}</p>
+                <div className="flex gap-4 mt-3 pt-3 border-t border-white/6 text-xs">
+                  <span className="text-white/40">Revenue: <span className="font-semibold" style={{ color: C.membership }}>{fmt(s?.totalRevenue ?? 0)}</span></span>
+                  <span className="text-white/40">Expenses: <span className="font-semibold" style={{ color: C.expense }}>{fmt(s?.totalExpenses ?? 0)}</span></span>
+                </div>
               )}
             </div>
-            {loading
-              ? <div className="h-20 bg-white/3 rounded-xl animate-pulse" />
-              : <LineChart data={data?.expenseSeries ?? []} valueKey="amount" color={C.expense} emptyMsg="No expenses in this period" />
-            }
+
+            {/* Expense Trend + Net Revenue */}
+            <div className="space-y-5">
+              <div className="bg-[hsl(220_25%_9%)] border border-red-500/12 rounded-2xl p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-white font-semibold text-sm">Expense Trend</h3>
+                    <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
+                  </div>
+                  {data && !loading && (
+                    <p className="text-red-400 font-bold text-lg">{fmt(s?.totalExpenses ?? 0)}</p>
+                  )}
+                </div>
+                {loading
+                  ? <div className="h-20 bg-white/3 rounded-xl animate-pulse" />
+                  : <LineChart data={data?.expenseSeries ?? []} valueKey="amount" color={C.expense} emptyMsg="No expenses in this period" />
+                }
+              </div>
+
+              {/* Net Revenue summary card */}
+              {data && !loading && (
+                <div className={`rounded-2xl p-5 border ${(s?.netRevenue ?? 0) >= 0 ? "bg-emerald-500/6 border-emerald-500/15" : "bg-red-500/6 border-red-500/15"}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white/50 text-xs font-medium uppercase tracking-wider">Net Revenue</p>
+                      <p className={`text-2xl font-bold mt-1 ${(s?.netRevenue ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {fmt(s?.netRevenue ?? 0)}
+                      </p>
+                      <p className="text-white/30 text-xs mt-1">{rangeLabel}</p>
+                    </div>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${(s?.netRevenue ?? 0) >= 0 ? "bg-emerald-500/15" : "bg-red-500/15"}`}>
+                      {(s?.netRevenue ?? 0) >= 0
+                        ? <TrendingUp className="w-6 h-6 text-emerald-400" />
+                        : <TrendingDown className="w-6 h-6 text-red-400" />
+                      }
+                    </div>
+                  </div>
+                  {s && s.totalRevenue > 0 && (
+                    <div className="mt-3 pt-3 border-t border-white/8">
+                      <p className="text-white/40 text-xs">
+                        Profit margin: <span className={`font-semibold ${(s.netRevenue / s.totalRevenue) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {((s.netRevenue / s.totalRevenue) * 100).toFixed(1)}%
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* ── Per-gym breakdown table ──────────────────────────────────────── */}
         {(data?.topGyms?.length ?? 0) > 0 && (
-          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl overflow-hidden">
+          <div className={`bg-[hsl(220_25%_9%)] rounded-2xl overflow-hidden border ${isPremium ? "border-white/10" : "border-white/6"}`}>
             <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
               <div>
                 <h3 className="text-white font-semibold text-sm">Per-Gym Breakdown</h3>
                 <p className="text-white/35 text-xs mt-0.5">{rangeLabel}</p>
               </div>
+              {isPremium && (
+                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-[10px] font-semibold px-2.5 py-1 rounded-full">
+                  <Zap className="w-2.5 h-2.5" /> Pro Analytics
+                </span>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1219,28 +1350,37 @@ function ReportsContent() {
                     {[
                       "Gym", "Active", "New", "Attendance",
                       "Mem. Rev", "Supp. Rev", "Locker Rev", "Total", "Expenses", "Net",
+                      ...(isPremium ? ["Margin %"] : []),
                     ].map(h => (
                       <th key={h} className="px-5 py-3 text-left text-white/30 text-xs font-medium whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/4">
-                  {data!.topGyms.map((g, i) => (
-                    <tr key={i} className="hover:bg-white/2 transition-colors">
-                      <td className="px-5 py-3.5 text-white font-medium whitespace-nowrap">{g.name}</td>
-                      <td className="px-5 py-3.5 text-white/60">{g.activeMembers}</td>
-                      <td className="px-5 py-3.5 text-emerald-400">+{g.newMembers}</td>
-                      <td className="px-5 py-3.5 text-white/60">{g.attendance}</td>
-                      <td className="px-5 py-3.5 text-primary">{fmt(g.membershipRev)}</td>
-                      <td className="px-5 py-3.5 text-green-400">{fmt(g.supplementRev)}</td>
-                      <td className="px-5 py-3.5 text-blue-400">{fmt(g.lockerRev ?? 0)}</td>
-                      <td className="px-5 py-3.5 text-white font-semibold">{fmt(g.totalRevenue)}</td>
-                      <td className="px-5 py-3.5 text-red-400">{fmt(g.expenses)}</td>
-                      <td className={`px-5 py-3.5 font-semibold ${g.netRevenue >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {fmt(g.netRevenue)}
-                      </td>
-                    </tr>
-                  ))}
+                  {data!.topGyms.map((g, i) => {
+                    const margin = g.totalRevenue > 0 ? (g.netRevenue / g.totalRevenue) * 100 : 0
+                    return (
+                      <tr key={i} className="hover:bg-white/2 transition-colors">
+                        <td className="px-5 py-3.5 text-white font-medium whitespace-nowrap">{g.name}</td>
+                        <td className="px-5 py-3.5 text-white/60">{g.activeMembers}</td>
+                        <td className="px-5 py-3.5 text-emerald-400">+{g.newMembers}</td>
+                        <td className="px-5 py-3.5 text-white/60">{g.attendance}</td>
+                        <td className="px-5 py-3.5 text-primary">{fmt(g.membershipRev)}</td>
+                        <td className="px-5 py-3.5 text-green-400">{fmt(g.supplementRev)}</td>
+                        <td className="px-5 py-3.5 text-blue-400">{fmt(g.lockerRev ?? 0)}</td>
+                        <td className="px-5 py-3.5 text-white font-semibold">{fmt(g.totalRevenue)}</td>
+                        <td className="px-5 py-3.5 text-red-400">{fmt(g.expenses)}</td>
+                        <td className={`px-5 py-3.5 font-semibold ${g.netRevenue >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {fmt(g.netRevenue)}
+                        </td>
+                        {isPremium && (
+                          <td className={`px-5 py-3.5 font-semibold text-xs ${margin >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {margin.toFixed(1)}%
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

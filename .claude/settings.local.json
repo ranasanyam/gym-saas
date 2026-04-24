@@ -10,7 +10,10 @@
       "Bash(grep -E \"^zod$\")",
       "Bash(npm install *)",
       "Bash(grep -E \"^\\(zustand|zod|@tanstack|react-hook-form|@hookform\\)$\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(grep -n \"return\\\\s*$\\\\|</div>\\\\s*$\\\\|</PlanGate>\" \"d:/Projects/gym-saas/src/app/owner/payments/page.tsx\")",
+      "Bash(grep -n \"INBOX TAB\\\\|<\\\\/>\\\\s*$\\\\|{\\\\/\\\\* ── SENT\\\\|tab === .sent. &&\" \"d:/Projects/gym-saas/src/app/trainer/notifications/page.tsx\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ]
   }
 }

@@ -2,7 +2,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { requireActivePlan } from "@/lib/requireActivePlan"
+import { getOwnerSubscription, checkFeature } from "@/lib/subscription"
 import { prisma } from "@/lib/prisma"
+
+async function checkLockerAccess(profileId: string) {
+  const sub = await getOwnerSubscription(profileId)
+  if (!sub || sub.isExpired) {
+    return NextResponse.json({ error: "Your subscription has expired. Please renew to access lockers.", upgradeRequired: true }, { status: 403 })
+  }
+  const check = checkFeature(sub.limits.hasLockers, "Locker Management")
+  if (!check.allowed) {
+    return NextResponse.json({ error: check.reason, upgradeRequired: true }, { status: 403 })
+  }
+  return null
+}
 
 // ── GET — list lockers for a gym ─────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -12,6 +25,8 @@ export async function GET(req: NextRequest) {
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
 
+  const accessErr = await checkLockerAccess(profileId)
+  if (accessErr) return accessErr
 
   const { searchParams } = new URL(req.url)
   const gymId = searchParams.get("gymId")
@@ -62,6 +77,8 @@ export async function POST(req: NextRequest) {
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
 
+  const accessErr = await checkLockerAccess(profileId)
+  if (accessErr) return accessErr
 
   const body = await req.json()
   const { gymId, lockerNumber, floor, size, monthlyFee, notes, bulk } = body

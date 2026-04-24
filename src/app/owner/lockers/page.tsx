@@ -534,6 +534,8 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useToast }     from "@/hooks/use-toast"
+import { useSubscription } from "@/contexts/SubscriptionContext"
+import { PlanGate }     from "@/components/owner/PlanGate"
 import { PageHeader }   from "@/components/owner/PageHeader"
 import {
   Lock, Plus, User, X, Loader2, RefreshCw,
@@ -829,6 +831,7 @@ function ConfirmModal({ state, onClose, loading }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function LockersPage() {
   const { toast } = useToast()
+  const { hasLockers, isExpired } = useSubscription()
 
   // Data
   const [gyms,    setGyms]    = useState<GymOpt[]>([])
@@ -1042,6 +1045,7 @@ export default function LockersPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
+    <PlanGate allowed={hasLockers && !isExpired} featureLabel="Locker Management">
     <div className="space-y-6 max-w-7xl">
       <PageHeader
         title="Locker Management"
@@ -1415,5 +1419,6 @@ export default function LockersPage() {
         />
       )}
     </div>
+    </PlanGate>
   )
 }

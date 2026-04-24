@@ -3,13 +3,13 @@
 // This is the single endpoint the frontend calls to power all limit checks and UI banners.
 
 import { NextRequest, NextResponse } from "next/server"
-import { resolveWebProfileId } from "@/lib/serverAuth"
+import { resolveProfileId } from "@/lib/mobileAuth"
 import { getOwnerSubscription, getOwnerUsage } from "@/lib/subscription"
 
 export const runtime = "nodejs"
 
 export async function GET(req: NextRequest) {
-    const profileId = await resolveWebProfileId(req)
+    const profileId = await resolveProfileId(req)
     if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const [subscription, usage] = await Promise.all([

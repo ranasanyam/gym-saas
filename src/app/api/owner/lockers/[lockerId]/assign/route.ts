@@ -162,7 +162,20 @@ import { requireActivePlan } from "@/lib/requireActivePlan"
 
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId }          from "@/lib/mobileAuth"
+import { getOwnerSubscription, checkFeature } from "@/lib/subscription"
 import { prisma }                    from "@/lib/prisma"
+
+async function checkLockerAccess(profileId: string) {
+  const sub = await getOwnerSubscription(profileId)
+  if (!sub || sub.isExpired) {
+    return NextResponse.json({ error: "Your subscription has expired. Please renew to access lockers.", upgradeRequired: true }, { status: 403 })
+  }
+  const check = checkFeature(sub.limits.hasLockers, "Locker Management")
+  if (!check.allowed) {
+    return NextResponse.json({ error: check.reason, upgradeRequired: true }, { status: 403 })
+  }
+  return null
+}
 
 export async function POST(
   req: NextRequest,
@@ -173,6 +186,9 @@ export async function POST(
 
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
+
+  const accessErr = await checkLockerAccess(profileId)
+  if (accessErr) return accessErr
 
   const { lockerId } = await params
 
@@ -294,6 +310,9 @@ export async function DELETE(
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
 
+  const accessErr = await checkLockerAccess(profileId)
+  if (accessErr) return accessErr
+
   const { lockerId } = await params
 
   const locker = await prisma.locker.findFirst({
@@ -331,6 +350,9 @@ export async function PATCH(
 
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
+
+  const accessErr = await checkLockerAccess(profileId)
+  if (accessErr) return accessErr
 
   const { lockerId } = await params
 

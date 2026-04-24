@@ -33,8 +33,8 @@ const navItems: NavItem[] = [
   { label: "Attendance",    href: "/owner/attendance",   icon: CalendarCheck,   featureKey: "hasAttendance" },
   { label: "Payments",      href: "/owner/payments",     icon: CreditCard,      featureKey: "hasPayments" },
   { label: "Membership Plans",         href: "/owner/plans",        icon: Tag },
-  { label: "Expenses",      href: "/owner/expenses",     icon: IndianRupee },
-  { label: "Lockers",       href: "/owner/lockers",      icon: Lock },
+  { label: "Expenses",      href: "/owner/expenses",     icon: IndianRupee,  featureKey: "hasExpenses" },
+  { label: "Lockers",       href: "/owner/lockers",      icon: Lock,         featureKey: "hasLockers" },
   { label: "Supplements",   href: "/owner/supplements",  icon: ShoppingBag,     featureKey: "hasSupplements" },
   { label: "Workout Plans", href: "/owner/workouts",     icon: ClipboardList,   featureKey: "hasWorkoutPlans" },
   { label: "Diet Plans",    href: "/owner/diets",        icon: UtensilsCrossed, featureKey: "hasDietPlans" },
@@ -94,6 +94,8 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
     )
   }
 
+
+  console.log('sub', sub);
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <aside className={`${mobile ? "flex" : "hidden lg:flex"} flex-col w-54 h-screen sticky top-0 shrink-0 bg-[hsl(220_25%_7%)] border-r border-white/5`}>
       <div className="flex items-center gap-2.5 px-5 h-16 border-b border-white/5">
@@ -107,6 +109,7 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
             const isNotif  = label === "Notifications"
             const active   = pathname === href || pathname.startsWith(href + "/")
             const isLocked = featureKey ? !(sub as any)[featureKey] : false
+            console.log('isLocker', isLocked, 'for', featureKey);
             return (
               <Link key={href} href={href} onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
@@ -124,8 +127,8 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
                     </span>
                   </span>
                 )}
-                {isLocked && !active && !isNotif && (
-                  <Lock className="w-3 h-3 shrink-0 opacity-50" />
+                {isLocked && !isNotif && (
+                  <Lock className={`w-3 h-3 shrink-0 ${active ? "text-white" : "opacity-50"}`} />
                 )}
               </Link>
             )

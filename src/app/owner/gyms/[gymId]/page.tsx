@@ -500,6 +500,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Pagination } from "@/components/ui/Pagination"
 import { MultiImageUpload } from "@/components/ui/MultiUpload"
 import { Avatar } from "@/components/ui/Avatar"
 
@@ -566,6 +567,9 @@ export default function GymDetailPage() {
   const [gymTrainers,  setGymTrainers]  = useState<TrainerRow[]>([])
   const [membersLoading, setMembersLoading]   = useState(false)
   const [trainersLoading, setTrainersLoading] = useState(false)
+  const [membersPage,  setMembersPage]  = useState(1)
+  const [membersPages, setMembersPages] = useState(1)
+  const [membersTotal, setMembersTotal] = useState(0)
 
   const load = useCallback(async () => {
     const [gymRes, payRes] = await Promise.all([
@@ -588,13 +592,22 @@ export default function GymDetailPage() {
     return () => { if (carouselTimer.current) clearInterval(carouselTimer.current) }
   }, [])
 
+  const loadMembers = useCallback((p: number) => {
+    setMembersLoading(true)
+    fetch(`/api/owner/members?gymId=${gymId}&page=${p}`)
+      .then(r => r.json())
+      .then(d => {
+        setGymMembers(d.members ?? [])
+        setMembersTotal(d.total ?? 0)
+        setMembersPages(d.pages ?? 1)
+        setMembersPage(p)
+      })
+      .finally(() => setMembersLoading(false))
+  }, [gymId])
+
   useEffect(() => {
     if (tab !== "Members") return
-    setMembersLoading(true)
-    fetch(`/api/owner/members?gymId=${gymId}&page=1`)
-      .then(r => r.json())
-      .then(d => setGymMembers(Array.isArray(d.members) ? d.members : []))
-      .finally(() => setMembersLoading(false))
+    loadMembers(1)
   }, [tab, gymId])
 
   useEffect(() => {
@@ -820,6 +833,7 @@ export default function GymDetailPage() {
               </>
             )}
           </div>
+          <Pagination page={membersPage} pages={membersPages} total={membersTotal} limit={20} onChange={p => loadMembers(p)} />
         </div>
       )}
 

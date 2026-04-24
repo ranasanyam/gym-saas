@@ -1,14 +1,16 @@
 // src/app/api/subscriptions/subscribe/route.ts
-// Activates a SaaS plan for the owner after payment is confirmed.
+// Activates a SaaS plan after payment is confirmed.
 //
-// For free plans: POST { saasPlanId, amount: 0 }
-// For paid plans: POST { saasPlanId, amount, razorpayPaymentId, razorpayOrderId }
+// Autopay (Razorpay Subscription):
+//   POST { saasPlanId, razorpayPaymentId, razorpaySubscriptionId, razorpaySignature }
+//   Signature = HMAC(paymentId|subscriptionId)
 //
-// Steps:
-//   1. Verify Razorpay signature (paid plans only)
-//   2. Deactivate any existing active subscription
-//   3. Create new SaasSubscription
-//   4. Record SaasPayment
+// One-time order (legacy / fallback):
+//   POST { saasPlanId, razorpayPaymentId, razorpayOrderId, razorpaySignature }
+//   Signature = HMAC(orderId|paymentId)
+//
+// Free plan:
+//   POST { saasPlanId }
 
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
@@ -26,17 +28,11 @@ const INTERVAL_MONTHS: Record<string, number | null> = {
 
 export const runtime = "nodejs"
 
-function verifyRazorpaySignature(
-    orderId: string,
-    paymentId: string,
-    signature: string,
-): boolean {
-    const body    = `${orderId}|${paymentId}`
-    const expected = crypto
+function hmac(a: string, b: string): string {
+    return crypto
         .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
-        .update(body)
+        .update(`${a}|${b}`)
         .digest("hex")
-    return expected === signature
 }
 
 export async function POST(req: NextRequest) {
@@ -45,9 +41,9 @@ export async function POST(req: NextRequest) {
 
     const {
         saasPlanId,
-        amount,
         razorpayPaymentId,
-        razorpayOrderId,
+        razorpaySubscriptionId, // autopay flow
+        razorpayOrderId,        // one-time order flow (legacy)
         razorpaySignature,
     } = await req.json()
 
@@ -60,15 +56,20 @@ export async function POST(req: NextRequest) {
 
     const isPaid = Number(plan.price) > 0
 
-    // ── Verify Razorpay signature for paid plans ──────────────────────────────
+    // ── Signature verification ────────────────────────────────────────────────
     if (isPaid) {
-        if (!razorpayPaymentId || !razorpayOrderId) {
+        if (!razorpayPaymentId) {
             return NextResponse.json({ error: "Payment details missing" }, { status: 400 })
         }
-        // Signature verification is optional if Razorpay webhook handles it,
-        // but we verify here when signature is provided for extra security.
         if (razorpaySignature) {
-            const valid = verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)
+            let valid = false
+            if (razorpaySubscriptionId) {
+                // Subscription flow: HMAC(paymentId|subscriptionId)
+                valid = hmac(razorpayPaymentId, razorpaySubscriptionId) === razorpaySignature
+            } else if (razorpayOrderId) {
+                // Order flow: HMAC(orderId|paymentId)
+                valid = hmac(razorpayOrderId, razorpayPaymentId) === razorpaySignature
+            }
             if (!valid) {
                 return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
             }
@@ -76,43 +77,38 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Compute subscription period ───────────────────────────────────────────
-    const now          = new Date()
-    const months       = INTERVAL_MONTHS[plan.interval]
-    const periodEnd    = months !== null ? addMonths(now, months) : null
-    const isLifetime   = plan.interval === "LIFETIME"
-    const status       = isLifetime ? "LIFETIME" : "ACTIVE"
+    const now        = new Date()
+    const months     = INTERVAL_MONTHS[plan.interval]
+    const periodEnd  = months !== null ? addMonths(now, months) : null
+    const isLifetime = plan.interval === "LIFETIME"
+    const status     = isLifetime ? "LIFETIME" : "ACTIVE"
 
     // ── Run in transaction ────────────────────────────────────────────────────
     const { subscription, payment } = await prisma.$transaction(async (tx) => {
-        // Expire any existing active/trialing subscriptions
         await tx.saasSubscription.updateMany({
-            where: {
-                profileId,
-                status: { in: ["ACTIVE", "TRIALING", "LIFETIME"] },
-            },
-            data: { status: "CANCELLED" },
+            where: { profileId, status: { in: ["ACTIVE", "TRIALING", "LIFETIME"] } },
+            data:  { status: "CANCELLED" },
         })
 
-        // Mark the owner as having explicitly selected a plan.
         await tx.profile.update({
             where: { id: profileId },
             data:  { ownerPlanStatus: "ACTIVE" },
         })
 
-        // Create new subscription
         const subscription = await tx.saasSubscription.create({
             data: {
                 profileId,
-                saasPlanId: plan.id,
+                saasPlanId:         plan.id,
                 status,
                 currentPeriodStart: now,
                 currentPeriodEnd:   periodEnd,
                 trialEndsAt:        null,
+                // store Razorpay subscription ID for webhook-based auto-renewal
+                razorpaySubId:      razorpaySubscriptionId ?? null,
             },
             include: { saasPlan: true },
         })
 
-        // Record payment
         const payment = await tx.saasPayment.create({
             data: {
                 profileId,
@@ -124,6 +120,7 @@ export async function POST(req: NextRequest) {
                 status:            "COMPLETED",
                 razorpayPaymentId: razorpayPaymentId ?? null,
                 razorpayOrderId:   razorpayOrderId   ?? null,
+                paidAt:            now,
             },
         })
 

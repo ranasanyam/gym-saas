@@ -7,6 +7,7 @@ import { Bell, Send, X, Loader2, Trash2, Megaphone, Search, Inbox } from "lucide
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Pagination } from "@/components/ui/Pagination"
 
 interface Announcement {
   id: string; title: string; body: string; targetRole: string | null
@@ -50,6 +51,9 @@ export default function TrainerNotificationsPage() {
   const [loadingSent, setLoadingSent] = useState(true)
   const [activeFilter, setActiveFilter] = useState("All")
   const [searchQ, setSearchQ]       = useState("")
+  const [sentPage,  setSentPage]    = useState(1)
+  const [sentPages, setSentPages]   = useState(1)
+  const [sentTotal, setSentTotal]   = useState(0)
 
   // Inbox
   const [inbox, setInbox]               = useState<InboxNotification[]>([])
@@ -63,11 +67,16 @@ export default function TrainerNotificationsPage() {
   const [saving, setSaving]     = useState(false)
   const [form, setForm]         = useState({ title: "", body: "", category: "General", expiresAt: "" })
 
-  const loadSent = () => {
+  const loadSent = (p = sentPage) => {
     setLoadingSent(true)
-    fetch("/api/trainer/notifications")
+    fetch(`/api/trainer/notifications?page=${p}`)
       .then(r => r.json())
-      .then(d => setSent(Array.isArray(d) ? d : []))
+      .then(d => {
+        setSent(d.announcements ?? [])
+        setSentTotal(d.total ?? 0)
+        setSentPages(d.pages ?? 1)
+        setSentPage(p)
+      })
       .finally(() => setLoadingSent(false))
   }
 
@@ -319,6 +328,7 @@ export default function TrainerNotificationsPage() {
               )}
             </div>
           )}
+          <Pagination page={sentPage} pages={sentPages} total={sentTotal} limit={20} onChange={p => loadSent(p)} />
         </>
       )}
 

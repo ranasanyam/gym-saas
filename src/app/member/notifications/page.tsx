@@ -8,6 +8,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useMemberGym } from "@/contexts/MemberGymContext"
 import { NoGymState } from "@/components/member/NoGymState"
+import { Pagination } from "@/components/ui/Pagination"
 
 const TYPE_ICON: Record<string, typeof Bell> = {
   PLAN_UPDATE:   Dumbbell,
@@ -57,14 +58,20 @@ export default function MemberNotificationsPage() {
   const [unreadCount, setUnreadCount]     = useState(0)
   const [loading, setLoading]             = useState(true)
   const [markingAll, setMarkingAll]       = useState(false)
+  const [page,  setPage]  = useState(1)
+  const [pages, setPages] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  const load = useCallback(() => {
+  const load = useCallback((p = 1) => {
     setLoading(true)
-    fetch("/api/member/notifications?page=1")
+    fetch(`/api/member/notifications?page=${p}`)
       .then(r => r.json())
       .then(d => {
         setNotifications(d.notifications ?? [])
         setUnreadCount(d.unreadCount ?? 0)
+        setTotal(d.total ?? 0)
+        setPages(d.pages ?? 1)
+        setPage(p)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -190,6 +197,8 @@ export default function MemberNotificationsPage() {
           })}
         </div>
       )}
+
+      <Pagination page={page} pages={pages} total={total} limit={20} onChange={p => load(p)} />
     </div>
   )
 }

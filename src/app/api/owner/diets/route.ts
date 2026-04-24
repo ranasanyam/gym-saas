@@ -135,6 +135,15 @@ export async function GET(req: NextRequest) {
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
 
+  const sub = await getOwnerSubscription(profileId)
+  if (!sub || sub.isExpired) {
+    return NextResponse.json({ error: "Your subscription has expired. Please renew to access diet plans.", upgradeRequired: true }, { status: 403 })
+  }
+  const featureCheck = checkFeature(sub.limits.hasDietPlans, "Diet Plans")
+  if (!featureCheck.allowed) {
+    return NextResponse.json({ error: featureCheck.reason, upgradeRequired: true }, { status: 403 })
+  }
+
   const gymId = new URL(req.url).searchParams.get("gymId")
   const gyms = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)

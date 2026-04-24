@@ -130,6 +130,7 @@ import { PageHeader } from "@/components/owner/PageHeader"
 import { EmptyState } from "@/components/owner/EmptyState"
 import { UpgradeButton } from "@/components/owner/PlanGate"
 import { useSubscription } from "@/contexts/SubscriptionContext"
+import { Pagination } from "@/components/ui/Pagination"
 import { Users, Search, UserPlus, ChevronDown, Loader2, Lock } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 
@@ -149,20 +150,24 @@ function MembersContent() {
   const [status, setStatus] = useState("")
   const [search, setSearch] = useState("")
   const [total, setTotal] = useState(0)
+  const [page,  setPage]  = useState(1)
+  const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(() => {
     setLoading(true)
-    const p = new URLSearchParams()
+    const p = new URLSearchParams({ page: String(page) })
     if (gymId) p.set("gymId", gymId)
     if (status) p.set("status", status)
     if (search) p.set("search", search)
     fetch(`/api/owner/members?${p}`).then(r => r.json()).then(d => {
       setMembers(d.members ?? [])
       setTotal(d.total ?? 0)
+      setPages(d.pages ?? 1)
     }).catch(() => { }).finally(() => setLoading(false))
-  }, [gymId, status, search])
+  }, [gymId, status, search, page])
 
+  useEffect(() => { setPage(1) }, [gymId, status, search])
   useEffect(() => {
     fetch("/api/owner/gyms").then(r => r.json()).then(g => { if (Array.isArray(g)) setGyms(g) })
   }, [])
@@ -283,6 +288,8 @@ function MembersContent() {
           </div>
         </div>
       )}
+
+      <Pagination page={page} pages={pages} total={total} limit={20} onChange={setPage} />
     </div>
   )
 }

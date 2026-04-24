@@ -313,6 +313,8 @@ export interface PlanLimits {
   hasPlanTemplates:     boolean
   hasReferAndEarn:      boolean
   hasFullReports:       boolean
+  hasExpenses:          boolean
+  hasLockers:           boolean
 }
 
 // Stable plan slugs — matches the seed IDs in seed-saas-plans.ts
@@ -337,6 +339,8 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasPlanTemplates:     false,
     hasReferAndEarn:      false,
     hasFullReports:       false,
+    hasExpenses:          false,
+    hasLockers:           false,
   },
 
   // ── Current plan slugs (matched by getLimitsForPlan via name.toLowerCase()) ─
@@ -359,6 +363,8 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasPlanTemplates:     false,
     hasReferAndEarn:      false,
     hasFullReports:       false,
+    hasExpenses:          false,
+    hasLockers:           false,
   },
 
   // "basic" matches plan name "Basic"
@@ -380,6 +386,8 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasPlanTemplates:     false,
     hasReferAndEarn:      true,
     hasFullReports:       true,
+    hasExpenses:          false,
+    hasLockers:           false,
   },
 
   "starter": {
@@ -400,6 +408,8 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasPlanTemplates:     false,
     hasReferAndEarn:      false,
     hasFullReports:       false,
+    hasExpenses:          false,
+    hasLockers:           false,
   },
   "growth": {
     maxGyms:              10,
@@ -419,6 +429,8 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasPlanTemplates:     false,
     hasReferAndEarn:      false,
     hasFullReports:       false,
+    hasExpenses:          true,
+    hasLockers:           true,
   },
   // "pro" matches plan name "Pro"
   "pro": {
@@ -439,6 +451,8 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasPlanTemplates:     true,
     hasReferAndEarn:      true,
     hasFullReports:       true,
+    hasExpenses:          true,
+    hasLockers:           true,
   },
   "lifetime": {
     maxGyms:              null,
@@ -458,6 +472,8 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasPlanTemplates:     true,
     hasReferAndEarn:      true,
     hasFullReports:       true,
+    hasExpenses:          true,
+    hasLockers:           true,
   },
 
   // "enterprise" matches plan name "Enterprise"
@@ -479,6 +495,8 @@ const PLAN_LIMITS: Record<string, PlanLimits> = {
     hasPlanTemplates:     true,
     hasReferAndEarn:      true,
     hasFullReports:       true,
+    hasExpenses:          true,
+    hasLockers:           true,
   },
 }
 
@@ -501,6 +519,8 @@ const EXPIRED_LIMITS: PlanLimits = {
   hasPlanTemplates:     false,
   hasReferAndEarn:      false,
   hasFullReports:       false,
+  hasExpenses:          false,
+  hasLockers:           false,
 }
 
 // ── Subscription shape returned to callers ────────────────────────────────────

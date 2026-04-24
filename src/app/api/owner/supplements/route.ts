@@ -66,6 +66,14 @@ export async function GET(req: NextRequest) {
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
 
+  const sub = await getOwnerSubscription(profileId)
+  if (!sub || sub.isExpired) {
+    return NextResponse.json({ error: "Your subscription has expired. Please renew to access supplements.", upgradeRequired: true }, { status: 403 })
+  }
+  const featureCheck = checkFeature(sub.limits.hasSupplements, "Supplement Management")
+  if (!featureCheck.allowed) {
+    return NextResponse.json({ error: featureCheck.reason, upgradeRequired: true }, { status: 403 })
+  }
 
   const { searchParams } = new URL(req.url)
   const gymId = searchParams.get("gymId")

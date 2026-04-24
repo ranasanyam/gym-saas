@@ -284,6 +284,7 @@ import { useSubscription } from "@/contexts/SubscriptionContext"
 import { PlanGate } from "@/components/owner/PlanGate"
 import { PageHeader } from "@/components/owner/PageHeader"
 import { AppSelect } from "@/components/ui/AppSelect"
+import { Pagination } from "@/components/ui/Pagination"
 import { useEffect, useState, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { CreditCard, Plus, Loader2, TrendingUp } from "lucide-react"
@@ -304,6 +305,8 @@ function PaymentsContent() {
   const [gymId, setGymId] = useState("")
   const [total, setTotal] = useState(0)
   const [monthTotal, setMonthTotal] = useState(0)
+  const [page,  setPage]  = useState(1)
+  const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -313,15 +316,17 @@ function PaymentsContent() {
 
   const load = useCallback(() => {
     setLoading(true)
-    const p = new URLSearchParams()
+    const p = new URLSearchParams({ page: String(page) })
     if (gymId) p.set("gymId", gymId)
     fetch(`/api/owner/payments?${p}`).then(r => r.json()).then(d => {
       setPayments(d.payments ?? [])
       setTotal(d.total ?? 0)
+      setPages(d.pages ?? 1)
       setMonthTotal(d.monthTotal ?? 0)
     }).catch(() => { }).finally(() => setLoading(false))
-  }, [gymId])
+  }, [gymId, page])
 
+  useEffect(() => { setPage(1) }, [gymId])
   useEffect(() => {
     fetch("/api/owner/gyms").then(r => r.json()).then(g => { if (Array.isArray(g)) setGyms(g) })
   }, [])
@@ -494,6 +499,8 @@ function PaymentsContent() {
           </div>
         </div>
       )}
+
+      <Pagination page={page} pages={pages} total={total} limit={20} onChange={setPage} />
     </div>
   )
 }

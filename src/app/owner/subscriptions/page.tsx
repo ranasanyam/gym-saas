@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useSubscription } from "@/contexts/SubscriptionContext"
 import { PageHeader } from "@/components/owner/PageHeader"
 import {
-  Check, Crown, Loader2, CreditCard, Star,
+  Check, Crown, Loader2,
   Users, Dumbbell, UtensilsCrossed, ShoppingBag, BarChart3,
   Infinity, Shield, Clock, Building2, UserCheck, Bell,
   ClipboardList, AlertTriangle, BanknoteArrowDown,
@@ -156,9 +156,9 @@ export default function SubscriptionsPage() {
 
   // Per-tier duration selection (defaults to 6 months)
   const [durations, setDurations] = useState<Record<string, DurationInterval>>({
-    basic:      "HALF_YEARLY",
-    pro:        "HALF_YEARLY",
-    enterprise: "HALF_YEARLY",
+    basic:      "YEARLY",
+    pro:        "YEARLY",
+    enterprise: "YEARLY",
   })
 
   useEffect(() => {
@@ -192,59 +192,59 @@ export default function SubscriptionsPage() {
       toast({ variant: "destructive", title: "Plan not found. Please contact support." })
       return
     }
-    const price = tier.prices[interval]
-    const duration = DURATIONS.find(d => d.interval === interval)!
+    const duration    = DURATIONS.find(d => d.interval === interval)!
     const purchaseKey = `${tier.key}-${interval}`
 
     setPurchasing(purchaseKey)
     try {
-      const orderRes = await fetch("/api/subscriptions/create-order", {
-        method: "POST",
+      // Create a Razorpay Subscription (autopay / recurring mandate)
+      const subRes  = await fetch("/api/subscriptions/create-subscription", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ saasPlanId: dbPlan.id }),
+        body:    JSON.stringify({ saasPlanId: dbPlan.id }),
       })
-      const order = await orderRes.json()
-      if (!order.orderId) throw new Error(order.error ?? "Could not create order")
+      const subData = await subRes.json()
+      if (!subData.subscriptionId) throw new Error(subData.error ?? "Could not create subscription")
 
+      // Lazy-load Razorpay checkout.js
       if (!(window as any).Razorpay) {
         await new Promise<void>((res, rej) => {
-          const s = document.createElement("script")
-          s.src = "https://checkout.razorpay.com/v1/checkout.js"
-          s.onload = () => res()
-          s.onerror = () => rej(new Error("Failed to load Razorpay"))
+          const s   = document.createElement("script")
+          s.src     = "https://checkout.razorpay.com/v1/checkout.js"
+          s.onload  = () => res()
+          s.onerror = () => rej(new Error("Failed to load Razorpay SDK"))
           document.head.appendChild(s)
         })
       }
 
       const rzp = new (window as any).Razorpay({
-        key:         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount:      order.amount,
-        currency:    "INR",
-        name:        "GymStack",
-        description: `${tier.name} Plan — ${duration.months} months`,
-        order_id:    order.orderId,
+        key:             process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        subscription_id: subData.subscriptionId, // autopay — not order_id
+        name:            "GymStack",
+        description:     `${tier.name} Plan — ${duration.months} months (Auto-renews)`,
         handler: async (response: any) => {
-          const res = await fetch("/api/subscriptions/subscribe", {
-            method: "POST",
+          const confirmRes = await fetch("/api/subscriptions/subscribe", {
+            method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              saasPlanId:        dbPlan.id,
-              amount:            price,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpayOrderId:   response.razorpay_order_id,
+            body:    JSON.stringify({
+              saasPlanId:             dbPlan.id,
+              razorpayPaymentId:      response.razorpay_payment_id,
+              razorpaySubscriptionId: response.razorpay_subscription_id,
+              razorpaySignature:      response.razorpay_signature,
             }),
           })
-          if (res.ok) {
-            toast({ variant: "success", title: `${tier.name} plan activated!` })
+          if (confirmRes.ok) {
+            toast({ variant: "success", title: `${tier.name} plan activated! Auto-pay enabled.` })
             sub.refresh()
           } else {
-            toast({ variant: "destructive", title: "Payment recorded but activation failed — contact support" })
+            const err = await confirmRes.json().catch(() => ({}))
+            toast({ variant: "destructive", title: err.error ?? "Activation failed — contact support" })
           }
           setPurchasing(null)
         },
-        modal: { ondismiss: () => setPurchasing(null) },
+        modal:   { ondismiss: () => setPurchasing(null) },
         prefill: {},
-        theme: { color: "#f59e0b" },
+        theme:   { color: "#f59e0b" },
       })
       rzp.open()
     } catch (err: any) {
@@ -499,6 +499,14 @@ export default function SubscriptionsPage() {
                   ))}
                 </ul>
 
+                {/* Autopay badge */}
+                {!current && (
+                  <p className="text-white/30 text-[10px] text-center -mb-1 flex items-center justify-center gap-1">
+                    <Zap className="w-3 h-3 text-green-500/60" />
+                    Auto-renews via UPI AutoPay / e-Mandate
+                  </p>
+                )}
+
                 {/* CTA */}
                 <button
                   onClick={() => !current && !isBuying && purchase(tier, selectedInterval)}
@@ -518,7 +526,7 @@ export default function SubscriptionsPage() {
                   ) : current ? (
                     "Current Plan"
                   ) : (
-                    <><CreditCard className="w-4 h-4" /> Subscribe — ₹{price.toLocaleString("en-IN")}</>
+                    <><Zap className="w-4 h-4" /> Subscribe — ₹{price.toLocaleString("en-IN")}</>
                   )}
                 </button>
               </div>

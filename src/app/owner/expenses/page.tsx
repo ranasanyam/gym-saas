@@ -3,12 +3,15 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
+import { useSubscription } from "@/contexts/SubscriptionContext"
+import { PlanGate } from "@/components/owner/PlanGate"
 import { PageHeader } from "@/components/owner/PageHeader"
 import { AppSelect } from "@/components/ui/AppSelect"
 import {
   Receipt, Plus, Trash2, Pencil, Loader2,
   TrendingDown, X, Calendar, ChevronDown,
 } from "lucide-react"
+import { Pagination } from "@/components/ui/Pagination"
 
 function fmt(n: number) {
   if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`
@@ -203,6 +206,7 @@ function ExpenseModal({
 
 export default function ExpensesPage() {
   const { toast } = useToast()
+  const { hasExpenses, isExpired } = useSubscription()
   const [expenses,    setExpenses]    = useState<Expense[]>([])
   const [gyms,        setGyms]        = useState<{ id: string; name: string }[]>([])
   const [gymId,       setGymId]       = useState("")
@@ -227,10 +231,13 @@ export default function ExpensesPage() {
   const [editing,     setEditing]     = useState<Expense | null>(null)
   const [totalAmount, setTotalAmount] = useState(0)
   const [byCategory,  setByCategory]  = useState<{ category: string; total: number; count: number }[]>([])
+  const [total,       setTotal]       = useState(0)
+  const [page,        setPage]        = useState(1)
+  const [pages,       setPages]       = useState(1)
 
   const load = useCallback(() => {
     setLoading(true)
-    const p = new URLSearchParams({ range })
+    const p = new URLSearchParams({ range, page: String(page) })
     if (gymId)       p.set("gymId", gymId)
     if (category)    p.set("category", category)
     if (range === "custom" && customStart && customEnd) {
@@ -243,14 +250,17 @@ export default function ExpensesPage() {
         setExpenses(d.expenses ?? [])
         setTotalAmount(d.totalAmount ?? 0)
         setByCategory(d.byCategory ?? [])
+        setTotal(d.total ?? 0)
+        setPages(d.pages ?? 1)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [gymId, range, category, customStart, customEnd])
+  }, [gymId, range, category, customStart, customEnd, page])
 
   useEffect(() => {
     fetch("/api/owner/gyms").then(r => r.json()).then(d => { if (Array.isArray(d)) setGyms(d) })
   }, [])
+  useEffect(() => { setPage(1) }, [gymId, range, category, customStart, customEnd])
   useEffect(() => { load() }, [load])
 
   const handleSave = async (form: ExpenseForm) => {
@@ -284,6 +294,7 @@ export default function ExpensesPage() {
   const maxCategory = Math.max(...byCategory.map(b => b.total), 1)
 
   return (
+    <PlanGate allowed={hasExpenses && !isExpired} featureLabel="Expense Management">
     <div className="space-y-6">
       <PageHeader
         title="Expenses"
@@ -484,6 +495,8 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      <Pagination page={page} pages={pages} total={total} limit={20} onChange={setPage} />
+
       <ExpenseModal
         open={showForm}
         onClose={() => { setShowForm(false); setEditing(null) }}
@@ -493,5 +506,6 @@ export default function ExpensesPage() {
         saving={saving}
       />
     </div>
+    </PlanGate>
   )
 }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { requireActivePlan } from "@/lib/requireActivePlan"
+import { getOwnerSubscription, checkFeature } from "@/lib/subscription"
 import { prisma } from "@/lib/prisma"
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek,
@@ -60,6 +61,14 @@ export async function GET(req: NextRequest) {
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
 
+  const sub = await getOwnerSubscription(profileId)
+  if (!sub || sub.isExpired) {
+    return NextResponse.json({ error: "Your subscription has expired. Please renew to access expenses.", upgradeRequired: true }, { status: 403 })
+  }
+  const featureCheck = checkFeature(sub.limits.hasExpenses, "Expense Management")
+  if (!featureCheck.allowed) {
+    return NextResponse.json({ error: featureCheck.reason, upgradeRequired: true }, { status: 403 })
+  }
 
   const { searchParams } = new URL(req.url)
   const gymId      = searchParams.get("gymId")      ?? ""
@@ -156,6 +165,14 @@ export async function POST(req: NextRequest) {
   const planCheck = await requireActivePlan(profileId)
   if (!planCheck.ok) return planCheck.response
 
+  const subPost = await getOwnerSubscription(profileId)
+  if (!subPost || subPost.isExpired) {
+    return NextResponse.json({ error: "Your subscription has expired. Please renew to create expenses.", upgradeRequired: true }, { status: 403 })
+  }
+  const featureCheckPost = checkFeature(subPost.limits.hasExpenses, "Expense Management")
+  if (!featureCheckPost.allowed) {
+    return NextResponse.json({ error: featureCheckPost.reason, upgradeRequired: true }, { status: 403 })
+  }
 
   const body = await req.json()
   const { gymId, title, amount, category, description, expenseDate, receiptUrl } = body
