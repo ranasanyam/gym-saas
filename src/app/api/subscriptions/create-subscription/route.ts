@@ -73,10 +73,10 @@ export async function POST(req: NextRequest) {
         })
 
         // Step 2: Create a Razorpay Subscription against that plan
-        // total_count: 120 = effectively perpetual (10 yrs yearly / 30 yrs quarterly)
+        // total_count: 100 = Razorpay maximum (25 yrs quarterly / 8 yrs yearly)
         const rzpSub = await (rzp.subscriptions as any).create({
             plan_id:         rzpPlan.id,
-            total_count:     120,
+            total_count:     100,
             quantity:        1,
             customer_notify: 1,
             notes: {
