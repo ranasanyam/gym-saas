@@ -495,7 +495,7 @@ import { useToast } from "@/hooks/use-toast"
 import {
   ArrowLeft, Building2, Users, UserCheck, CreditCard, TrendingUp,
   MapPin, Edit, Save, X, Loader2, CheckCircle, Tag,
-  ChevronLeft, ChevronRight, Plus, Image as ImageIcon, Trash2
+  ChevronLeft, ChevronRight, Plus, Image as ImageIcon, Trash2, Star
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -528,7 +528,7 @@ interface TrainerRow {
 
 const SERVICES   = ["Weight Training","Cardio","Yoga","Zumba","CrossFit","Boxing","Swimming","Cycling","Pilates","HIIT","Personal Training","Massage","Diet Planning","Supplements","Sports Training"]
 const FACILITIES = ["Locker Room","Shower","Parking","AC","WiFi","Cafeteria","Steam Room","Sauna","Pro Shop","Child Care","Changing Room","Water Cooler","First Aid","CCTV","Music System"]
-const TABS = ["Details","Members","Trainers","Services","Facilities","Plans","Photos"]
+const TABS = ["Details","Members","Trainers","Services","Facilities","Plans","Photos","Reviews"]
 
 
 export default function GymDetailPage() {
@@ -570,6 +570,10 @@ export default function GymDetailPage() {
   const [membersPage,  setMembersPage]  = useState(1)
   const [membersPages, setMembersPages] = useState(1)
   const [membersTotal, setMembersTotal] = useState(0)
+
+  const [gymReviews,      setGymReviews]      = useState<any[]>([])
+  const [reviewsLoading,  setReviewsLoading]  = useState(false)
+  const [reviewsTotal,    setReviewsTotal]    = useState(0)
 
   const load = useCallback(async () => {
     const [gymRes, payRes] = await Promise.all([
@@ -617,6 +621,15 @@ export default function GymDetailPage() {
       .then(r => r.json())
       .then(d => setGymTrainers(Array.isArray(d) ? d : []))
       .finally(() => setTrainersLoading(false))
+  }, [tab, gymId])
+
+  useEffect(() => {
+    if (tab !== "Reviews") return
+    setReviewsLoading(true)
+    fetch(`/api/member/gyms/${gymId}/reviews`)
+      .then(r => r.json())
+      .then(d => { setGymReviews(d.reviews ?? []); setReviewsTotal(d.total ?? 0) })
+      .finally(() => setReviewsLoading(false))
   }, [tab, gymId])
 
   const saveGym = async () => {
@@ -1110,6 +1123,59 @@ export default function GymDetailPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Reviews */}
+      {tab === "Reviews" && (
+        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-white font-semibold text-sm">Member & Trainer Reviews</h3>
+              {reviewsTotal > 0 && (
+                <p className="text-white/35 text-xs mt-1">{reviewsTotal} review{reviewsTotal !== 1 ? "s" : ""}</p>
+              )}
+            </div>
+          </div>
+          {reviewsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            </div>
+          ) : gymReviews.length === 0 ? (
+            <div className="text-center py-12">
+              <Star className="w-8 h-8 text-white/10 mx-auto mb-3" />
+              <p className="text-white/30 text-sm">No reviews yet</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/6">
+              {gymReviews.map((r: any) => {
+                const date = new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                return (
+                  <div key={r.id} className="flex gap-3 py-4 first:pt-0 last:pb-0">
+                    <Avatar name={r.profile.fullName} url={r.profile.avatarUrl} size={36} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white text-sm font-semibold">{r.profile.fullName}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.role === "trainer" ? "bg-blue-500/15 text-blue-400" : "bg-primary/15 text-primary"}`}>
+                            {r.role === "trainer" ? "Trainer" : "Member"}
+                          </span>
+                        </div>
+                        <span className="text-white/30 text-xs">{date}</span>
+                      </div>
+                      <div className="flex items-center gap-0.5 mt-1">
+                        {[1,2,3,4,5].map(s => (
+                          <Star key={s} className={`w-3.5 h-3.5 ${s <= r.rating ? "text-amber-400 fill-amber-400" : "text-white/15 fill-white/5"}`} />
+                        ))}
+                        <span className="text-white/40 text-xs ml-1">{r.rating}/5</span>
+                      </div>
+                      {r.comment && <p className="text-white/55 text-sm mt-1.5 leading-relaxed">{r.comment}</p>}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

@@ -187,6 +187,7 @@ model Profile {
   expensesAdded       GymExpense[]        @relation("ExpenseAdder")
   referredBy          Referral?           @relation("ReferredProfile")
   inviteTokens        InviteToken[]
+  gymReviews          GymReview[]
 
   @@map("profiles")
 }
@@ -253,6 +254,9 @@ model Gym {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
+  averageRating   Decimal  @default(0.00) @map("average_rating") @db.Decimal(3, 2)
+  totalReviews    Int      @default(0) @map("total_reviews")
+
   owner           Profile          @relation("GymOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   membershipPlans MembershipPlan[]
   trainers        GymTrainer[]
@@ -272,6 +276,7 @@ model Gym {
   expenses         GymExpense[]
   lockers          Locker[]
   lockerAssignments LockerAssignment[]
+  reviews         GymReview[]
 
   @@index([ownerId])
   @@map("gyms")
@@ -911,7 +916,29 @@ model TrainerReview {
 }
 
 // ────────────────────────────────────────────────────────────
-// 27. ANNOUNCEMENTS
+// 27. GYM REVIEWS  (members and trainers review the gym itself)
+// ────────────────────────────────────────────────────────────
+
+model GymReview {
+  id        String   @id @default(uuid())
+  gymId     String   @map("gym_id")
+  profileId String   @map("profile_id")
+  role      String   // "member" | "trainer"
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  gym     Gym     @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([gymId, profileId])
+  @@index([gymId])
+  @@map("gym_reviews")
+}
+
+// ────────────────────────────────────────────────────────────
+// 28. ANNOUNCEMENTS
 // ────────────────────────────────────────────────────────────
 
 model Announcement {

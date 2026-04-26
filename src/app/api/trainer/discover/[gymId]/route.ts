@@ -1,4 +1,3 @@
-// src/app/api/trainer/discover/[gymId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
@@ -10,7 +9,7 @@ export async function GET(
   const { gymId } = await params
   const profileId = await resolveProfileId(req)
 
-  const [gym, trainerRecord] = await Promise.all([
+  const [gym, trainerRecord, myReview, recentReviews] = await Promise.all([
     prisma.gym.findFirst({
       where: { id: gymId, isActive: true },
       include: {
@@ -28,6 +27,18 @@ export async function GET(
           select: { id: true },
         })
       : null,
+    profileId
+      ? prisma.gymReview.findUnique({
+          where: { gymId_profileId: { gymId, profileId } },
+          include: { profile: { select: { fullName: true, avatarUrl: true } } },
+        })
+      : null,
+    prisma.gymReview.findMany({
+      where: { gymId },
+      include: { profile: { select: { fullName: true, avatarUrl: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
   ])
 
   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
@@ -35,5 +46,7 @@ export async function GET(
   return NextResponse.json({
     ...gym,
     isJoined: !!trainerRecord,
+    recentReviews,
+    myReview: myReview ?? null,
   })
 }

@@ -6,7 +6,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ gymI
   const { gymId } = await params
   const profileId = await resolveProfileId(req)
 
-  const [gym, membership] = await Promise.all([
+  const [gym, membership, myReview, recentReviews] = await Promise.all([
     prisma.gym.findFirst({
       where: { id: gymId, isActive: true },
       include: {
@@ -27,6 +27,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ gymI
           orderBy: { createdAt: "desc" },
         })
       : null,
+    profileId
+      ? prisma.gymReview.findUnique({
+          where: { gymId_profileId: { gymId, profileId } },
+          include: { profile: { select: { fullName: true, avatarUrl: true } } },
+        })
+      : null,
+    prisma.gymReview.findMany({
+      where: { gymId },
+      include: { profile: { select: { fullName: true, avatarUrl: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
   ])
 
   if (!gym) return NextResponse.json({ error: "Gym not found" }, { status: 404 })
@@ -36,5 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ gymI
     isEnrolled: !!membership,
     membershipStatus: membership?.status ?? null,
     memberIsActive: membership?.isActive ?? false,
+    recentReviews,
+    myReview: myReview ?? null,
   })
 }
