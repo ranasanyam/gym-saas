@@ -20,14 +20,16 @@ import { useToast }                               from "@/hooks/use-toast"
 type Step = "form" | "otp"
 
 interface FormData {
-  fullName: string; 
-  email: string; 
+  fullName: string;
+  email: string;
   password: string
-  mobileNumber: string; 
-  city: string; 
-  gender: string; 
+  mobileNumber: string;
+  city: string;
+  gender: string;
   // referralCode: string
 }
+
+type FormErrors = Record<keyof FormData, string>
 
 // ── OTP input boxes ───────────────────────────────────────────────────────────
 
@@ -99,14 +101,17 @@ function SignupContent() {
   const [mobileOk,    setMobileOk]    = useState(false)
   const [emailError,  setEmailError]  = useState("")
   const [emailOk,     setEmailOk]     = useState(false)
+  const [errors,      setErrors]      = useState<FormErrors>({
+    fullName: "", email: "", password: "", mobileNumber: "", city: "", gender: "",
+  })
 
   const [form, setForm] = useState<FormData>({
-    fullName: "", 
-    email: "", 
+    fullName: "",
+    email: "",
     password: "",
-    mobileNumber: "", 
-    city: "", 
-    gender: "", 
+    mobileNumber: "",
+    city: "",
+    gender: "",
     // referralCode: "",
   })
 
@@ -164,13 +169,57 @@ function SignupContent() {
   }, [])
 
   const set = (field: keyof FormData) =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
       setForm(p => ({ ...p, [field]: e.target.value }))
+      setErrors(p => ({ ...p, [field]: "" }))
+    }
+
+  const validateForm = (): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const next: FormErrors = { fullName: "", email: "", password: "", mobileNumber: "", city: "", gender: "" }
+    let valid = true
+
+    if (!form.fullName.trim()) {
+      next.fullName = "Full name is required"; valid = false
+    }
+    if (!form.email.trim()) {
+      next.email = "Email is required"; valid = false
+    } else if (!emailRegex.test(form.email.trim())) {
+      next.email = "Enter a valid email address"; valid = false
+    } else if (emailError) {
+      next.email = emailError; valid = false
+    } else if (!emailOk) {
+      next.email = "Checking email availability…"; valid = false
+    }
+    if (!form.password) {
+      next.password = "Password is required"; valid = false
+    } else if (form.password.length < 8) {
+      next.password = "Password must be at least 8 characters"; valid = false
+    }
+    if (!form.mobileNumber) {
+      next.mobileNumber = "Mobile number is required"; valid = false
+    } else if (form.mobileNumber.length !== 10) {
+      next.mobileNumber = "Enter a valid 10-digit mobile number"; valid = false
+    } else if (mobileError) {
+      next.mobileNumber = mobileError; valid = false
+    } else if (!mobileOk) {
+      next.mobileNumber = "Checking number availability…"; valid = false
+    }
+    if (!form.city.trim()) {
+      next.city = "City is required"; valid = false
+    }
+    if (!form.gender) {
+      next.gender = "Please select your gender"; valid = false
+    }
+
+    setErrors(next)
+    return valid
+  }
 
   // ── Step 1: send OTP ───────────────────────────────────────────────────────
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (mobileError || emailError) return
+    if (!validateForm()) return
     setLoading(true)
     try {
       const res  = await fetch("/api/auth/send-otp", {
@@ -296,8 +345,14 @@ function SignupContent() {
 
               <div className="space-y-1.5">
                 <Label className="text-white/65 text-sm">Full name <span className="text-primary">*</span></Label>
-                <Input placeholder="Rahul Singh" value={form.fullName} onChange={set("fullName")} required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+                <Input placeholder="Rahul Singh" value={form.fullName}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[0-9]/g, "")
+                    setForm(p => ({ ...p, fullName: v }))
+                    setErrors(p => ({ ...p, fullName: "" }))
+                  }}
+                  className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${errors.fullName ? "border-red-500/50" : ""}`} />
+                {errors.fullName && <p className="text-red-400 text-xs">{errors.fullName}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -305,17 +360,23 @@ function SignupContent() {
                   <Label className="text-white/65 text-sm">Mobile <span className="text-primary">*</span></Label>
                   <Input
                     type="tel"
+                    inputMode="numeric"
                     placeholder="9876543210"
                     value={form.mobileNumber}
                     onChange={e => {
-                      set("mobileNumber")(e)
-                      checkMobileUnique(e.target.value)
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10)
+                      setForm(p => ({ ...p, mobileNumber: digits }))
+                      setErrors(p => ({ ...p, mobileNumber: "" }))
+                      setMobileError("")
+                      setMobileOk(false)
+                      checkMobileUnique(digits)
                     }}
-                    required
-                    className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${mobileError ? "border-red-500/50" : ""}`}
+                    className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${mobileError || errors.mobileNumber ? "border-red-500/50" : ""}`}
                   />
-                  {mobileError && <p className="text-red-400 text-xs">{mobileError}</p>}
-                  {mobileOk && !mobileError && (
+                  {(mobileError || errors.mobileNumber) && (
+                    <p className="text-red-400 text-xs">{mobileError || errors.mobileNumber}</p>
+                  )}
+                  {mobileOk && !mobileError && !errors.mobileNumber && (
                     <p className="text-green-400 text-xs flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" /> Available
                     </p>
@@ -323,8 +384,14 @@ function SignupContent() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-white/65 text-sm">City <span className="text-primary">*</span></Label>
-                  <Input placeholder="Mumbai" value={form.city} onChange={set("city")} required
-                    className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+                  <Input placeholder="Mumbai" value={form.city}
+                    onChange={e => {
+                      const v = e.target.value.replace(/[0-9]/g, "")
+                      setForm(p => ({ ...p, city: v }))
+                      setErrors(p => ({ ...p, city: "" }))
+                    }}
+                    className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${errors.city ? "border-red-500/50" : ""}`} />
+                  {errors.city && <p className="text-red-400 text-xs">{errors.city}</p>}
                 </div>
               </div>
 
@@ -336,14 +403,17 @@ function SignupContent() {
                   value={form.email}
                   onChange={e => {
                     set("email")(e)
+                    setEmailError("")
+                    setEmailOk(false)
                     checkEmailUnique(e.target.value)
                   }}
-                  required
                   autoComplete="email"
-                  className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${emailError ? "border-red-500/50" : ""}`}
+                  className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${emailError || errors.email ? "border-red-500/50" : ""}`}
                 />
-                {emailError && <p className="text-red-400 text-xs">{emailError}</p>}
-                {emailOk && !emailError && (
+                {(emailError || errors.email) && (
+                  <p className="text-red-400 text-xs">{emailError || errors.email}</p>
+                )}
+                {emailOk && !emailError && !errors.email && (
                   <p className="text-green-400 text-xs flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Available
                   </p>
@@ -351,10 +421,10 @@ function SignupContent() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-white/65 text-sm">Gender</Label>
-                <Select value={form.gender} onValueChange={v => setForm(p => ({ ...p, gender: v }))}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-11 focus:ring-0 focus:border-primary">
-                    <SelectValue placeholder="Select gender (optional)" />
+                <Label className="text-white/65 text-sm">Gender <span className="text-primary">*</span></Label>
+                <Select value={form.gender} onValueChange={v => { setForm(p => ({ ...p, gender: v })); setErrors(p => ({ ...p, gender: "" })) }}>
+                  <SelectTrigger className={`bg-white/5 border-white/10 text-white h-11 focus:ring-0 focus:border-primary ${errors.gender ? "border-red-500/50" : ""}`}>
+                    <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent className="bg-[hsl(220_25%_10%)] border-white/10 text-white">
                     <SelectItem value="male">Male</SelectItem>
@@ -363,19 +433,21 @@ function SignupContent() {
                     <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.gender && <p className="text-red-400 text-xs">{errors.gender}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-white/65 text-sm">Password <span className="text-primary">*</span></Label>
                 <div className="relative">
                   <Input type={showPw ? "text" : "password"} placeholder="Min. 8 characters"
-                    value={form.password} onChange={set("password")} required minLength={8} autoComplete="new-password"
-                    className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 pr-11" />
+                    value={form.password} onChange={set("password")} minLength={8} autoComplete="new-password"
+                    className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 pr-11 ${errors.password ? "border-red-500/50" : ""}`} />
                   <button type="button" onClick={() => setShowPw(!showPw)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
                     {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {errors.password && <p className="text-red-400 text-xs">{errors.password}</p>}
               </div>
 {/* 
               <div className="space-y-1.5">
