@@ -10,18 +10,15 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.62.0",
-    "@tanstack/react-query-devtools": "^5.62.0",
-    "react-hook-form": "^7.54.0",
     "@hookform/resolvers": "^3.9.0",
-    "zod": "^3.24.0",
-    "zustand": "^5.0.2",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "@prisma/client-runtime-utils": "^7.4.2",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
+    "@tanstack/react-query": "^5.62.0",
+    "@tanstack/react-query-devtools": "^5.62.0",
     "@types/nodemailer": "^7.0.11",
     "@types/web-push": "^3.6.4",
     "bcryptjs": "^3.0.3",
@@ -43,12 +40,16 @@
     "razorpay": "^2.9.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-hook-form": "^7.54.0",
+    "recharts": "^3.8.1",
     "resend": "^6.9.3",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.21.0",
     "web-push": "^3.6.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^3.24.0",
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

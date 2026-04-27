@@ -176,7 +176,7 @@ export function getClientIp(req: Request): string {
 
 // 5 login attempts per 15 minutes per IP
 export function checkLoginRateLimit(ip: string): RateLimitResult {
-  return checkRateLimit(`login:${ip}`, 5, 15 * 60)
+  return checkRateLimit(`login:${ip}`, 10, 15 * 60)
 }
 
 // 3 password reset requests per hour per email
