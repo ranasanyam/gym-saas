@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { PageHeader } from "@/components/owner/PageHeader"
 import { EmptyState } from "@/components/owner/EmptyState"
-import { UserCheck, Star, Users, Plus } from "lucide-react"
+import { UserCheck, Star, Users, Plus, ChevronDown } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 
 interface Trainer {
@@ -16,16 +16,41 @@ interface Trainer {
 
 export default function TrainersPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([])
+  const [gyms, setGyms] = useState<{ id: string; name: string }[]>([])
+  const [gymId, setGymId] = useState("")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch("/api/owner/trainers").then(r => r.json()).then(setTrainers).finally(() => setLoading(false))
+    fetch("/api/owner/gyms").then(r => r.json()).then(g => { if (Array.isArray(g)) setGyms(g) })
   }, [])
+
+  const load = useCallback(() => {
+    setLoading(true)
+    const p = new URLSearchParams()
+    if (gymId) p.set("gymId", gymId)
+    fetch(`/api/owner/trainers${p.toString() ? `?${p}` : ""}`)
+      .then(r => r.json()).then(setTrainers).finally(() => setLoading(false))
+  }, [gymId])
+
+  useEffect(() => { load() }, [load])
 
   return (
     <div className="max-w-6xl">
-      <PageHeader title="Trainers" subtitle={`${trainers.length} trainers across your gyms`}
+      <PageHeader title="Trainers" subtitle={`${trainers.length} trainer${trainers.length !== 1 ? "s" : ""}${gymId ? "" : " across your gyms"}`}
         action={{ label: "Add Trainer", href: "/owner/trainers/new", icon: Plus }} style="flex-row items-start" />
+
+      {gyms.length > 1 && (
+        <div className="flex items-center gap-3 mb-5">
+          <div className="relative">
+            <select value={gymId} onChange={e => setGymId(e.target.value)}
+              className="appearance-none bg-[hsl(220_25%_11%)] border border-white/10 text-white/70 rounded-xl pl-4 pr-9 h-10 text-sm focus:outline-none cursor-pointer">
+              <option value="">All Gyms</option>
+              {gyms.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">

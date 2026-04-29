@@ -64,7 +64,7 @@ function StatCard({
       <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
         highlight ? "bg-primary/20" : premium ? "bg-white/8" : "bg-white/6"
       }`}>
-        <Icon className={`w-4 h-4 ${highlight ? "text-primary" : "text-white/50"}`} />
+        <Icon className={`w-4 h-4 ${subColor}`} />
       </div>
       <div>
         <div className="flex items-baseline gap-2 flex-wrap">

@@ -46,9 +46,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ p
 
   const plan = await prisma.membershipPlan.findFirst({
     where: { id: planId, gym: { ownerId: profileId } },
+    include: { _count: { select: { members: true }}},
   })
   if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
 
-  await prisma.membershipPlan.update({ where: { id: planId }, data: { isActive: false } })
+  if (plan._count.members > 0) {
+    return NextResponse.json(
+      { error: `Cannot delete plan with ${plan._count.members} active member(s). Deactivate it instead.`},
+      { status: 400 }
+    )
+  }
+  await prisma.membershipPlan.delete({ where: { id: planId } })
   return NextResponse.json({ success: true })
 }

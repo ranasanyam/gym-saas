@@ -176,10 +176,10 @@ function OwnerLayoutInner({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 bg-white/5 border border-white/8 rounded-xl px-3 py-2 w-52">
+            {/* <div className="hidden md:flex items-center gap-2 bg-white/5 border border-white/8 rounded-xl px-3 py-2 w-52">
               <Search className="w-3.5 h-3.5 text-white/30" />
               <input placeholder="Search..." className="bg-transparent text-sm text-white placeholder:text-white/25 outline-none w-full" />
-            </div>
+            </div> */}
 
             {/* Bell icon with live unread badge */}
             <Link href="/owner/notifications" className="relative p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-all">

@@ -78,9 +78,9 @@ export function Controls({ gyms, ownerName }: { gyms: Gym[]; ownerName: string }
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 className="text-2xl font-display font-bold text-white">{greeting}, {firstName} 👋</h1>
-        <p className="text-white/35 text-sm mt-0.5">
+        {/* <p className="text-white/35 text-sm mt-0.5">
           {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-        </p>
+        </p> */}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">

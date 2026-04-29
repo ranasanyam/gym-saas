@@ -1,36 +1,4 @@
-// // src/app/api/owner/attendance/route.ts
-// import { NextRequest, NextResponse } from "next/server"
-// import { auth } from "@/auth"
-// import { prisma } from "@/lib/prisma"
 
-// export async function GET(req: NextRequest) {
-//   const session = await auth()
-//   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-//   const { searchParams } = new URL(req.url)
-//   const gymId = searchParams.get("gymId")
-//   const date = searchParams.get("date") ?? new Date().toISOString().split("T")[0]
-//   const page = parseInt(searchParams.get("page") ?? "1")
-
-//   const gyms = await prisma.gym.findMany({ where: { ownerId: session.user.id }, select: { id: true } })
-//   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
-
-//   const dayStart = new Date(date + "T00:00:00.000Z")
-//   const dayEnd   = new Date(date + "T23:59:59.999Z")
-
-//   const [records, total] = await Promise.all([
-//     prisma.attendance.findMany({
-//       where: { gymId: { in: gymIds }, checkInTime: { gte: dayStart, lte: dayEnd } },
-//       orderBy: { checkInTime: "desc" },
-//       skip: (page - 1) * 20, take: 20,
-//       include: {
-//         member: { include: { profile: { select: { fullName: true, avatarUrl: true } } } },
-//         gym: { select: { name: true } },
-//       },
-//     }),
-//     prisma.attendance.count({ where: { gymId: { in: gymIds }, checkInTime: { gte: dayStart, lte: dayEnd } } }),
-//   ])
-//   return NextResponse.json({ records, total })
-// }
 // src/app/api/owner/attendance/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
@@ -47,17 +15,36 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const gymId = searchParams.get("gymId")
   const date = searchParams.get("date") ?? new Date().toISOString().split("T")[0]
+  const startDate = searchParams.get("startDate")
+  const endDate = searchParams.get("endDate")
+  const search = searchParams.get("search")
   const page = parseInt(searchParams.get("page") ?? "1")
 
   const gyms = await prisma.gym.findMany({ where: { ownerId: profileId }, select: { id: true } })
   const gymIds = gymId ? [gymId] : gyms.map(g => g.id)
 
+
+  // Range mode (for monthly calendar view)
+  if (startDate && endDate) {
+    const rangeStart = new Date(startDate + "T00:00:00.000Z")
+    const rangeEnd   = new Date(endDate   + "T23:59:59.999Z")
+    const records = await prisma.attendance.findMany({
+      where: { gymId: { in: gymIds }, checkInTime: { gte: rangeStart, lte: rangeEnd } },
+      orderBy: { checkInTime: "asc" },
+      select: { id: true, checkInTime: true },
+    })
+    return NextResponse.json(records)
+  }
   const dayStart = new Date(date + "T00:00:00.000Z")
   const dayEnd   = new Date(date + "T23:59:59.999Z")
 
+  const where: any = { gymId: { in: gymIds }, checkInTime: { gte: dayStart, lte: dayEnd } }
+  if (search) {
+    where.member = { profile: { fullName: { contains: search, mode: "insensitive "} }}
+  }
   const [records, total] = await Promise.all([
     prisma.attendance.findMany({
-      where: { gymId: { in: gymIds }, checkInTime: { gte: dayStart, lte: dayEnd } },
+      where,
       orderBy: { checkInTime: "desc" },
       skip: (page - 1) * 20, take: 20,
       include: {
@@ -65,7 +52,7 @@ export async function GET(req: NextRequest) {
         gym: { select: { name: true } },
       },
     }),
-    prisma.attendance.count({ where: { gymId: { in: gymIds }, checkInTime: { gte: dayStart, lte: dayEnd } } }),
+    prisma.attendance.count({ where }),
   ])
   return NextResponse.json({ records, total })
 }

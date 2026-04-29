@@ -113,24 +113,29 @@ export default async function OwnerDashboardPage({
       .includes(range) ? range : "last_30_days"
   ) as DashRange
 
-  // Fetch gyms + subscription in parallel — both needed before rendering
-  const [gyms, subscription] = await Promise.all([
+  // Fetch gyms + subscription + profile name in parallel
+  const [gyms, subscription, ownerProfile] = await Promise.all([
     prisma.gym.findMany({
       where:  { ownerId: session.user.id, isActive: true },
       select: { id: true, name: true, city: true },
     }),
     getOwnerSubscription(session.user.id),
+    prisma.profile.findUnique({
+      where:  { id: session.user.id },
+      select: { fullName: true },
+    }),
   ])
 
   const allGymIds  = gyms.map(g => g.id)
   const gymIds     = gymId && allGymIds.includes(gymId) ? [gymId] : allGymIds
-  const ownerName  = session.user.name ?? "Owner"
+  const ownerName  = ownerProfile?.fullName ?? "Owner"
   const multiGym   = allGymIds.length > 1
 
   // Derive plan tier for UI gating (server-side, never trust client)
   const planSlug   = subscription?.planSlug ?? "free"
   const isExpired  = subscription?.isExpired ?? true
   const hasPremium = !isExpired && (subscription?.limits.hasFullAnalytics ?? false)
+
 
   return (
     <div className="space-y-6 max-w-7xl">

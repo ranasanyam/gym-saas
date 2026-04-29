@@ -68,6 +68,9 @@ export default function TrainerDashboard() {
 
   const { hasNoGym, trainerName, gymName, trainer, stats, membersNeedingAttention, recentAttendance, expiringSoon } = data ?? {}
 
+  const hour     = new Date().getHours()
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
+
   // ── No gym joined yet ─────────────────────────────────────────────────────
   if (hasNoGym) return (
     <div className="max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-5">
@@ -94,7 +97,7 @@ export default function TrainerDashboard() {
         <Avatar name={trainer?.profile?.fullName ?? "Trainer"} url={trainer?.profile?.avatarUrl} size={52} rounded="lg" />
         <div>
           <h2 className="text-2xl font-display font-bold text-white">
-            Welcome back, {(trainerName ?? "Trainer").split(" ")[0]} 👋
+            {greeting}, {(trainerName ?? "Trainer").split(" ")[0]} 👋
           </h2>
           <p className="text-white/40 text-sm mt-0.5">{gymName} · Trainer</p>
         </div>

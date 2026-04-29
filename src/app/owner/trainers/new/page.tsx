@@ -1,26 +1,31 @@
 // src/app/owner/trainers/new/page.tsx
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, ArrowLeft, UserCheck, MessageSquare } from "lucide-react"
+import { Loader2, ArrowLeft, UserCheck, MessageSquare, Loader, CheckCircle2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-
+import { ImageUpload } from "@/components/ui/ImageUpload"
 const SPECIALIZATIONS = [
   "Weight Training", "Cardio", "Yoga", "Zumba", "CrossFit",
   "Boxing", "HIIT", "Pilates", "Nutrition", "Swimming",
   "Personal Training", "Stretching", "Rehabilitation", "Dance Fitness", "Martial Arts",
 ]
 
-const Field = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
+type MobileStatus = "idle" | "checking" | "available" | "exists_active" | "exists_invited"
+
+interface FormErrors { fullName?: string; mobileNumber?: string }
+
+const Field = ({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) => (
   <div className="space-y-1.5">
     <Label className="text-white/55 text-sm">
       {label}{required && <span className="text-primary ml-0.5">*</span>}
     </Label>
     {children}
+    {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
   </div>
 )
 
@@ -37,14 +42,52 @@ export default function AddTrainerPage() {
 
   const [gyms, setGyms]       = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors]   = useState<FormErrors>({})
 
   const [gymId,           setGymId]           = useState("")
   const [fullName,        setFullName]        = useState("")
   const [mobileNumber,    setMobileNumber]    = useState("")
+  const [mobileStatus,    setMobileStatus]    = useState<MobileStatus>("idle")
+  const [email,           setEmail]           = useState("")
+  const [gender,          setGender]          = useState("")
+  const [dateOfBirth,     setDateOfBirth]     = useState("")
+  const [address,         setAddress]         = useState("")
+  const [avatarUrl,       setAvatarUrl]       = useState("")
   const [bio,             setBio]             = useState("")
   const [experienceYears, setExperienceYears] = useState("0")
   const [certifications,  setCertifications]  = useState("")
   const [specializations, setSpecializations] = useState<string[]>([])
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const checkMobile = (digits: string) => {
+    if (digits.length !== 10) { setMobileStatus("idle"); return }
+    setMobileStatus("checking")
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(`/api/auth/check-mobile-status?mobile=${digits}`)
+        const data = await res.json()
+        if (data.status === "NOT_FOUND")   setMobileStatus("available")
+        else if (data.status === "ACTIVE") setMobileStatus("exists_active")
+        else                               setMobileStatus("exists_invited")
+      } catch {
+        setMobileStatus("idle")
+      }
+    }, 500)
+  }
+
+  const MobileHint = () => {
+    if (mobileStatus === "checking")
+      return <span className="text-white/30 text-xs flex items-center gap-1"><Loader className="w-3 h-3 animate-spin" /> Checking…</span>
+    if (mobileStatus === "available")
+      return <span className="text-green-400 text-xs flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> New user — an SMS will be sent</span>
+    if (mobileStatus === "exists_active")
+      return <span className="text-amber-400 text-xs flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Existing GymStack user — will be linked to your gym</span>
+    if (mobileStatus === "exists_invited")
+      return <span className="text-amber-400 text-xs flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Already invited — a fresh SMS will be sent</span>
+    return null
+  }
 
   const inp = "bg-[hsl(220_25%_11%)] border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-11 rounded-xl"
   const sel = "w-full bg-[hsl(220_25%_11%)] border border-white/10 text-white rounded-xl px-4 h-11 text-sm focus:outline-none focus:border-primary"
@@ -65,9 +108,12 @@ export default function AddTrainerPage() {
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!gymId)            { toast({ variant: "destructive", title: "Please select a gym" }); return }
-    if (!fullName.trim())  { toast({ variant: "destructive", title: "Full name is required" }); return }
-    if (!mobileNumber.trim()) { toast({ variant: "destructive", title: "Mobile number is required" }); return }
+    const errs: FormErrors = {}
+    if (!fullName.trim())     errs.fullName = "Full name is required"
+    if (!mobileNumber.trim()) errs.mobileNumber = "Mobile number is required"
+    else if (mobileNumber.length !== 10) errs.mobileNumber = "Enter a valid 10-digit mobile number"
+    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+    if (!gymId) { toast({ variant: "destructive", title: "Please select a gym" }); return }
 
     setLoading(true)
     try {
@@ -78,6 +124,11 @@ export default function AddTrainerPage() {
           gymId,
           fullName:       fullName.trim(),
           mobileNumber:   mobileNumber.trim(),
+          email:          email.trim() || null,
+          gender:         gender || null,
+          dateOfBirth:    dateOfBirth || null,
+          address:        address.trim() || null,
+          avatarUrl:      avatarUrl.trim() || null,
           bio:            bio.trim() || null,
           experienceYears: parseInt(experienceYears) || 0,
           specializations,
@@ -134,13 +185,26 @@ export default function AddTrainerPage() {
             <UserCheck className="w-4 h-4 text-primary" /> Trainer Details
           </h3>
 
-          <Field label="Full Name" required>
-            <Input value={fullName} onChange={e => setFullName(e.target.value)}
-              placeholder="Enter full name" className={inp} />
+          <Field label="Full Name" required error={errors.fullName}>
+            <Input value={fullName} onChange={e => { setFullName(e.target.value); if (errors.fullName) setErrors(p => ({ ...p, fullName: undefined })) }}
+              placeholder="Enter full name" className={`${inp} ${errors.fullName ? "border-red-500/50" : ""}`} />
           </Field>
-          <Field label="Mobile Number" required>
-            <Input value={mobileNumber} onChange={e => setMobileNumber(e.target.value)}
-              placeholder="10-digit mobile number" type="tel" className={inp} />
+          <Field label="Mobile Number" required error={errors.mobileNumber}>
+            <Input
+              value={mobileNumber}
+              onChange={e => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 10)
+                setMobileNumber(digits)
+                setMobileStatus("idle")
+                if (errors.mobileNumber) setErrors(p => ({ ...p, mobileNumber: undefined }))
+                checkMobile(digits)
+              }}
+              placeholder="10-digit mobile number"
+              type="tel"
+              maxLength={10}
+              className={`${inp} ${errors.mobileNumber ? "border-red-500/50" : ""}`}
+            />
+            <MobileHint />
           </Field>
 
           {gyms.length > 1 && (
@@ -150,6 +214,39 @@ export default function AddTrainerPage() {
               </select>
             </Field>
           )}
+        </div>
+
+        {/* Profile Details (optional) */}
+        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6 space-y-4">
+          <h3 className="text-white font-semibold text-sm">
+            Profile Details <span className="text-white/30 font-normal">(optional)</span>
+          </h3>
+          <div className="space-y-1.5">
+            <Label className="text-white/55 text-sm">Profile Photo <span className="text-white/30 font-normal">(optional)</span></Label>
+            <ImageUpload value={avatarUrl} onChange={v => setAvatarUrl(v ?? "")} shape="circle" size={80} folder="avatars" placeholder="Add Photo" />
+          </div>
+          <Field label="Email">
+            <Input value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="trainer@example.com" type="email" className={inp} />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Gender">
+              <select value={gender} onChange={e => setGender(e.target.value)} className={sel}>
+                <option value="">Select…</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
+            </Field>
+            <Field label="Date of Birth">
+              <Input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className={inp} />
+            </Field>
+          </div>
+          <Field label="Address">
+            <Input value={address} onChange={e => setAddress(e.target.value)}
+              placeholder="Street, city, state" className={inp} />
+          </Field>
         </div>
 
         {/* Professional Details (optional) */}
@@ -192,7 +289,7 @@ export default function AddTrainerPage() {
         <div className="flex justify-end gap-3 pb-4">
           <Button type="button" variant="outline" onClick={() => router.back()}
             className="border-white/10 bg-white/5 text-white hover:bg-white/8 h-11 px-6">Cancel</Button>
-          <Button type="submit" disabled={loading}
+          <Button type="submit" disabled={loading || mobileStatus === "checking"}
             className="bg-gradient-primary hover:opacity-90 text-white font-semibold h-11 px-8">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Trainer"}
           </Button>

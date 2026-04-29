@@ -115,12 +115,24 @@ export default function MemberDashboard() {
 
   if (!data) return null
 
-  console.log('data', data);
 
   const firstName = data.memberName?.split(" ")[0] ?? "there"
   const noGym     = !data.gymName
 
-  if (noGym) return <NoGymState />
+  const hour      = new Date().getHours()
+  const greeting  = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
+
+  if (noGym) return (
+    <div className="max-w-4xl space-y-5">
+      <div>
+        <h1 className="text-2xl font-display font-bold text-white">{greeting}, {firstName} 👋</h1>
+        <p className="text-white/35 text-sm mt-0.5">
+          {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+        </p>
+      </div>
+      <NoGymState />
+    </div>
+  )
 
   const statusColor =
     data.membershipStatus === "ACTIVE"    ? "text-green-400 bg-green-500/10 border-green-500/20"
@@ -134,7 +146,7 @@ export default function MemberDashboard() {
         <div className="absolute top-0 right-0 w-48 h-48 bg-primary/8 rounded-full blur-3xl pointer-events-none" />
         <div className="relative flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-primary text-sm font-medium mb-1">Welcome back 👋</p>
+            <p className="text-primary text-sm font-medium mb-1">{greeting} 👋</p>
             <h2 className="text-2xl font-display font-bold text-white">{firstName}!</h2>
             {data.gymName ? (
               <div className="flex items-center gap-3 mt-2 flex-wrap">

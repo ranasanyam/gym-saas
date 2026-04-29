@@ -44,6 +44,7 @@ export default function MembershipPlansPage() {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmToggleId, setConfirmToggleId] = useState<string | null>(null)
   const [form, setForm] = useState(blankForm)
   const [showInactive, setShowInactive] = useState(false)
 
@@ -115,6 +116,7 @@ export default function MembershipPlansPage() {
   }
 
   const toggleActive = async (plan: Plan) => {
+    setConfirmToggleId(null)
     setDeletingId(plan.id)
     await fetch(`/api/owner/plans/${plan.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -122,6 +124,20 @@ export default function MembershipPlansPage() {
     })
     toast({ variant: "success", title: plan.isActive ? "Plan deactivated" : "Plan activated" })
     loadPlans()
+    setDeletingId(null)
+  }
+
+  const deletePlan = async (plan: Plan) => {
+    if (!confirm(`Permanently delete "${plan.name}"? This cannot be undone.`)) return
+    setDeletingId(plan.id)
+    const res = await fetch(`/api/owner/plans/${plan.id}`, { method: "DELETE" })
+    if (res.ok) {
+      toast({ variant: "success", title: "Plan deleted" })
+      loadPlans()
+    } else {
+      const d = await res.json()
+      toast({ variant: 'destructive', title: d.error ?? "Failed to delete plan" })
+    }
     setDeletingId(null)
   }
 
@@ -246,7 +262,8 @@ export default function MembershipPlansPage() {
               plan={plan}
               colorClass={PLAN_COLORS[i % PLAN_COLORS.length]}
               onEdit={() => openEdit(plan)}
-              onToggle={() => toggleActive(plan)}
+              onToggle={() => setConfirmToggleId(plan.id)}
+              onDelete={() => deletePlan(plan)}
               isToggling={deletingId === plan.id}
             />
           ))}
@@ -254,6 +271,39 @@ export default function MembershipPlansPage() {
       )}
 
       {/* Inactive / Archived Plans */}
+      {/* Deactivate / Activate confirm modal */}
+      {confirmToggleId && (() => {
+        const plan = plans.find(p => p.id === confirmToggleId)!
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-[hsl(220_25%_9%)] border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4">
+              <h3 className="text-white font-semibold text-base">
+                {plan?.isActive ? "Deactivate Plan?" : "Activate Plan?"}
+              </h3>
+              <p className="text-white/50 text-sm">
+                {plan?.isActive
+                  ? "This plan will be hidden from new members."
+                  : "This plan will be visible to members again."}
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmToggleId(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white text-sm transition-colors">
+                  Cancel
+                </button>
+                <button onClick={() => toggleActive(plan)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                    plan?.isActive
+                      ? "bg-red-500/15 border border-red-500/20 text-red-400 hover:bg-red-500/25"
+                      : "bg-green-500/15 border border-green-500/20 text-green-400 hover:bg-green-500/25"
+                  }`}>
+                  {plan?.isActive ? "Deactivate" : "Activate"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {inactivePlans.length > 0 && (
         <div>
           <button onClick={() => setShowInactive(p => !p)}
@@ -269,7 +319,8 @@ export default function MembershipPlansPage() {
                   plan={plan}
                   colorClass="from-white/5 to-transparent border-white/10"
                   onEdit={() => openEdit(plan)}
-                  onToggle={() => toggleActive(plan)}
+                  onToggle={() => setConfirmToggleId(plan.id)}
+                  onDelete={() => deletePlan(plan)}
                   isToggling={deletingId === plan.id}
                 />
               ))}
@@ -281,9 +332,9 @@ export default function MembershipPlansPage() {
   )
 }
 
-function PlanCard({ plan, colorClass, onEdit, onToggle, isToggling }: {
+function PlanCard({ plan, colorClass, onEdit, onToggle, onDelete, isToggling }: {
   plan: Plan; colorClass: string
-  onEdit: () => void; onToggle: () => void; isToggling: boolean
+  onEdit: () => void; onToggle: () => void; onDelete: () => void; isToggling: boolean
 }) {
   const durationLabel = DURATION_LABEL[plan.durationMonths] ?? `${plan.durationMonths} months`
   const pricePerMonth = plan.durationMonths > 1
@@ -348,13 +399,17 @@ function PlanCard({ plan, colorClass, onEdit, onToggle, isToggling }: {
         <button onClick={onToggle} disabled={isToggling}
           className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 transition-colors ${
             plan.isActive
-              ? "text-red-400/60 hover:text-red-400"
+              ? "text-amber-400/60 hover:text-amber-400"
               : "text-green-400/60 hover:text-green-400"
           }`}>
           {isToggling
             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            : <><Trash2 className="w-3.5 h-3.5" /> {plan.isActive ? "Deactivate" : "Activate"}</>
+            : plan.isActive ? "Deactivate" : "Activate"
           }
+        </button>
+        <button onClick={onDelete}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-red-400/50 hover:text-red-400 transition-colors">
+          <Trash2 className="w-3.5 h-3.5" /> Delete
         </button>
       </div>
     </div>

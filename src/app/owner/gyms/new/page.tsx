@@ -20,7 +20,8 @@ export default function NewGymPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [gymImages, setGymImages] = useState<string[]>([])
-  const [ownerAvatar, setOwnerAvatar] = useState<string | null>(null)
+  // const [ownerAvatar, setOwnerAvatar] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", pincode: "", contactNumber: "",
     services: [] as string[], facilities: [] as string[],
@@ -31,7 +32,15 @@ export default function NewGymPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) { toast({ variant: "destructive", title: "Gym name is required" }); return }
+    const errs: Record<string, string> = {}
+    if (!form.name.trim()) errs.name = "Gym name is required"
+    if (!form.address.trim()) errs.address = "Address is required"
+    if (!form.city.trim()) errs.city = "City is required"
+    if (!form.state.trim()) errs.state = "State is required"
+    if (!form.pincode.trim()) errs.pincode = "Pincode is required"
+    if (!form.contactNumber.trim()) errs.contactNumber = "Contact number is required"
+    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+    setErrors({})
     setLoading(true)
     try {
       const res = await fetch("/api/owner/gyms", {
@@ -41,12 +50,12 @@ export default function NewGymPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       // Update owner's profile avatar if uploaded
-      if (ownerAvatar) {
-        await fetch("/api/profile/update", {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ avatarUrl: ownerAvatar }),
-        })
-      }
+      // if (ownerAvatar) {
+      //   await fetch("/api/profile/update", {
+      //     method: "PATCH", headers: { "Content-Type": "application/json" },
+      //     body: JSON.stringify({ avatarUrl: ownerAvatar }),
+      //   })
+      // }
       toast({ variant: "success", title: "Gym created!", description: `${form.name} has been added.` })
       router.push(`/owner/gyms/${data.id}`)
     } catch (err: any) {
@@ -62,13 +71,13 @@ export default function NewGymPage() {
       <form onSubmit={handleSubmit} className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-7 space-y-6">
 
         {/* Owner Profile Photo */}
-        <div className="space-y-3">
+        {/* <div className="space-y-3">
           <h3 className="text-white font-semibold text-sm border-b border-white/5 pb-3">Your Profile Photo</h3>
           <div className="flex items-center gap-4">
             <ImageUpload value={ownerAvatar} onChange={setOwnerAvatar} shape="circle" size={72} placeholder="Photo" folder="avatars" />
             <p className="text-white/35 text-xs leading-relaxed">Upload your profile photo.<br/>This will be visible to members.</p>
           </div>
-        </div>
+        </div> */}
 
         {/* Gym Images */}
         <div className="space-y-3">
@@ -82,29 +91,33 @@ export default function NewGymPage() {
           <h3 className="text-white font-semibold text-sm border-b border-white/5 pb-3">Basic Information</h3>
           <div className="space-y-1.5">
             <Label className="text-white/65 text-sm">Gym Name <span className="text-primary">*</span></Label>
-            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. PowerFit Andheri"
-              className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+            <Input value={form.name} onChange={e => { setForm(p => ({ ...p, name: e.target.value })); setErrors(p => ({ ...p, name: "" })) }} placeholder="e.g. PowerFit Andheri"
+              className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${errors.name ? "border-red-500/60" : ""}`} />
+            {errors.name && <p className="text-red-400 text-xs">{errors.name}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-white/65 text-sm">Address</Label>
-            <Input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="Street address"
-              className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+            <Label className="text-white/65 text-sm">Address <span className="text-primary">*</span></Label>
+            <Input value={form.address} onChange={e => { setForm(p => ({ ...p, address: e.target.value })); setErrors(p => ({ ...p, address: "" })) }} placeholder="Street address"
+              className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${errors.address ? "border-red-500/60" : ""}`} />
+            {errors.address && <p className="text-red-400 text-xs">{errors.address}</p>}
           </div>
           <div className="grid grid-cols-3 gap-3">
             {(["city","state","pincode"] as const).map(field => (
               <div key={field} className="space-y-1.5">
-                <Label className="text-white/65 text-sm capitalize">{field}</Label>
-                <Input value={form[field]} onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
+                <Label className="text-white/65 text-sm capitalize">{field} <span className="text-primary">*</span></Label>
+                <Input value={form[field]} onChange={e => { setForm(p => ({ ...p, [field]: e.target.value })); setErrors(p => ({ ...p, [field]: "" })) }}
                   placeholder={field === "pincode" ? "400001" : field === "state" ? "Maharashtra" : "Mumbai"}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+                  className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${errors[field] ? "border-red-500/60" : ""}`} />
+                {errors[field] && <p className="text-red-400 text-xs">{errors[field]}</p>}
               </div>
             ))}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-white/65 text-sm">Contact Number</Label>
-            <Input value={form.contactNumber} onChange={e => setForm(p => ({ ...p, contactNumber: e.target.value }))}
+            <Label className="text-white/65 text-sm">Contact Number <span className="text-primary">*</span></Label>
+            <Input value={form.contactNumber} onChange={e => { setForm(p => ({ ...p, contactNumber: e.target.value })); setErrors(p => ({ ...p, contactNumber: "" })) }}
               type="tel" placeholder="9876543210"
-              className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+              className={`bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 ${errors.contactNumber ? "border-red-500/60" : ""}`} />
+            {errors.contactNumber && <p className="text-red-400 text-xs">{errors.contactNumber}</p>}
           </div>
         </div>
 

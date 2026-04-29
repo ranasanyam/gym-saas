@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-
+import { ImageUpload } from "@/components/ui/ImageUpload"
 interface Gym {
   id: string
   name: string
@@ -294,6 +294,10 @@ function AddMemberContent() {
           <h3 className="text-white font-semibold text-sm flex items-center gap-2">
             <Users className="w-4 h-4 text-primary" /> Member Details
           </h3>
+          <div className="space-y-1.5">
+              <Label className="text-white/55 text-sm">Profile Photo <span className="text-white/30 font-normal">(optional)</span></Label>
+              <ImageUpload value={avatarUrl} onChange={v => setAvatarUrl(v ?? "")} shape="circle" size={80} folder="avatars" placeholder="Add Photo" />
+            </div>
 
           <Field label="Full Name" required error={errors.fullName}>
             <Input
@@ -308,27 +312,22 @@ function AddMemberContent() {
             <Input
               value={mobileNumber}
               onChange={e => {
-                setMobileNumber(e.target.value)
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 10)
+                setMobileNumber(digits)
                 setMobileStatus("idle")
                 if (errors.mobileNumber) setErrors(p => ({ ...p, mobileNumber: undefined }))
-                checkMobile(e.target.value)
+                checkMobile(digits)
               }}
               placeholder="10-digit mobile number"
               type="tel"
+              maxLength={10}
               className={`${inp} ${errors.mobileNumber ? "border-red-500/50" : ""}`}
             />
             <MobileHint />
           </Field>
 
           <div className="space-y-4 pt-1 border-t border-white/6">
-            <Field label="Profile Photo URL">
-              <Input
-                value={avatarUrl}
-                onChange={e => setAvatarUrl(e.target.value)}
-                placeholder="https://example.com/photo.jpg"
-                className={inp}
-              />
-            </Field>
+            
 
             <Field label="Email">
               <Input

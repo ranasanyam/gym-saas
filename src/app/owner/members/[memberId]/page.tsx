@@ -8,7 +8,7 @@ import {
   Phone,  Calendar, Weight, Ruler,
   CreditCard, Clock, X,
   Loader2, AlertTriangle, RefreshCw, CheckCircle2,
-  IndianRupee, ArrowLeft, User2, MapPin
+  IndianRupee, ArrowLeft, User2, MapPin, Plus
 } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 import { Input } from "@/components/ui/input"
@@ -135,7 +135,7 @@ function RenewalModal({ member, plans, onClose, onSuccess }: {
         </div>
 
         <div className="flex gap-3 pt-1">
-          <Button variant="outline" onClick={onClose} className="flex-1 border-white/10 text-white/60 hover:text-white h-10 text-sm">Cancel</Button>
+          <Button variant="outline" onClick={onClose} className="flex-1 border-white/10 text-white/60 bg-white/10 hover:bg-white/10 hover:text-white h-10 text-sm">Cancel</Button>
           <Button onClick={submit} disabled={saving} className="flex-1 bg-gradient-primary hover:opacity-90 text-white font-semibold h-10 text-sm">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4 mr-2" />Renew</>}
           </Button>
@@ -155,6 +155,9 @@ export default function MemberDetailPage() {
   const [loading, setLoading] = useState(true)
   const [tab,     setTab]     = useState("Profile")
   const [showRenew, setShowRenew] = useState(false)
+  const [showAddPayment, setShowAddPayment] = useState(false)
+  const [addPayForm, setAddPayForm] = useState({ membershipPlanId: "", amount: "", paymentMethod: "CASH", paymentDate: new Date().toISOString().split("T")[0], notes: "" })
+  const [addPaySaving, setAddPaySaving] = useState(false)
 
   const [assigningTrainer, setAssigningTrainer] = useState(false)
 
@@ -173,6 +176,23 @@ export default function MemberDetailPage() {
   useEffect(() => { load() }, [memberId])
 
 
+
+  const addPayment = async () => {
+    if (!addPayForm.amount) { toast({ variant: "destructive", title: "Amount is required" }); return }
+    setAddPaySaving(true)
+    const res = await fetch("/api/owner/payments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gymId: member!.gym.id, memberId, ...addPayForm }),
+    })
+    const d = await res.json()
+    if (res.ok) {
+      toast({ variant: "success", title: "Payment recorded!" })
+      setShowAddPayment(false)
+      setAddPayForm({ membershipPlanId: "", amount: "", paymentMethod: "CASH", paymentDate: new Date().toISOString().split("T")[0], notes: "" })
+      load()
+    } else toast({ variant: "destructive", title: d.error ?? "Failed to record payment" })
+    setAddPaySaving(false)
+  }
 
   const suspend = async () => {
     if (!confirm("Suspend this member?")) return
@@ -406,35 +426,87 @@ export default function MemberDetailPage() {
       )}
 
       {tab === "Payments" && (
-        <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl overflow-hidden">
-          {member.payments.length === 0 ? (
-            <div className="text-center py-12 text-white/30">
-              <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-30" /><p>No payment records</p>
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button onClick={() => setShowAddPayment(p => !p)}
+              className="flex items-center gap-2 bg-gradient-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
+              <Plus className="w-4 h-4" /> Add Payment
+            </button>
+          </div>
+          {showAddPayment && (
+            <div className="bg-[hsl(220_25%_9%)] border border-primary/20 rounded-2xl p-5 space-y-4">
+              <h3 className="text-white font-semibold text-sm">Record Payment</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-white/50 text-xs mb-1 block">Membership Plan</label>
+                  <select value={addPayForm.membershipPlanId} onChange={e => setAddPayForm(f => ({ ...f, membershipPlanId: e.target.value }))}
+                    className="w-full bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-primary/50">
+                    <option value="">No plan</option>
+                    {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-white/50 text-xs mb-1 block">Amount (₹) *</label>
+                  <input type="number" value={addPayForm.amount} onChange={e => setAddPayForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="text-white/50 text-xs mb-1 block">Payment Method</label>
+                  <select value={addPayForm.paymentMethod} onChange={e => setAddPayForm(f => ({ ...f, paymentMethod: e.target.value }))}
+                    className="w-full bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-primary/50">
+                    {["CASH", "UPI", "CARD", "BANK_TRANSFER", "OTHER"].map(m => <option key={m} value={m}>{m.replace("_", " ")}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-white/50 text-xs mb-1 block">Payment Date</label>
+                  <input type="date" value={addPayForm.paymentDate} onChange={e => setAddPayForm(f => ({ ...f, paymentDate: e.target.value }))}
+                    className="w-full bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-primary/50" />
+                </div>
+              </div>
+              <div>
+                <label className="text-white/50 text-xs mb-1 block">Notes</label>
+                <input value={addPayForm.notes} onChange={e => setAddPayForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full bg-[hsl(220_25%_13%)] border border-white/10 text-white rounded-xl px-3 h-10 text-sm focus:outline-none focus:border-primary/50" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={addPayment} disabled={addPaySaving}
+                  className="flex items-center gap-2 bg-primary text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-50">
+                  {addPaySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Record
+                </button>
+                <button onClick={() => setShowAddPayment(false)} className="text-white/40 text-sm px-4 py-2.5 rounded-xl hover:bg-white/5">Cancel</button>
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-5 px-5 py-3 border-b border-white/5 text-xs text-white/35 uppercase tracking-wider">
-                <span>Date</span><span>Plan</span><span>Payment Type</span><span>Amount</span><span>Status</span>
-              </div>
-              <div className="divide-y divide-white/4">
-                {member.payments.map(p => (
-                  <div key={p.id} className="grid grid-cols-5 px-5 py-4 text-sm items-center">
-                    <span className="text-white/60">{new Date(p.createdAt).toLocaleDateString("en-IN")}</span>
-                    <span className="text-white/40 text-xs truncate">{p.planNameSnapshot ?? "—"}</span>
-                    <span className="text-white/40 text-xs truncate">{p.paymentMethod}</span>
-                    <span className="text-white font-semibold flex items-center gap-1">
-                      <IndianRupee className="w-3 h-3 text-white/40" />{Number(p.amount).toLocaleString("en-IN")}
-                    </span>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium w-fit ${
-                      p.status === "COMPLETED" ? "bg-green-500/15 text-green-400"
-                      : p.status === "PENDING" ? "bg-yellow-500/15 text-yellow-400"
-                      : "bg-red-500/15 text-red-400"
-                    }`}>{p.status}</span>
-                  </div>
-                ))}
-              </div>
-            </>
           )}
+          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl overflow-hidden">
+            {member.payments.length === 0 ? (
+              <div className="text-center py-12 text-white/30">
+                <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-30" /><p>No payment records</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-5 px-5 py-3 border-b border-white/5 text-xs text-white/35 uppercase tracking-wider">
+                  <span>Date</span><span>Plan</span><span>Payment Type</span><span>Amount</span><span>Status</span>
+                </div>
+                <div className="divide-y divide-white/4">
+                  {member.payments.map(p => (
+                    <div key={p.id} className="grid grid-cols-5 px-5 py-4 text-sm items-center">
+                      <span className="text-white/60">{new Date(p.createdAt).toLocaleDateString("en-IN")}</span>
+                      <span className="text-white/40 text-xs truncate">{p.planNameSnapshot ?? "—"}</span>
+                      <span className="text-white/40 text-xs truncate">{p.paymentMethod}</span>
+                      <span className="text-white font-semibold flex items-center gap-1">
+                        <IndianRupee className="w-3 h-3 text-white/40" />{Number(p.amount).toLocaleString("en-IN")}
+                      </span>
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium w-fit ${
+                        p.status === "COMPLETED" ? "bg-green-500/15 text-green-400"
+                        : p.status === "PENDING" ? "bg-yellow-500/15 text-yellow-400"
+                        : "bg-red-500/15 text-red-400"
+                      }`}>{p.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
