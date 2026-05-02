@@ -160,6 +160,7 @@ export default function MemberDetailPage() {
   const [addPaySaving, setAddPaySaving] = useState(false)
 
   const [assigningTrainer, setAssigningTrainer] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const load = () => {
     fetch(`/api/owner/members/${memberId}`)
@@ -195,8 +196,9 @@ export default function MemberDetailPage() {
   }
 
   const suspend = async () => {
-    if (!confirm("Suspend this member?")) return
+
     await fetch(`/api/owner/members/${memberId}`, { method: "DELETE" })
+    setShowConfirmModal(false);
     toast({ title: "Member suspended" }); router.push("/owner/members")
   }
 
@@ -212,6 +214,25 @@ export default function MemberDetailPage() {
     <div className="max-w-5xl">
       {showRenew && <RenewalModal member={member} plans={plans} onClose={() => setShowRenew(false)} onSuccess={() => { setShowRenew(false); load() }} />}
 
+
+            {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[hsl(220_25%_9%)] border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-white font-semibold text-base">Archive Plan?</h3>
+            <p className="text-white/50 text-sm">This plan will be hidden from members. You can restore it later.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowConfirmModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white text-sm transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => suspend()}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/15 border border-red-500/20 text-red-400 hover:bg-red-500/25 text-sm font-semibold transition-colors">
+                Suspend
+              </button>
+            </div>
+          </div>
+        </div>
+)}
       <div className="flex items-center gap-4 mb-5 justify-center">
         <button onClick={() => router.push("/owner/members")} className="p-2 rounded-xl border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-all shrink-0">
           <ArrowLeft className="w-4 h-4" />
@@ -247,7 +268,7 @@ export default function MemberDetailPage() {
             <RefreshCw className="w-3 h-3" /> Renew Membership
           </Button>
 
-          <Button onClick={suspend} size="sm" className="flex bg-[hsl(220_25%_9%)] hover:bg-[hsl(220_25%_9%)] hover:opacity-90 border border-white/6 h-8 px-4 items-center gap-1.5 text-xs text-red-400 transition-colors">
+          <Button onClick={() => setShowConfirmModal(true)} size="sm" className="flex bg-[hsl(220_25%_9%)] hover:bg-[hsl(220_25%_9%)] hover:opacity-90 border border-white/6 h-8 px-4 items-center gap-1.5 text-xs text-red-400 transition-colors">
             <AlertTriangle className="w-3 h-3" /> Suspend
           </Button>
         </div>

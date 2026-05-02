@@ -90,6 +90,8 @@ export default function GymDetailPage() {
   const [reviewsLoading,  setReviewsLoading]  = useState(false)
   const [reviewsTotal,    setReviewsTotal]    = useState(0)
 
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     const [gymRes, payRes] = await Promise.all([
       fetch(`/api/owner/gyms/${gymId}`),
@@ -203,8 +205,8 @@ export default function GymDetailPage() {
     else toast({ variant: "destructive", title: "Failed to update plan"})
   }
   const deletePlan = async (planId: string) => {
-    if (!confirm("Permanently delete this plan? This cannot be undone.")) return
     const res = await fetch(`/api/owner/plans/${planId}`, { method: "DELETE" })
+    setDeleteId(null);
     if (res.ok) { toast({ variant: "success", title: "Plan deleted" }); load() }
     else {
       const d = await res.json();
@@ -243,6 +245,24 @@ export default function GymDetailPage() {
   return (
     <div className="max-w-6xl space-y-5">
 
+{deleteId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[hsl(220_25%_9%)] border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-white font-semibold text-base">Archive Plan?</h3>
+            <p className="text-white/50 text-sm">This plan will be hidden from members. You can restore it later.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteId(null)}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white text-sm transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => deletePlan(deleteId)}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/15 border border-red-500/20 text-red-400 hover:bg-red-500/25 text-sm font-semibold transition-colors">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+)}
       {/* Header */}
       <div className="flex items-start gap-4">
         <button onClick={() => router.push("/owner/gyms")} className="mt-1 p-2 rounded-xl border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-all shrink-0">
@@ -262,7 +282,7 @@ export default function GymDetailPage() {
             <Button onClick={saveGym} disabled={saving} className="bg-gradient-primary hover:opacity-90 text-white h-9 text-sm gap-2">
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
             </Button>
-            <Button variant="outline" onClick={() => { setEditing(false); setEditForm({ ...gym, gymImages: gym.gymImages ?? [] }) }} className="border-white/10 text-white/60 hover:text-white h-9 text-sm gap-2">
+            <Button variant="outline" onClick={() => { setEditing(false); setEditForm({ ...gym, gymImages: gym.gymImages ?? [] }) }} className="border-white/10 text-white/60 bg-white/10 hover:bg-white/10 hover:text-white h-9 text-sm gap-2">
               <X className="w-3.5 h-3.5" /> Cancel
             </Button>
           </div>
@@ -660,7 +680,7 @@ export default function GymDetailPage() {
                     <button onClick={() => togglePlanActive(plan)} className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 ${plan.isActive ? "text-amber-400/60 hover:text-amber-400" : "text-green-400/60 hover:text-green-400"}`}>
                       {plan.isActive ? "Deactivate" : "Activate"}
                     </button>
-                     <button onClick={() => deletePlan(plan.id)} className="flex-1 flex items-center justify-center gap-1.5 text-xs text-red-400/60 hover:text-red-400 py-1.5 px-2"><Trash2 className="w-3 h-3" />Delete</button>
+                     <button onClick={() => setDeleteId(plan.id)} className="flex-1 flex items-center justify-center gap-1.5 text-xs text-red-400/60 hover:text-red-400 py-1.5 px-2"><Trash2 className="w-3 h-3" />Delete</button>
                   </div>
                 </div>
               ))}
@@ -734,7 +754,7 @@ export default function GymDetailPage() {
               <MultiImageUpload values={editForm.gymImages ?? []} onChange={urls => setEditForm((p: any) => ({...p,gymImages:urls}))} max={8} folder="gymImages" />
               <div className="flex gap-3 pt-3 border-t border-white/6">
                 <Button onClick={saveGym} disabled={saving} className="bg-gradient-primary hover:opacity-90 text-white h-9 text-sm gap-2">{saving?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Save className="w-3.5 h-3.5"/>} Save Photos</Button>
-                <Button variant="outline" onClick={()=>{setEditing(false);setEditForm({...gym})}} className="border-white/10 text-white/60 hover:text-white h-9 text-sm">Cancel</Button>
+                <Button variant="outline" onClick={()=>{setEditing(false);setEditForm({...gym})}} className="border-white/10 bg-white/10 hover:bg-white/10 text-white/60 hover:text-white h-9 text-sm">Cancel</Button>
               </div>
             </>
           ) : gym.gymImages?.length > 0 ? (

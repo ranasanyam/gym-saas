@@ -87,7 +87,23 @@ function detectColumns(headers: string[]): ColMap | null {
   }
 }
 
+/** GET — lightweight plan-access check (used by the UI before showing the Excel tab) */
+export async function GET(req: NextRequest) {
+  const profileId = await resolveProfileId(req)
+  if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const planCheck = await requireActivePlan(profileId)
+  if (!planCheck.ok) return NextResponse.json({ canUpload: false, upgradeRequired: true }, { status: 200 })
+
+  const sub = await getOwnerSubscription(profileId)
+  if (!sub || sub.isExpired || !hasAccess(sub.planSlug, "pro")) {
+    return NextResponse.json({ canUpload: false, upgradeRequired: true }, { status: 200 })
+  }
+  return NextResponse.json({ canUpload: true }, { status: 200 })
+}
+
 export async function POST(req: NextRequest) {
+
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -116,6 +132,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid multipart form data" }, { status: 400 })
   }
+  console.log("form", formData)
 
   const gymId = formData.get("gymId") as string | null
   const file  = formData.get("file") as File | null

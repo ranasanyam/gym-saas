@@ -234,14 +234,13 @@ export default function BulkAddMembersPage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/owner/gyms").then(r => r.json()),
-      fetch("/api/owner/members/upload-excel", { method: "POST", body: new FormData() })
-        .then(r => r.json()).catch(() => ({ upgradeRequired: true })),
+      fetch("/api/owner/members/upload-excel").then(r => r.json()).catch(() => ({ canUpload: false })),
     ]).then(([data, excelCheck]) => {
       if (Array.isArray(data)) {
         setGyms(data)
         if (data.length > 0) setGymId(data[0].id)
       }
-      if (!excelCheck.upgradeRequired) setCanExcel(true)
+      if (excelCheck.canUpload) setCanExcel(true)
     }).finally(() => setGymsLoading(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -763,7 +762,7 @@ export default function BulkAddMembersPage() {
                         </p>
                       </div>
                       <Button type="button" variant="outline" size="sm" onClick={downloadTemplate}
-                        className="border-white/10 text-white/60 hover:text-white h-8 text-xs gap-1.5">
+                        className="border-white/10 bg-white/10 hover:bg-white/10 text-white/60 hover:text-white h-8 text-xs gap-1.5">
                         <Download className="w-3.5 h-3.5" /> Template
                       </Button>
                     </div>

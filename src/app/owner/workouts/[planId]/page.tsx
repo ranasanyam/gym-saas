@@ -28,6 +28,7 @@ export default function OwnerWorkoutDetailPage() {
   const [loading, setLoading]   = useState(true)
   const [activeDay, setActiveDay] = useState(todayShort())
   const [archiving, setArchiving] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     fetch(`/api/owner/workouts/${planId}`)
@@ -38,9 +39,10 @@ export default function OwnerWorkoutDetailPage() {
   }, [planId, router])
 
   const archive = async () => {
-    if (!confirm("Archive this workout plan?")) return
+    
     setArchiving(true)
     const res = await fetch(`/api/owner/workouts/${planId}`, { method: "DELETE" })
+    setShowConfirmModal(false);
     if (res.ok) {
       toast({ variant: "success", title: "Plan archived" })
       router.push("/owner/workouts")
@@ -76,13 +78,31 @@ export default function OwnerWorkoutDetailPage() {
             className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 border border-primary/20 rounded-lg px-3 py-1.5 transition-all">
             <Edit className="w-3.5 h-3.5" /> Edit
           </button>
-          <button onClick={archive} disabled={archiving}
+          <button onClick={() => setShowConfirmModal(true)} disabled={archiving}
             className="flex items-center gap-1.5 text-xs text-red-400/70 hover:text-red-400 bg-red-500/8 hover:bg-red-500/12 border border-red-500/15 rounded-lg px-3 py-1.5 transition-all disabled:opacity-40">
             {archiving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
             Archive
           </button>
         </div>
       </div>
+                  {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[hsl(220_25%_9%)] border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-white font-semibold text-base">Archive Plan?</h3>
+            <p className="text-white/50 text-sm">This plan will be hidden from members. You can restore it later.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowConfirmModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white text-sm transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => archive()}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/15 border border-red-500/20 text-red-400 hover:bg-red-500/25 text-sm font-semibold transition-colors">
+                Archive
+              </button>
+            </div>
+          </div>
+        </div>
+)}
 
       {/* Header card */}
       <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-6">
