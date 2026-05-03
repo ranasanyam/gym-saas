@@ -607,6 +607,7 @@ model GymMember {
   supplementSales     SupplementSale[]
   dietPlans       DietPlan[]      @relation("DietPlanMember")
   workoutLogs     WorkoutLog[]
+  mealLogs        MealLog[]
   bodyMetrics     BodyMetric[]
   trainerReviews       TrainerReview[]
   attendanceMilestones AttendanceMilestone[]
@@ -866,12 +867,34 @@ model DietPlan {
   gym            Gym        @relation(fields: [gymId], references: [id], onDelete: Cascade)
   creator        Profile    @relation("DietPlanCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   assignedMember GymMember? @relation("DietPlanMember", fields: [assignedToMemberId], references: [id], onDelete: Cascade)
+  mealLogs       MealLog[]
 
   @@index([gymId])
   @@index([assignedToMemberId])
   @@map("diet_plans")
 }
 
+// ────────────────────────────────────────────────────────────
+// MEAL LOGS  (member marks a meal as taken)
+// ────────────────────────────────────────────────────────────
+
+model MealLog {
+  id         String   @id @default(uuid())
+  memberId   String   @map("member_id")    // GymMember.id
+  dietPlanId String   @map("diet_plan_id")
+  mealKey    String   @map("meal_key")     // e.g. "Monday__Breakfast"
+  logDate    DateTime @map("log_date") @db.Date
+  takenAt    DateTime @map("taken_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  member   GymMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  dietPlan DietPlan  @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, dietPlanId, mealKey, logDate])
+  @@index([memberId])
+  @@index([logDate])
+  @@map("meal_logs")
+}
 // ────────────────────────────────────────────────────────────
 // 25. BODY METRICS
 // ────────────────────────────────────────────────────────────

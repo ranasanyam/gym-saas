@@ -88,10 +88,12 @@ export async function GET(req: NextRequest) {
 
   // Today's workout — exercises for today's day of week
   const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+  const shortDayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
   const todayName = dayNames[now.getDay()]
+  const todayShortName = shortDayNames[now.getDay()]
   let todayWorkout: { exercises: any[]; day: string } | null = null
   if (workoutPlan?.planData) {
-    const exercises = (workoutPlan.planData as any)[todayName] ?? []
+    const exercises = (workoutPlan.planData as any)[todayShortName] ?? []
     todayWorkout = { exercises, day: todayName }
   }
 
