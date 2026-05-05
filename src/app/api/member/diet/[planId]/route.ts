@@ -18,7 +18,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plan
   const plan = await prisma.dietPlan.findFirst({
     where: {
       id: planId,
-      isActive: true,
       OR: [
         { assignedToMemberId: { in: memberIds } },
         { gymId: { in: activeGymIds }, isGlobal: true },

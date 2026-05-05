@@ -51,6 +51,15 @@ export async function POST(req: NextRequest) {
     if (!member) return NextResponse.json({ error: "Member not found or not assigned to you" }, { status: 403 })
   }
 
+  // when assigning to a specific member, deactivate their previous workout plans
+  if (assignedToMemberId) {
+    await prisma.workoutPlan.updateMany({
+      where: { assignedToMemberId, isActive: true },
+      data: { isActive: false },
+    })
+  }
+
+
   const plan = await prisma.workoutPlan.create({
     data: {
       gymId:   trainer.gymId,
@@ -63,6 +72,7 @@ export async function POST(req: NextRequest) {
       isGlobal:   isGlobal ?? false,
       assignedToMemberId: assignedToMemberId || null,
       planData: planData ?? {},
+      isActive: true,
     },
   })
 

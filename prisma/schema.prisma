@@ -186,8 +186,10 @@ model Profile {
   referralsMade       Referral[]          @relation("ReferrerProfile")
   expensesAdded       GymExpense[]        @relation("ExpenseAdder")
   referredBy          Referral?           @relation("ReferredProfile")
-  inviteTokens        InviteToken[]
-  gymReviews          GymReview[]
+  inviteTokens           InviteToken[]
+  gymReviews             GymReview[]
+  memberAISubscriptions  MemberAISubscription[]
+  generatedAIPlans       GeneratedAIPlan[]
 
   @@map("profiles")
 }
@@ -612,6 +614,7 @@ model GymMember {
   trainerReviews       TrainerReview[]
   attendanceMilestones AttendanceMilestone[]
   lockerAssignments    LockerAssignment[]
+  aiPlanRequests       PendingAIPlanRequest[]
 
   @@unique([gymId, profileId])
   @@index([gymId])
@@ -788,6 +791,7 @@ model WorkoutPlan {
   weekStartDate      DateTime?       @map("week_start_date") @db.Date
   planData           Json            @default("{}") @map("plan_data")
   isActive           Boolean         @default(true) @map("is_active")
+  isAIGenerated      Boolean         @default(false) @map("is_ai_generated")
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
 
@@ -861,6 +865,7 @@ model DietPlan {
   weekStartDate      DateTime? @map("week_start_date") @db.Date
   planData           Json      @default("{}") @map("plan_data")
   isActive           Boolean   @default(true) @map("is_active")
+  isAIGenerated      Boolean   @default(false) @map("is_ai_generated")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -1217,6 +1222,76 @@ model LockerAssignment {
   @@map("locker_assignments")
 }
 
+// ────────────────────────────────────────────────────────────
+// PENDING AI PLAN REQUESTS  (payment → generate flow)
+// ────────────────────────────────────────────────────────────
+
+model PendingAIPlanRequest {
+  id              String    @id @default(uuid())
+  memberId        String    @map("member_id")          // GymMember.id
+  planType        String    @map("plan_type")           // "diet" | "workout"
+  paymentId       String    @map("payment_id")          // razorpay_payment_id
+  razorpayOrderId String    @map("razorpay_order_id")
+  status          String    // "payment_complete" | "generating" | "completed" | "failed"
+  userInputs      Json?     @map("user_inputs")
+  generatedPlanId String?   @map("generated_plan_id")  // DietPlan.id or WorkoutPlan.id
+  errorMessage    String?   @map("error_message")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  member GymMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@map("pending_ai_plan_requests")
+}
+
+// ────────────────────────────────────────────────────────────
+// MEMBER AI SUBSCRIPTION  (credit-based plan generation)
+// ────────────────────────────────────────────────────────────
+
+model MemberAISubscription {
+  id               String    @id @default(uuid())
+  profileId        String    @map("profile_id")
+  planSlug         String    @map("plan_slug")           // "basic" | "standard" | "premium"
+  startDate        DateTime  @map("start_date")
+  expiryDate       DateTime  @map("expiry_date")
+  totalCredits     Int       @map("total_credits")
+  usedCredits      Int       @default(0) @map("used_credits")
+  isActive         Boolean   @default(true) @map("is_active")
+  razorpayOrderId  String?   @map("razorpay_order_id")
+  razorpayPaymentId String?  @map("razorpay_payment_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  profile       Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  generatedPlans GeneratedAIPlan[]
+
+  @@index([profileId])
+  @@index([isActive])
+  @@map("member_ai_subscriptions")
+}
+
+model GeneratedAIPlan {
+  id               String    @id @default(uuid())
+  profileId        String    @map("profile_id")
+  subscriptionId   String    @map("subscription_id")
+  planType         String    @map("plan_type")           // "diet" | "workout"
+  planContent      Json      @map("plan_content")        // full generated plan JSON
+  userPrompt       String?   @map("user_prompt")         // original generation prompt
+  lastChangeRequest String?  @map("last_change_request") // most recent edit prompt
+  generatedAt      DateTime  @default(now()) @map("generated_at") // reset only when credit deducted
+  creditDeducted   Boolean   @default(true) @map("credit_deducted")
+  linkedPlanId     String?   @map("linked_plan_id")      // DietPlan.id or WorkoutPlan.id
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  profile      Profile              @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  subscription MemberAISubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([subscriptionId])
+  @@map("generated_ai_plans")
+}
 model EmailOtp {
   id        String   @id @default(uuid())
   email     String

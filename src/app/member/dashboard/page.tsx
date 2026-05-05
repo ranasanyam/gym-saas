@@ -6,13 +6,12 @@ import Link from "next/link"
 import {
   Building2, Dumbbell, UtensilsCrossed, CreditCard, ShoppingBag,
   Bell, Flame, CalendarCheck, Clock, CheckCircle2, Loader2, Compass,
-  ArrowRight, ChevronRight,
-  AlertCircle,
-  ClockAlert, Zap, Apple, ChevronDown, ChevronUp, Target
+  ArrowRight, AlertCircle, ClockAlert, Zap, Apple, ChevronDown, ChevronUp,
+  Sparkles
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { NoGymState } from "@/components/member/NoGymState"
-
+import { AIPlanModal } from "@/components/member/AIPlanModal"
 
 // Grace window after a meal's scheduled time before it's 'missed'
 
@@ -155,31 +154,18 @@ function StatCard({ icon: Icon, label, value, color = "text-primary" }: any) {
   )
 }
 
-function MacroBar({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
-  const pct = target > 0 ? Math.min(value / target, 1) : 0
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-white/50">{label}</span>
-        <span className={`font-semibold ${color}`}>{value}g / {target}g</span>
-      </div>
-      <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all`} style={{ width: `${pct * 100}%`, backgroundColor: "currentColor" }} />
-      </div>
-    </div>
-  )
-}
-
 // ── Meal Tracker Section ───────────────────────────────────────────────────────
 
 function DietTrackerSection({
   summary,
   onMealTaken,
   markingMeal,
+  onAIClick
 }: {
   summary: DashSummary
   onMealTaken: (dietPlanId: string, mealKey: string) => Promise<void>
-  markingMeal: string | null
+  markingMeal: string | null,
+  onAIClick: () => void
 }) {
   const [weekExpanded, setWeekExpanded] = useState(false)
   const { assignedDietPlan, todayMealLogs, weekMealLogs, todayMacroSummary } = summary
@@ -190,15 +176,20 @@ function DietTrackerSection({
         <Apple className="w-8 h-8 text-white/15 mx-auto mb-3" />
         <h3 className="text-white font-semibold mb-1">No Diet Plan Yet</h3>
         <p className="text-white/35 text-sm mb-4">You don't have a diet plan yet. Build a custom plan through AI.</p>
-        <button className="inline-flex items-center gap-2 bg-green-500/15 text-green-400 border border-green-500/25 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-green-500/20 transition-colors">
-          <Zap className="w-4 h-4" /> Build with AI (coming soon)
+        <button
+          onClick={onAIClick}
+          className="inline-flex items-center gap-2 bg-green-500/15 text-green-400 border border-green-500/25 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-green-500/20 transition-colors"
+        >
+          <Zap className="w-4 h-4" /> Generate AI Diet Plan
         </button>
       </div>
     )
   }
 
   const planData  = assignedDietPlan.planData as Record<string, MealItem[]>
-  const todayName = todayKey()
+  // Diet planData keys use full day names: "Monday__Breakfast", "Tuesday__Lunch", etc.
+  const FULL_DAYS_LIST = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+  const todayName = FULL_DAYS_LIST[new Date().getDay()]
   const todayKeys = Object.keys(planData).filter(k => k.startsWith(`${todayName}__`))
   const loggedSet = new Set(todayMealLogs.map(l => l.mealKey))
 
@@ -290,11 +281,21 @@ function DietTrackerSection({
                         </span>
                       </div>
                       {item?.foods && item.foods.length > 0 && (
-                        <p className="text-white/30 text-xs mt-1 truncate">{item.foods.join(", ")}</p>
+                        <div className="mt-1.5 space-y-0.5">
+                          {item.foods.slice(0, 4).map((food: string, fi: number) => (
+                            <p key={fi} className="text-white/30 text-xs flex items-start gap-1.5">
+                              <span className="w-1 h-1 bg-white/20 rounded-full mt-1.5 shrink-0" />
+                              {food}
+                            </p>
+                          ))}
+                          {item.foods.length > 4 && (
+                            <p className="text-white/20 text-xs pl-2.5">+{item.foods.length - 4} more</p>
+                          )}
+                        </div>
                       )}
                       {item && (item.calories || item.protein_g) && (
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-white/35">
-                          {item.calories  && <span>{item.calories} kcal</span>}
+                        <div className="flex items-center gap-3 mt-2 text-xs text-white/35 flex-wrap">
+                          {item.calories  && <span className="text-orange-400/70">{item.calories} kcal</span>}
                           {item.protein_g && <span>P: {item.protein_g}g</span>}
                           {item.carbs_g   && <span>C: {item.carbs_g}g</span>}
                           {item.fat_g     && <span>F: {item.fat_g}g</span>}
@@ -402,10 +403,12 @@ function WorkoutTrackerSection({
   summary,
   onWorkoutDone,
   markingWorkout,
+  onAIClick,
 }: {
   summary: DashSummary
   onWorkoutDone: (workoutPlanId: string, scheduledDay: string) => Promise<void>
-  markingWorkout: boolean
+  markingWorkout: boolean,
+  onAIClick: () => void
 }) {
   const { assignedWorkoutPlan, recentWorkoutLogs, todayWorkoutLogged } = summary
 
@@ -415,8 +418,11 @@ function WorkoutTrackerSection({
         <Dumbbell className="w-8 h-8 text-white/15 mx-auto mb-3" />
         <h3 className="text-white font-semibold mb-1">No Workout Plan Yet</h3>
         <p className="text-white/35 text-sm mb-4">You don't have a workout plan yet. Build a custom plan through AI.</p>
-        <button className="inline-flex items-center gap-2 bg-purple-500/15 text-purple-400 border border-purple-500/25 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-purple-500/20 transition-colors">
-          <Zap className="w-4 h-4" /> Build with AI (coming soon)
+        <button
+          onClick={onAIClick}
+          className="inline-flex items-center gap-2 bg-purple-500/15 text-purple-400 border border-purple-500/25 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-purple-500/20 transition-colors"
+        >
+          <Zap className="w-4 h-4" /> Generate AI Workout Plan (₹300)
         </button>
       </div>
     )
@@ -525,14 +531,18 @@ export default function MemberDashboard() {
   const [justCheckedIn, setJustCheckedIn] = useState(false)
   const [markingMeal, setMarkingMeal] = useState<string | null>(null)
   const [markingWorkout, setMarkingWorkout] = useState(false)
+  const [aiModalType, setAiModalType] = useState<"diet" | "workout" | null>(null)
+  const [subStatus, setSubStatus] = useState<{ hasSubscription: boolean; remainingCredits?: number } | null>(null)
 
   const load = useCallback(async () => {
-    const [d, s] = await Promise.all([
+    const [d, s, sub] = await Promise.all([
       fetch("/api/member/dashboard").then(r => r.json()),
       fetch("/api/member/dashboard-summary").then(r => r.json()),
+      fetch("/api/member/ai-subscription/status").then(r => r.json()).catch(() => null),
     ])
     setData(d)
     if (s?.success) setSummary(s.data)
+    if (sub) setSubStatus(sub)
     setLoading(false)
   }, [])
 
@@ -722,6 +732,24 @@ export default function MemberDashboard() {
               )
             })}
 
+            {/* AI Subscription banner */}
+            {subStatus && !subStatus.hasSubscription && (
+              <div className="flex items-center justify-between gap-4 bg-primary/8 border border-primary/20 rounded-xl px-5 py-3.5">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-white/70 text-sm">
+              <span className="text-white font-medium">Unlock AI Plans</span> — Generate personalized diet & workout plans with AI.
+            </p>
+          </div>
+          <Link
+            href="/member/plans"
+            className="shrink-0 text-xs font-semibold text-primary bg-primary/15 hover:bg-primary/25 border border-primary/25 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Get Credits
+          </Link>
+        </div>
+            )}
+
       {/* No gym CTA */}
       {noGym && (
         <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl p-8 text-center">
@@ -828,6 +856,7 @@ export default function MemberDashboard() {
           summary={summary}
           onMealTaken={handleMealTaken}
           markingMeal={markingMeal}
+          onAIClick={() => setAiModalType("diet")}
         />
       )}
 
@@ -837,6 +866,7 @@ export default function MemberDashboard() {
           summary={summary}
           onWorkoutDone={handleWorkoutDone}
           markingWorkout={markingWorkout}
+          onAIClick={() => setAiModalType("workout")}
         />
       )}
 
@@ -871,6 +901,15 @@ export default function MemberDashboard() {
             ))}
           </div>
         </div>
+      )}
+
+      {aiModalType && (
+        <AIPlanModal 
+          planType={aiModalType}
+          isOpen={true}
+          onClose={() => setAiModalType(null)}
+          onSuccess={() => { setAiModalType(null); load() }}
+        />
       )}
 
       {/* Quick links */}

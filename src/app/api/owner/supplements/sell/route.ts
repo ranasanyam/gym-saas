@@ -87,12 +87,13 @@ import { requireActivePlan } from "@/lib/requireActivePlan"
 import { NextRequest, NextResponse }  from "next/server"
 import { resolveProfileId }           from "@/lib/mobileAuth"
 import { prisma }                     from "@/lib/prisma"
+import { sendPushToProfile }              from "@/lib/push"
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek,
   startOfMonth, endOfMonth, subMonths, subWeeks, subDays,
   startOfYear, endOfYear,
 } from "date-fns"
-
+const LOW_STOCK_THRESHOLD = 5
 type Range =
   | "today" | "this_week" | "last_week"
   | "this_month" | "last_month"
@@ -252,5 +253,36 @@ export async function POST(req: NextRequest) {
     }),
   ])
 
+  // Low-stock alert: only trigger when stock crosses the threshold on this sale
+  const afterStock = supplement.stockQty - parseInt(qty)
+  const crossedThreshold = supplement.stockQty > LOW_STOCK_THRESHOLD && afterStock <= LOW_STOCK_THRESHOLD
+  const wentOutOfStock = afterStock === 0
+
+  if (crossedThreshold || wentOutOfStock) {
+    const gym = await prisma.gym.findUnique({ where: { id: gymId }, select: { name: true } })
+    if (gym) {
+      const alertTitle = wentOutOfStock ? "⚠️ Out of Stock!" : "📦 Low Stock Alert"
+      const alertBody  = wentOutOfStock
+        ? `${supplement.name} is out of stock at ${gym.name}. Restock soon!`
+        : `Only ${afterStock} unit${afterStock === 1 ? "" : "s"} of ${supplement.name} left at ${gym.name}.`
+      await Promise.allSettled([
+        prisma.notification.create({
+          data: {
+            profileId,
+            gymId,
+            title:   alertTitle,
+            message: alertBody,
+            type:    "SYSTEM",
+          },
+        }),
+        sendPushToProfile(profileId, {
+          title: alertTitle,
+          body:  alertBody,
+          url:   "/owner/supplements",
+          tag:   `low-stock-${supplement.id}`,
+        }),
+      ]).catch(() => {})
+    }
+  }
   return NextResponse.json(sale, { status: 201 })
 }

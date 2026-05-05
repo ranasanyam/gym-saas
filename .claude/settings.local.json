@@ -13,7 +13,9 @@
       "Bash(node -e ' *)",
       "Bash(grep -n \"return\\\\s*$\\\\|</div>\\\\s*$\\\\|</PlanGate>\" \"d:/Projects/gym-saas/src/app/owner/payments/page.tsx\")",
       "Bash(grep -n \"INBOX TAB\\\\|<\\\\/>\\\\s*$\\\\|{\\\\/\\\\* ── SENT\\\\|tab === .sent. &&\" \"d:/Projects/gym-saas/src/app/trainer/notifications/page.tsx\")",
-      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)"
     ]
   }
 }

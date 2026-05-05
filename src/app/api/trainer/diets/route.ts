@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
-
+import { sendPushToProfile } from "@/lib/push"
 export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -50,6 +50,14 @@ export async function POST(req: NextRequest) {
     if (!member) return NextResponse.json({ error: "Member not assigned to you" }, { status: 403 })
   }
 
+  // when assigning to a specific member, deactivate their previous diet plans
+  if (assignedToMemberId) {
+    await prisma.dietPlan.updateMany({
+      where: { assignedToMemberId, isActive: true },
+      data: { isActive: false },
+    })
+  }
+
   const plan = await prisma.dietPlan.create({
     data: {
       gymId: trainer.gymId,
@@ -64,6 +72,7 @@ export async function POST(req: NextRequest) {
       weekStartDate: weekStartDate ? new Date(weekStartDate) : null,
       assignedToMemberId: assignedToMemberId || null,
       planData: planData ?? {},
+      isActive: true,
     },
   })
 
@@ -73,7 +82,8 @@ export async function POST(req: NextRequest) {
       select: { profileId: true },
     })
     if (member) {
-      await prisma.notification.create({
+      await Promise.allSettled([
+        prisma.notification.create({
         data: {
           gymId: trainer.gymId,
           profileId: member.profileId,
@@ -81,7 +91,14 @@ export async function POST(req: NextRequest) {
           message: `Your trainer assigned you a new diet plan: "${title}"`,
           type: "PLAN_UPDATE",
         },
-      })
+      }),
+              sendPushToProfile(member.profileId, {
+          title: "🥗 New Diet Plan Assigned",
+          body:  `Your trainer assigned you a new diet plan: "${title}"`,
+          url:   "/member/diet",
+          tag:   "diet-plan-assigned",
+        }),
+      ])
     }
   }
 

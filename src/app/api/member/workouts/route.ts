@@ -17,10 +17,11 @@ export async function GET(req: NextRequest) {
   const plans = await prisma.workoutPlan.findMany({
     where: {
       OR: [
+        // show all assigned plans (active and inactive) so member can switch
         { assignedToMemberId: { in: memberIds } },
-        { gymId: { in: activeGymIds }, isGlobal: true },
+        // Only show active global plans
+        { gymId: { in: activeGymIds }, isGlobal: true, isActive: true },
       ],
-      isActive: true,
     },
     include: {
       creator: { select: { fullName: true } },

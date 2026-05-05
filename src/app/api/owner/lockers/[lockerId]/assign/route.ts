@@ -164,7 +164,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId }          from "@/lib/mobileAuth"
 import { getOwnerSubscription, checkFeature } from "@/lib/subscription"
 import { prisma }                    from "@/lib/prisma"
-
+import { sendPushToProfile }              from "@/lib/push"
 async function checkLockerAccess(profileId: string) {
   const sub = await getOwnerSubscription(profileId)
   if (!sub || sub.isExpired) {
@@ -195,7 +195,7 @@ export async function POST(
   // Verify locker ownership
   const locker = await prisma.locker.findFirst({
     where:   { id: lockerId, gym: { ownerId: profileId } },
-    include: { assignments: { where: { isActive: true }, take: 1 } },
+    include: { assignments: { where: { isActive: true }, take: 1 }, gym: { select: { name: true } } },
   })
   if (!locker) return NextResponse.json({ error: "Locker not found" }, { status: 404 })
 
@@ -297,6 +297,27 @@ export async function POST(
     (r: any) => r && typeof r === "object" && "lockerId" in r && "memberId" in r && "gymId" in r
   )
 
+  // Notify the member about their locker assignment
+  const expiryNote = expiresAt
+    ? ` Valid until ${new Date(expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}.`
+    : ""
+  await Promise.allSettled([
+    prisma.notification.create({
+      data: {
+        profileId: member.profileId,
+        gymId:     locker.gymId,
+        title:     "🔒 Locker Assigned",
+        message:   `Locker #${locker.lockerNumber} at ${locker.gym.name} has been assigned to you.${expiryNote}`,
+        type:      "ANNOUNCEMENT",
+      },
+    }),
+    sendPushToProfile(member.profileId, {
+      title: "🔒 Locker Assigned",
+      body:  `Locker #${locker.lockerNumber} at ${locker.gym.name} is now yours.${expiryNote}`,
+      url:   "/member/dashboard",
+      tag:   "locker-assigned",
+    }),
+  ]).catch(() => {})
   return NextResponse.json(assignment ?? results, { status: 201 })
 }
 

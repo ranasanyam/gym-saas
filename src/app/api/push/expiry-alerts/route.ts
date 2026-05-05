@@ -133,5 +133,49 @@ export async function POST(req: NextRequest) {
     }
   }))
 
+  // ── SaaS subscription expiry alerts ──────────────────────────────────────
+  const [saasIn3, saasIn7] = await Promise.all([
+    prisma.saasSubscription.findMany({
+      where: { status: "ACTIVE", currentPeriodEnd: { gt: todayEnd, lte: in3Days } },
+      select: { profileId: true, currentPeriodEnd: true, saasPlan: { select: { name: true } } },
+    }),
+    prisma.saasSubscription.findMany({
+      where: { status: "ACTIVE", currentPeriodEnd: { gt: in3Days, lte: in7Days } },
+      select: { profileId: true, currentPeriodEnd: true, saasPlan: { select: { name: true } } },
+    }),
+  ])
+
+  // 3-day SaaS alerts
+  await Promise.allSettled(saasIn3.map(async sub => {
+    const expiry = sub.currentPeriodEnd?.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) ?? ""
+    await sendPushToProfile(sub.profileId, {
+      title: "⚠️ GymStack Subscription Expiring in 3 Days",
+      body:  `Your ${sub.saasPlan.name} plan expires on ${expiry}. Renew now to keep your gym running.`,
+      url:   "/owner/subscription",
+      tag:   "saas-expiry-3day",
+    }).catch(() => {})
+    await prisma.notification.create({
+      data: {
+        profileId: sub.profileId,
+        title:     "⚠️ Subscription Expiring in 3 Days",
+        message:   `Your ${sub.saasPlan.name} plan expires on ${expiry}. Renew to avoid losing access.`,
+        type:      "BILLING",
+      },
+    }).catch(() => {})
+    notified++
+  }))
+
+  // 7-day SaaS alerts (only those not already in 3-day list)
+  const alerted3Ids = new Set(saasIn3.map(s => s.profileId))
+  await Promise.allSettled(saasIn7.filter(s => !alerted3Ids.has(s.profileId)).map(async sub => {
+    const expiry = sub.currentPeriodEnd?.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) ?? ""
+    await sendPushToProfile(sub.profileId, {
+      title: "🔔 GymStack Subscription Expiring This Week",
+      body:  `Your ${sub.saasPlan.name} plan expires on ${expiry}. Renew soon to avoid disruption.`,
+      url:   "/owner/subscription",
+      tag:   "saas-expiry-7day",
+    }).catch(() => {})
+    notified++
+  }))
   return NextResponse.json({ notified, timestamp: now.toISOString() })
 }

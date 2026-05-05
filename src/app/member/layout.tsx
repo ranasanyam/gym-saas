@@ -10,7 +10,7 @@ import {
   Dumbbell, LayoutDashboard, Building2, ClipboardList,
   UtensilsCrossed, CalendarCheck, CreditCard, Bell, Gift,
   Compass, UserCircle, LogOut, Menu, X, Search, Loader2,
-  ShoppingBag, Megaphone,
+  ShoppingBag, Megaphone, Sparkles
 } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 import { MemberGymProvider } from "@/contexts/MemberGymContext"
@@ -20,6 +20,7 @@ const navItems = [
   { label: "My Gym",        href: "/member/gym",            icon: Building2 },
   { label: "Workouts",      href: "/member/workouts",       icon: ClipboardList },
   { label: "Diet Plan",     href: "/member/diet",           icon: UtensilsCrossed },
+  { label: "AI Plans",      href: "/member/plans",       icon: Sparkles },
   { label: "Attendance",    href: "/member/attendance",     icon: CalendarCheck },
   { label: "Payments",      href: "/member/payments",       icon: CreditCard },
   // { label: "Refer & Earn",  href: "/member/referral",       icon: Gift },

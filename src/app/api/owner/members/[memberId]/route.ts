@@ -82,7 +82,7 @@ import { sendPushToProfile } from "@/lib/push"
 async function ownsGym(ownerId: string, memberId: string) {
   return prisma.gymMember.findFirst({
     where:  { id: memberId, gym: { ownerId } },
-    select: { id: true, gymId: true, profileId: true, membershipPlanId: true, endDate: true },
+    select: { id: true, gymId: true, profileId: true, membershipPlanId: true, endDate: true, assignedTrainerId: true },
   })
 }
 
@@ -174,6 +174,50 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ me
     }
   }
 
+  // Trainer assignment change notifications
+  const newTrainerId = body.assignedTrainerId
+  if (newTrainerId && newTrainerId !== existing.assignedTrainerId) {
+    const [gym, gymTrainer] = await Promise.all([
+      prisma.gym.findUnique({ where: { id: existing.gymId }, select: { name: true } }),
+      prisma.gymTrainer.findUnique({ where: { id: newTrainerId }, select: { profileId: true } }),
+    ])
+    if (gym && gymTrainer) {
+      await Promise.allSettled([
+        // Notify member
+        prisma.notification.create({
+          data: {
+            profileId: existing.profileId,
+            gymId:     existing.gymId,
+            title:     "👤 Trainer Assigned",
+            message:   `A trainer has been assigned to guide you at ${gym.name}. Check your dashboard.`,
+            type:      "ANNOUNCEMENT",
+          },
+        }),
+        sendPushToProfile(existing.profileId, {
+          title: "👤 Trainer Assigned",
+          body:  `A trainer has been assigned to guide you at ${gym.name}.`,
+          url:   "/member/dashboard",
+          tag:   "trainer-assigned",
+        }),
+        // Notify the trainer
+        prisma.notification.create({
+          data: {
+            profileId: gymTrainer.profileId,
+            gymId:     existing.gymId,
+            title:     "👥 New Member Assigned",
+            message:   `A new member has been assigned to you at ${gym.name}. Check your members list.`,
+            type:      "ANNOUNCEMENT",
+          },
+        }),
+        sendPushToProfile(gymTrainer.profileId, {
+          title: "👥 New Member Assigned",
+          body:  `A new member has been assigned to you at ${gym.name}.`,
+          url:   "/trainer/members",
+          tag:   "member-assigned",
+        }),
+      ])
+    }
+  }
   const updated = await prisma.gymMember.update({
     where: { id: memberId },
     data: {

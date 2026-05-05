@@ -30,6 +30,10 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID:     z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
+
+  // Groq (required for AI plan generation)
+  GROQ_API_KEY: z.string().optional(),
+
   // Node env
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 })

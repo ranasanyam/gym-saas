@@ -9,7 +9,7 @@
 import crypto      from "crypto"
 import { prisma }  from "@/lib/prisma"
 import { inviteProfile, createInviteToken, sendInviteSms } from "@/lib/invite"
-
+import {sendPushToProfile} from "@/lib/push"
 export type InviteResult =
   | { outcome: "created";         profileId: string }
   | { outcome: "reinvited";       profileId: string }
@@ -110,13 +110,21 @@ export async function findExistingGymTrainer(profileId: string, gymId: string): 
  * Sends an in-app notification to an ACTIVE profile being silently linked.
  */
 export async function notifyLinkedProfile(profileId: string, gymId: string, gymName: string, role: string): Promise<void> {
-  await prisma.notification.create({
-    data: {
-      gymId,
-      profileId,
-      title:   `You've been added to ${gymName}`,
-      message: `${gymName} has added you as a ${role}. Visit your dashboard to see your gym.`,
-      type:    "ANNOUNCEMENT",
-    },
-  }).catch(() => {})
+  await Promise.allSettled([
+    prisma.notification.create({
+      data: {
+        gymId,
+        profileId,
+        title:   `You've been added to ${gymName}`,
+        message: `${gymName} has added you as a ${role}. Visit your dashboard to see your gym.`,
+        type:    "ANNOUNCEMENT",
+      },
+    }),
+    sendPushToProfile(profileId, {
+      title: `You've been added to ${gymName}`,
+      body:  `${gymName} has added you as a ${role}. Check your dashboard to get started.`,
+      url:   `/${role}/dashboard`,
+      tag:   "gym-linked",
+    }),
+  ])
 }

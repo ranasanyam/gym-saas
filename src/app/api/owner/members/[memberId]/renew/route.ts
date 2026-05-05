@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
-
+import {sendPushToProfile} from "@/lib/push"
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date)
   const day = d.getDate()
@@ -89,6 +89,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mem
       },
     }),
   ])
+    // Push notification to member
+  sendPushToProfile(member.profileId, {
+    title: "✅ Membership Renewed",
+    body:  `Your ${plan.name} at ${member.gym.name} is renewed until ${newEndDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}.`,
+    url:   "/member/payments",
+    tag:   "membership-renewed",
+  }).catch(() => {})
+
 
   return NextResponse.json({
     success: true,

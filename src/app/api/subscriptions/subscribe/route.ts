@@ -17,7 +17,7 @@ import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
 import { addMonths } from "date-fns"
-
+import { sendPushToProfile } from "@/lib/push"
 const INTERVAL_MONTHS: Record<string, number | null> = {
     MONTHLY:     1,
     QUARTERLY:   3,
@@ -127,5 +127,25 @@ export async function POST(req: NextRequest) {
         return { subscription, payment }
     })
 
+  // Notify the owner about their new plan
+  const validUntil = periodEnd
+    ? ` Valid until ${periodEnd.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}.`
+    : ""
+  await Promise.allSettled([
+    prisma.notification.create({
+      data: {
+        profileId,
+        title:   isLifetime ? "🎉 Lifetime Access Unlocked!" : `✅ ${plan.name} Plan Activated`,
+        message: `Your ${plan.name} GymStack plan is now active.${isLifetime ? " Enjoy lifetime access!" : validUntil}`,
+        type:    "BILLING",
+      },
+    }),
+    sendPushToProfile(profileId, {
+      title: isLifetime ? "🎉 Lifetime Access Unlocked!" : `✅ ${plan.name} Plan Active`,
+      body:  `Your ${plan.name} GymStack plan is now active.${isLifetime ? " Enjoy lifetime access!" : validUntil}`,
+      url:   "/owner/subscription",
+      tag:   "saas-subscription-activated",
+    }),
+  ]).catch(() => {})
     return NextResponse.json({ subscription, payment })
 }
