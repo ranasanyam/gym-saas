@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") ?? ""
 
   // Find current gym(s) the trainer has joined
-  const trainerRecord = await prisma.gymTrainer.findUnique({
+  const trainerRecord = await prisma.gymTrainer.findFirst({
     where: { profileId },
     select: { gymId: true },
   })

@@ -83,10 +83,10 @@ export async function POST(req: NextRequest) {
 
   const { outcome, profileId: trainerProfileId } = result
 
-  // Check if already a trainer at THIS gym
+  // Check if already a trainer at this specific gym
   const existing = await findExistingGymTrainer(trainerProfileId, gymId)
   if (existing) {
-    return NextResponse.json({ error: "This person is already a trainer at this gym" }, { status: 409 })
+    return NextResponse.json({ error: "This person is already a trainer at this gym." }, { status: 409 })
   }
 
   // ── Create GymTrainer record ──────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 
 async function verifyTrainerMember(profileId: string, memberId: string) {
-  const trainer = await prisma.gymTrainer.findUnique({
+  const trainer = await prisma.gymTrainer.findFirst({
     where: { profileId },
     select: { id: true, gymId: true },
   })

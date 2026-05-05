@@ -36,10 +36,12 @@ export async function GET(req: NextRequest) {
           where: { isActive: true },
           select: { id: true, name: true, isActive: true },
         },
-        gymTrainer: {
+        gymTrainers: {
           select: {
             gym: { select: { id: true, name: true, isActive: true } },
           },
+          take: 1,
+          orderBy: { createdAt: "desc" },
         },
         gymMemberships: {
           where: { status: "ACTIVE" },
@@ -58,8 +60,8 @@ export async function GET(req: NextRequest) {
     let gym = null
     if (profile.role === "owner" && profile.ownedGyms.length > 0) {
       gym = profile.ownedGyms[0]
-    } else if (profile.role === "trainer" && profile.gymTrainer) {
-      gym = profile.gymTrainer.gym
+    } else if (profile.role === "trainer" && profile.gymTrainers.length > 0) {
+      gym = profile.gymTrainers[0].gym
     } else if (profile.role === "member" && profile.gymMemberships.length > 0) {
       gym = profile.gymMemberships[0].gym
     }

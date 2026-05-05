@@ -62,14 +62,8 @@ export default function TrainerLayout({ children }: { children: React.ReactNode 
   const Sidebar = ({ mobile = false }) => (
     <aside className={`${mobile ? "flex" : "hidden lg:flex"} flex-col w-54 min-h-screen bg-[hsl(220_25%_7%)] border-r border-white/5`}>
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 h-16 border-b border-white/5">
-        <div className="p-2 bg-gradient-primary rounded-xl">
-          <Dumbbell className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <span className="text-lg font-display font-bold text-white">GymStack</span>
-          <p className="text-[10px] text-primary/70 -mt-0.5 font-medium">Trainer</p>
-        </div>
+    <div className="flex items-center gap-2.5 px-5 h-16 border-b border-white/5">
+          <img src="../../../logo.png" alt="Logo" className="w-10 h-10" />
       </div>
 
       {/* Gym name */}

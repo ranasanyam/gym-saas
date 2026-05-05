@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const trainerRecord = await prisma.gymTrainer.findUnique({
+  const trainerRecord = await prisma.gymTrainer.findFirst({
     where: { profileId },
     include: {
       gym: {

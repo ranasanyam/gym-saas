@@ -169,7 +169,7 @@ model Profile {
   oauthAccounts       OAuthAccount[]
   refreshTokens       RefreshToken[]
   ownedGyms           Gym[]               @relation("GymOwner")
-  gymTrainer          GymTrainer?
+  gymTrainers         GymTrainer[]
   gymMemberships      GymMember[]
   createdWorkoutPlans WorkoutPlan[]       @relation("WorkoutPlanCreator")
   createdDietPlans    DietPlan[]          @relation("DietPlanCreator")
@@ -524,7 +524,7 @@ model MembershipPlan {
 model GymTrainer {
   id              String   @id @default(uuid())
   gymId           String   @map("gym_id")
-  profileId       String   @unique @map("profile_id")
+  profileId       String   @map("profile_id")
   specializations String[] @default([])
   certifications  String[] @default([])
   bio             String?
