@@ -14,7 +14,8 @@ import {
   CalendarCheck, CreditCard, ClipboardList, UtensilsCrossed,
   Bell, BarChart3, Settings, LogOut, Menu, Search,
   Loader2, Tag, Gift, ShoppingBag, Lock, Zap, Receipt,
-  IndianRupee, CircleUserRound
+  IndianRupee, CircleUserRound, Briefcase
+
 } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { label: "Workout Plans", href: "/owner/workouts",     icon: ClipboardList,   featureKey: "hasWorkoutPlans" },
   { label: "Diet Plans",    href: "/owner/diets",        icon: UtensilsCrossed, featureKey: "hasDietPlans" },
   // { label: "Refer & Earn",  href: "/owner/referral",     icon: Gift,            featureKey: "hasReferAndEarn" },
+  { label: "Job Posting",   href: "/owner/jobs",         icon: Briefcase },
   { label: "Notifications", href: "/owner/notifications", icon: Bell },
   { label: "Reports",       href: "/owner/reports",      icon: BarChart3,       featureKey: "hasFullReports"  },
   { label: "Subscriptions",  href: "/owner/subscriptions",      icon: Zap },

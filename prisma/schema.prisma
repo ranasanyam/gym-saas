@@ -190,6 +190,11 @@ model Profile {
   gymReviews             GymReview[]
   memberAISubscriptions  MemberAISubscription[]
   generatedAIPlans       GeneratedAIPlan[]
+  // Job portal
+  trainerSubscriptions   TrainerSubscription[]
+  trainerSubPayments     TrainerSubPayment[]
+  jobApplications        JobApplication[]
+  postedJobs             JobPosting[]          @relation("PostedByProfile")
 
   @@map("profiles")
 }
@@ -279,6 +284,7 @@ model Gym {
   lockers          Locker[]
   lockerAssignments LockerAssignment[]
   reviews         GymReview[]
+  jobPostings     JobPosting[]
 
   @@index([ownerId])
   @@map("gyms")
@@ -1179,6 +1185,42 @@ enum LockerStatus {
   RESERVED
 }
 
+// ── Job Portal ───────────────────────────────────────────────
+
+enum TrainerSubStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  FREELANCE
+}
+
+enum WorkMode {
+  ON_SITE
+  HYBRID
+  REMOTE
+}
+
+enum JobStatus {
+  OPEN
+  PAUSED
+  CLOSED
+  FILLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWED
+  SHORTLISTED
+  REJECTED
+  HIRED
+}
+
 model Locker {
   id          String       @id @default(uuid())
   gymId       String       @map("gym_id")
@@ -1292,6 +1334,139 @@ model GeneratedAIPlan {
   @@index([subscriptionId])
   @@map("generated_ai_plans")
 }
+
+
+// ════════════════════════════════════════════════════════════
+// JOB PORTAL
+// ════════════════════════════════════════════════════════════
+
+// ────────────────────────────────────────────────────────────
+// TRAINER SUBSCRIPTIONS  (trainers pay to unlock job details)
+// ────────────────────────────────────────────────────────────
+
+model TrainerSubscription {
+  id                String           @id @default(uuid())
+  profileId         String           @map("profile_id")
+  planSlug          String           @map("plan_slug")           // "monthly" | "quarterly" | "yearly"
+  status            TrainerSubStatus @default(ACTIVE)
+  startDate         DateTime         @default(now()) @map("start_date")
+  endDate           DateTime         @map("end_date")
+  razorpayOrderId   String?          @map("razorpay_order_id")
+  razorpayPaymentId String?          @map("razorpay_payment_id")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  profile  Profile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  payments TrainerSubPayment[]
+
+  @@index([profileId])
+  @@index([endDate])
+  @@map("trainer_subscriptions")
+}
+
+model TrainerSubPayment {
+  id                String        @id @default(uuid())
+  profileId         String        @map("profile_id")
+  subscriptionId    String        @map("subscription_id")
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("INR") @db.Char(3)
+  status            PaymentStatus @default(PENDING)
+  razorpayPaymentId String?       @map("razorpay_payment_id")
+  razorpayOrderId   String?       @map("razorpay_order_id")
+  paidAt            DateTime?     @map("paid_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  profile      Profile             @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  subscription TrainerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@map("trainer_sub_payments")
+}
+
+// ────────────────────────────────────────────────────────────
+// JOB POSTINGS  (gym owners post vacancies)
+// ────────────────────────────────────────────────────────────
+
+model JobPosting {
+  id                       String      @id @default(uuid())
+  gymId                    String      @map("gym_id")
+  postedByProfileId        String      @map("posted_by_profile_id")
+  title                    String
+  jobType                  JobType     @map("job_type")
+  workMode                 WorkMode    @map("work_mode")
+  specializations          String[]    @default([])
+  salaryCurrency           String      @default("INR") @map("salary_currency") @db.Char(3)
+  salaryMin                Int?        @map("salary_min")
+  salaryMax                Int?        @map("salary_max")
+  experienceMin            Int?        @map("experience_min")
+  city                     String?
+  state                    String?
+  // Public preview fields (visible without subscription)
+  shortDescription         String?     @map("short_description")
+  requirements             String[]    @default([])
+  benefits                 String[]    @default([])
+  // Gated fields (requires active trainer subscription)
+  fullDescription          String      @map("full_description")
+  contactEmail             String?     @map("contact_email")
+  contactPhone             String?     @map("contact_phone")
+  applicationInstructions  String?     @map("application_instructions")
+  location                 String?     // exact address: building, street, landmark
+  // Status
+  status                   JobStatus   @default(OPEN)
+  expiresAt                DateTime?   @map("expires_at")
+  viewCount                Int         @default(0) @map("view_count")
+  applicationCount         Int         @default(0) @map("application_count")
+  createdAt                DateTime    @default(now()) @map("created_at")
+  updatedAt                DateTime    @updatedAt @map("updated_at")
+
+  gym          Gym              @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  postedBy     Profile          @relation("PostedByProfile", fields: [postedByProfileId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
+
+  @@index([gymId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("job_postings")
+}
+
+// ────────────────────────────────────────────────────────────
+// JOB APPLICATIONS  (trainers apply to jobs)
+// ────────────────────────────────────────────────────────────
+
+model JobApplication {
+  id          String            @id @default(uuid())
+  jobId       String            @map("job_id")
+  profileId   String            @map("profile_id")
+  coverLetter String?           @map("cover_letter")
+  status      ApplicationStatus @default(PENDING)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  job     JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  profile Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, profileId])
+  @@index([jobId])
+  @@index([profileId])
+  @@map("job_applications")
+}
+
+
+// ────────────────────────────────────────────────────────────
+// ADMIN  (super-admin accounts for the gym-admin dashboard)
+// ────────────────────────────────────────────────────────────
+
+model Admin {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
 model EmailOtp {
   id        String   @id @default(uuid())
   email     String
