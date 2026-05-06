@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-
+import { sendAdminSubscriptionNotification } from "@/lib/email"
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -72,7 +72,17 @@ export async function POST(req: NextRequest) {
 
     return { subscription, payment }
   })
-
+  // ── Admin notification (fire-and-forget) ─────────────────────────────────
+  prisma.profile.findUnique({ where: { id: session.user.id }, select: { fullName: true, email: true } })
+    .then(profile => sendAdminSubscriptionNotification({
+      subscriberName:   profile?.fullName ?? "Unknown",
+      subscriberEmail:  profile?.email    ?? undefined,
+      planName:         plan.name,
+      planAmount:       String(result.payment.finalAmount),
+      role:             "Gym Owner",
+      subscriptionType: "Platform Plan",
+    }))
+    .catch(() => {})
   // ── Referral conversion fires HERE — on SaaS subscription purchase ONLY ──
   try {
     await fetch(`${process.env.NEXTAUTH_URL}/api/referral/convert`, {

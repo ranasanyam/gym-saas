@@ -5,7 +5,7 @@ import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma }                      from "@/lib/prisma"
 import { getOwnerSubscription, getOwnerUsage, checkLimit } from "@/lib/subscription"
 import { resolveInvitedProfile, findExistingGymTrainer, notifyLinkedProfile } from "@/lib/inviteHelpers"
-
+import { sendTrainerAddedEmail } from "@/lib/email"
 export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -117,6 +117,21 @@ export async function POST(req: NextRequest) {
 
   if (outcome === "linked") {
     await notifyLinkedProfile(trainerProfileId, gymId, gym.name, "trainer")
+  }
+
+  
+  // ── Welcome email (fire-and-forget) — only for brand-new profiles with email ─
+  if (outcome === "created" && email?.trim()) {
+    const loginUrl = `${process.env.NEXTAUTH_URL ?? "https://gymstack.app"}/login`
+    prisma.profile.findUnique({ where: { id: profileId }, select: { fullName: true } })
+      .then(owner => sendTrainerAddedEmail({
+        to:          email.trim().toLowerCase(),
+        trainerName: fullName.trim(),
+        gymName:     gym.name,
+        ownerName:   owner?.fullName ?? gym.name,
+        setupLink:   loginUrl,
+      }))
+      .catch(() => {})
   }
 
   return NextResponse.json({ outcome, id: trainer.id, profileId: trainerProfileId }, { status: 201 })

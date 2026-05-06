@@ -70,12 +70,13 @@ function OtpBoxes({ value, onChange }: { value: string; onChange: (v: string) =>
 
 // ── Completion form (shared by token and OTP paths) ────────────────────────
 function CompletionForm({
-  tokenInfo, token, mobile, email, onDone,
+  tokenInfo, token, mobile, email, otp, onDone,
 }: {
   tokenInfo: TokenInfo | null
   token?: string
   mobile?: string
   email?: string
+  otp?: string
   onDone: (role: string) => void
 }) {
   const { toast } = useToast()
@@ -98,7 +99,7 @@ function CompletionForm({
       const body: any = { email: form.email.trim(), password: form.password, city: form.city, gender: form.gender }
       if (token)  body.token  = token
       if (mobile) body.mobile = mobile
-      if (form.email) body.otp = undefined  // OTP already verified
+      if (otp)    body.otp    = otp
 
       const res  = await fetch("/api/auth/complete-profile", {
         method:  "POST",
@@ -181,7 +182,7 @@ function CompletionForm({
       </div>
 
       <Button type="submit" disabled={loading}
-        className="w-full bg-gradient-to-r from-primary to-orange-400 text-white font-semibold h-11 rounded-xl mt-2">
+        className="w-full bg-linear-to-r from-primary to-orange-400 text-white font-semibold h-11 rounded-xl mt-2">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><ShieldCheck className="w-4 h-4" /><span className="ml-2">Activate My Account</span></>}
       </Button>
     </form>
@@ -377,7 +378,7 @@ function CompleteProfileContent() {
                   className="bg-[hsl(220_25%_11%)] border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-11 rounded-xl" />
               </div>
               <Button type="submit" disabled={loading}
-                className="w-full bg-gradient-to-r from-primary to-orange-400 text-white font-semibold h-11 rounded-xl">
+                className="w-full bg-linear-to-r from-primary to-orange-400 text-white font-semibold h-11 rounded-xl">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><span>Find my account</span><ArrowRight className="w-4 h-4 ml-2" /></>}
               </Button>
               <p className="text-center text-sm text-white/40">
@@ -407,7 +408,7 @@ function CompleteProfileContent() {
                   placeholder="Paste code from SMS link"
                   className="bg-[hsl(220_25%_11%)] border-white/10 text-white placeholder:text-white/20 focus:border-primary focus-visible:ring-0 h-10 rounded-xl flex-1 text-xs" />
                 <Button type="submit" disabled={loading || !manualToken.trim()}
-                  className="bg-gradient-to-r from-primary to-orange-400 text-white font-semibold h-10 px-4 rounded-xl text-sm shrink-0">
+                  className="bg-linear-to-r from-primary to-orange-400 text-white font-semibold h-10 px-4 rounded-xl text-sm shrink-0">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
                 </Button>
               </form>
@@ -463,7 +464,7 @@ function CompleteProfileContent() {
                       className="text-primary hover:text-primary/80 font-medium">Resend code</button>}
               </div>
               <Button type="submit" disabled={loading || otpCode.length !== 6}
-                className="w-full bg-gradient-to-r from-primary to-orange-400 text-white font-semibold h-11 rounded-xl">
+                className="w-full bg-linear-to-r from-primary to-orange-400 text-white font-semibold h-11 rounded-xl">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Continue"}
               </Button>
             </form>
@@ -482,7 +483,7 @@ function CompleteProfileContent() {
                 <p className="text-white/40 text-sm mt-1">Now complete your profile</p>
               </div>
             </div>
-            <CompletionForm tokenInfo={null} mobile={mobile} email={verifiedEmail} onDone={handleDone} />
+            <CompletionForm tokenInfo={null} mobile={mobile} email={verifiedEmail} otp={otpCode} onDone={handleDone} />
           </motion.div>
         )}
 

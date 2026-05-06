@@ -11,8 +11,8 @@ import {
   Smartphone, Apple, Play, ChevronRight, MapPin,
   Activity, Globe, Shield, Building2, AlertTriangle,
   UserCheck, Calendar, Banknote, IndianRupee, ShoppingBag, BrainCircuit, Rocket, Headphones,
+  Mail, MessageSquare, Send, Clock, CheckCircle2,
 } from "lucide-react"
-import { features } from "process"
 
 // ── Hooks ──────────────────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ function useMouseGlow() {
 
 // ── Data ───────────────────────────────────────────────────────────────────────
 
-const NAV_LINKS = ["Features", "How it Works", "App", "Pricing", "FAQ"]
+const NAV_LINKS = ["Features", "How it Works", "App", "Pricing", "FAQ", "Contact"]
 
 const FEATURES = [
   {
@@ -143,6 +143,18 @@ const FEATURES = [
     color: "#3b82f6",
   },
   {
+    icon: BrainCircuit, tag: "AI",
+    title: "AI Plan Generator",
+    desc: "Generate personalized workout and diet plans in seconds using Gemini AI. Members set goals and preferences — GymStack creates a full plan instantly.",
+    color: "#8b5cf6",
+  },
+  {
+    icon: Activity, tag: "Tracking",
+    title: "Diet & Workout Tracker",
+    desc: "Members log each meal and workout session daily. Track macros (protein, carbs, fat), weekly streaks, and workout completion — all from the app.",
+    color: "#10b981",
+  },
+  {
     icon: Smartphone, tag: "Mobile",
     title: "Native Mobile App",
     desc: "Full-featured Android & iOS app for owners, trainers, and members. Works offline, sends push notifications, and hot-reloads instantly.",
@@ -166,6 +178,7 @@ const ROLES = [
       "Supplement store & locker management",
       "Expense tracking & financial reports",
       "Push announcements to all members",
+      "AI-generated workout & diet plans for members",
     ],
   },
   {
@@ -178,6 +191,7 @@ const ROLES = [
       "View & manage your assigned members",
       "Build custom workout plans per member",
       "Design personalised meal & diet plans",
+      "Generate AI-powered plans for members",
       "Track member progress over time",
       "View attendance & check-in history",
       "Receive notifications & gym updates",
@@ -195,11 +209,12 @@ const ROLES = [
       "Personal dashboard with live stats",
       "Day-by-day workout plans on mobile",
       "Meal-by-meal diet plans & nutrition",
+      "AI-powered personalised plan generation",
+      "Daily meal & workout logging",
+      "Macro tracking (protein, carbs, fat)",
       "Attendance & payment history",
       "Membership expiry alerts",
-      // "Wallet credits & referral rewards",
       "Gym announcements & notifications",
-      "Discover & join new gyms nearby",
     ],
   },
 ]
@@ -326,6 +341,14 @@ const FAQS = [
   {
     q: "Can I track gym expenses and generate a balance sheet?",
     a: "Yes. The built-in expense tracker lets you categorise and log all gym costs. Combined with payment data, you get a full revenue vs expense balance sheet.",
+  },
+  {
+    q: "How does the AI Plan Generator work?",
+    a: "Members on the Enterprise platform plan, or with an active AI Credits subscription, can generate fully personalised workout and diet plans using Gemini AI. They enter their goals, fitness level, dietary preferences, and health notes — GymStack creates a complete plan in seconds. Plans can be edited or regenerated within a 2-hour free window.",
+  },
+  {
+    q: "Can members track their daily diet and workout progress?",
+    a: "Yes. Members can log each meal from their assigned diet plan and track daily macros (protein, carbs, fat, calories). Workout sessions can be logged individually per exercise. The dashboard shows today's progress, weekly streaks, and recent session history — all visible to trainers and owners too.",
   },
 ]
 
@@ -518,6 +541,175 @@ function FeatureCard({ icon: Icon, title, desc, tag, color, index, inView }: {
   )
 }
 
+// ── Contact section ────────────────────────────────────────────────────────────
+
+const CONTACT_TOPICS = ["General Inquiry", "Technical Support", "Billing & Payments", "Partnership", "Feature Request", "Other"]
+
+function ContactSection() {
+  const { ref, inView } = useInView(0.1)
+  const [form, setForm] = useState({ name: "", email: "", topic: "", message: "" })
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+
+  function update(field: string, value: string) {
+    setForm(f => ({ ...f, [field]: value }))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (status === "loading") return
+    setStatus("loading")
+    try {
+      const res = await fetch("/api/contact", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(form),
+      })
+      if (res.ok) {
+        setStatus("success")
+        setForm({ name: "", email: "", topic: "", message: "" })
+      } else {
+        setStatus("error")
+      }
+    } catch {
+      setStatus("error")
+    }
+  }
+
+  const inputClass = "w-full bg-white/4 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/25 focus:outline-none focus:border-[#f97316]/50 focus:bg-white/6 transition-all"
+
+  return (
+    <section id="contact" ref={ref} className="py-32 px-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-14"
+          style={{ opacity: inView ? 1 : 0, transform: inView ? "translateY(0)" : "translateY(24px)", transition: "opacity 0.5s ease, transform 0.5s ease" }}>
+          <SectionLabel>Get in touch</SectionLabel>
+          <h2 className="font-display text-4xl md:text-5xl font-bold mb-4" style={{ letterSpacing: "-0.03em" }}>
+            Have questions? We're here.
+          </h2>
+          <p className="text-white/45 text-lg">Our team typically responds within 24 hours.</p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8 lg:gap-12"
+          style={{ opacity: inView ? 1 : 0, transform: inView ? "translateY(0)" : "translateY(24px)", transition: "opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s" }}>
+
+          {/* ── Left: contact info ── */}
+          <div className="md:col-span-3 space-y-4">
+            <div className="rounded-2xl border border-white/8 bg-white/2 p-6">
+              <div className="w-10 h-10 rounded-xl bg-[#f97316]/15 flex items-center justify-center mb-4">
+                <Mail className="w-5 h-5 text-[#f97316]" />
+              </div>
+              <h3 className="text-white font-bold mb-1">Email us</h3>
+              <p className="text-white/40 text-sm mb-3">Send us a message any time.</p>
+              <a href="mailto:contact@gymstack.co.in"
+                className="text-[#f97316] text-sm font-semibold hover:text-orange-400 transition-colors break-all">
+                contact@gymstack.co.in
+              </a>
+            </div>
+
+            <div className="rounded-2xl border border-white/8 bg-white/2 p-6">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center mb-4">
+                <Clock className="w-5 h-5 text-blue-400" />
+              </div>
+              <h3 className="text-white font-bold mb-1">Response time</h3>
+              <p className="text-white/40 text-sm">Mon – Sat, 9 AM – 7 PM IST</p>
+              <p className="text-white/40 text-sm mt-1">Usually within 24 hours.</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/8 bg-white/2 p-6">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-4">
+                <MessageSquare className="w-5 h-5 text-emerald-400" />
+              </div>
+              <h3 className="text-white font-bold mb-1">What to include</h3>
+              <ul className="text-white/40 text-sm space-y-1 mt-2">
+                <li>• Your gym name (if applicable)</li>
+                <li>• Description of your query</li>
+                <li>• Screenshots if reporting a bug</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* ── Right: form ── */}
+          <form onSubmit={handleSubmit} className="md:col-span-3 rounded-2xl border border-white/8 bg-white/2 p-8 space-y-5">
+            {status === "success" ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                </div>
+                <h3 className="text-white font-bold text-xl">Message sent!</h3>
+                <p className="text-white/45 text-sm max-w-xs">
+                  Thanks for reaching out. We'll get back to you at your email within 24 hours.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setStatus("idle")}
+                  className="text-[#f97316] text-sm font-semibold hover:text-orange-400 transition-colors mt-2">
+                  Send another message
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-2 block">Name</label>
+                    <input
+                      type="text" required value={form.name} onChange={e => update("name", e.target.value)}
+                      placeholder="Your full name" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-2 block">Email</label>
+                    <input
+                      type="email" required value={form.email} onChange={e => update("email", e.target.value)}
+                      placeholder="you@example.com" className={inputClass} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-2 block">Topic</label>
+                  <select
+                    value={form.topic} onChange={e => update("topic", e.target.value)}
+                    className={`${inputClass} cursor-pointer`}
+                    style={{ colorScheme: "dark" }}>
+                    <option value="">Select a topic…</option>
+                    {CONTACT_TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-2 block">Message</label>
+                  <textarea
+                    required rows={5} value={form.message} onChange={e => update("message", e.target.value)}
+                    placeholder="Describe your question or issue…"
+                    className={`${inputClass} resize-none`} />
+                </div>
+
+                {status === "error" && (
+                  <p className="text-red-400 text-sm">Something went wrong. Please try again or email us directly.</p>
+                )}
+
+                <button
+                  type="submit" disabled={status === "loading"}
+                  className="w-full flex items-center justify-center gap-2.5 bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-orange-500/25">
+                  {status === "loading" ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send Message
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+          </form>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
@@ -587,7 +779,7 @@ export default function LandingPage() {
 
           <p className="animate-slide-up mt-6 text-white/50 leading-relaxed max-w-2xl mx-auto"
             style={{ animationDelay: "200ms", fontSize: "clamp(1rem, 2vw, 1.2rem)" }}>
-            Members, trainers, workouts, nutrition, billing, expenses, lockers, supplements and analytics —
+            Members, trainers, workouts, nutrition, AI-powered plans, diet & workout tracking, billing, expenses, lockers, supplements and analytics —
             unified in one powerful platform with a native mobile app for everyone.
           </p>
 
@@ -613,14 +805,16 @@ export default function LandingPage() {
           {/* Feature tags row */}
           <div className="animate-fade-in mt-14 flex flex-wrap justify-center gap-2" style={{ animationDelay: "500ms" }}>
             {[
-              { icon: Users,         label: "Member CRM"       },
-              { icon: ClipboardList, label: "Workout Plans"     },
-              { icon: UtensilsCrossed, label: "Diet Plans"      },
-              { icon: CreditCard,    label: "Payments"          },
-              { icon: Bell,          label: "Push Notifications"},
-              { icon: BarChart3,     label: "Analytics"         },
-              { icon: Lock,          label: "Locker Mgmt"       },
-              { icon: Package,       label: "Supplements"       },
+              { icon: Users,           label: "Member CRM"        },
+              { icon: ClipboardList,   label: "Workout Plans"      },
+              { icon: UtensilsCrossed, label: "Diet Plans"         },
+              { icon: BrainCircuit,    label: "AI Plans"           },
+              { icon: Activity,        label: "Progress Tracker"   },
+              { icon: CreditCard,      label: "Payments"           },
+              { icon: Bell,            label: "Push Notifications" },
+              { icon: BarChart3,       label: "Analytics"          },
+              { icon: Lock,            label: "Locker Mgmt"        },
+              { icon: Package,         label: "Supplements"        },
             ].map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-center gap-2 bg-white/4 border border-white/8 rounded-full px-4 py-2 text-xs text-white/55 hover:text-white/80 hover:border-white/16 transition-all">
                 <Icon className="w-3.5 h-3.5 text-[#f97316]" />
@@ -1108,6 +1302,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── CONTACT ─────────────────────────────────────────────────────────── */}
+      <ContactSection />
+
       {/* ── CTA BANNER ──────────────────────────────────────────────────────── */}
       <section className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
@@ -1156,7 +1353,7 @@ export default function LandingPage() {
       <footer className="border-t border-white/5 py-16 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-4 gap-10 mb-12">
-            <div className="md:col-span-2">
+            <div className="md:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
                 <img src="../logo.png" alt="Logo" className="w-15 h-15"/>
               </div>
@@ -1181,13 +1378,29 @@ export default function LandingPage() {
             </div>
 
             <div>
+              <h4 className="text-white/60 text-xs font-bold uppercase tracking-wider mb-4">Support</h4>
+              <ul className="space-y-2.5">
+                <li>
+                  <a href="#contact" className="text-sm text-white/35 hover:text-white/70 transition-colors">Contact Us</a>
+                </li>
+                <li>
+                  <a href="mailto:contact@gymstack.co.in" className="text-sm text-white/35 hover:text-white/70 transition-colors">
+                    contact@gymstack.co.in
+                  </a>
+                </li>
+                <li>
+                  <a href="#faq" className="text-sm text-white/35 hover:text-white/70 transition-colors">FAQ</a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
               <h4 className="text-white/60 text-xs font-bold uppercase tracking-wider mb-4">Legal</h4>
               <ul className="space-y-2.5">
                 {[
                   { label: "Privacy Policy", href: "/legal/privacy" },
                   { label: "Terms of Service", href: "/legal/terms" },
                   { label: "Cookie Policy", href: "/legal/cookies" },
-                  { label: "Contact", href: "/legal/contact" },
                 ].map(item => (
                   <li key={item.label}>
                     <Link href={item.href} className="text-sm text-white/35 hover:text-white/70 transition-colors">{item.label}</Link>
@@ -1198,7 +1411,7 @@ export default function LandingPage() {
           </div>
 
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-white/20 text-sm">© 2025 GymStack. All rights reserved.</p>
+            <p className="text-white/20 text-sm">© 2026 GymStack. All rights reserved.</p>
             <div className="flex items-center gap-2 text-white/20 text-xs">
               <MapPin className="w-3 h-3" />
               Made in India

@@ -8,30 +8,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
+import { sendOtpEmail } from "@/lib/email"
 
 async function hashOtp(otp: string): Promise<string> {
   return crypto.createHash("sha256").update(otp).digest("hex")
-}
-
-async function sendOtpEmail(email: string, otp: string, name: string): Promise<void> {
-  if (process.env.NODE_ENV !== "production") {
-    console.log(`\n📧 Profile-completion OTP for ${name} (${email}): ${otp}\n`)
-    return
-  }
-  // Reuse the same email infra as send-otp
-  try {
-    const { Resend } = await import("resend")
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    await resend.emails.send({
-      from:    process.env.EMAIL_FROM ?? "GymStack <noreply@gymstack.app>",
-      to:      email,
-      subject: "Your GymStack verification code",
-      html:    `<p>Hi ${name.split(" ")[0]},</p><p>Your verification code is: <strong style="font-size:24px">${otp}</strong></p><p>This code expires in 10 minutes.</p>`,
-    })
-  } catch (err) {
-    console.error("[OTP email] Failed:", err)
-    throw new Error("Failed to send email")
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -77,7 +57,7 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await sendOtpEmail(email.trim(), otp, profile.fullName)
+  await sendOtpEmail({ to: email.trim(), fullName: profile.fullName, otp })
 
   return NextResponse.json({ success: true, profileId: profile.id })
 }

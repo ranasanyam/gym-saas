@@ -6,6 +6,8 @@ import { getPlanBySlug } from "@/lib/memberAISubscriptionPlans"
 import crypto from "crypto"
 import { addMonths } from "date-fns"
 import { sendPushToProfile } from "@/lib/push"
+import { sendAdminSubscriptionNotification } from "@/lib/email"
+
 export const runtime = "nodejs"
 
 function verifySignature(orderId: string, paymentId: string, signature: string): boolean {
@@ -67,6 +69,18 @@ export async function POST(req: NextRequest) {
       },
     })
   })
+
+  // ── Admin notification (fire-and-forget) ─────────────────────────────────
+  prisma.profile.findUnique({ where: { id: profileId }, select: { fullName: true, email: true } })
+    .then(profile => sendAdminSubscriptionNotification({
+      subscriberName:   profile?.fullName ?? "Unknown Member",
+      subscriberEmail:  profile?.email    ?? undefined,
+      planName:         `${plan.name} AI Credits (${plan.credits} credits)`,
+      planAmount:       String(plan.price),
+      role:             "Member",
+      subscriptionType: "AI Plan Subscription",
+    }))
+    .catch(() => {})
 
   // Notify member about their new AI subscription
   await Promise.allSettled([
