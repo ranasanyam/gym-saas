@@ -422,7 +422,7 @@ function WorkoutTrackerSection({
           onClick={onAIClick}
           className="inline-flex items-center gap-2 bg-purple-500/15 text-purple-400 border border-purple-500/25 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-purple-500/20 transition-colors"
         >
-          <Zap className="w-4 h-4" /> Generate AI Workout Plan (₹300)
+          <Zap className="w-4 h-4" /> Generate AI Workout Plan
         </button>
       </div>
     )
