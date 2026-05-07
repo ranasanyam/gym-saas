@@ -14,11 +14,12 @@ import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import Razorpay from "razorpay"
 
-// Maps our plan intervals to Razorpay subscription periods
-const INTERVAL_MAP: Record<string, { period: string; interval: number }> = {
-    QUARTERLY:   { period: "quarterly", interval: 1 }, // every 3 months
-    HALF_YEARLY: { period: "monthly",   interval: 6 }, // every 6 months
-    YEARLY:      { period: "yearly",    interval: 1 }, // every 12 months
+// Maps our plan intervals to Razorpay subscription periods.
+// maxCount caps autopay at 10 years per interval.
+const INTERVAL_MAP: Record<string, { period: string; interval: number; maxCount: number }> = {
+    QUARTERLY:   { period: "monthly",   interval: 3, maxCount: 40 }, // 4/yr × 10 yrs
+    HALF_YEARLY: { period: "monthly",   interval: 6, maxCount: 20 }, // 2/yr × 10 yrs
+    YEARLY:      { period: "yearly",    interval: 1, maxCount: 10 }, // 1/yr × 10 yrs
 }
 
 export const runtime = "nodejs"
@@ -72,11 +73,10 @@ export async function POST(req: NextRequest) {
             },
         })
 
-        // Step 2: Create a Razorpay Subscription against that plan
-        // total_count: 100 = Razorpay maximum (25 yrs quarterly / 8 yrs yearly)
+        // Step 2: Create a Razorpay Subscription against that plan (capped at 10 years)
         const rzpSub = await (rzp.subscriptions as any).create({
             plan_id:         rzpPlan.id,
-            total_count:     100,
+            total_count:     mapping.maxCount,
             quantity:        1,
             customer_notify: 1,
             notes: {
