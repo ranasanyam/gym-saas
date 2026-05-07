@@ -19,6 +19,9 @@ import crypto from "crypto"
 import { addMonths } from "date-fns"
 import { sendPushToProfile } from "@/lib/push"
 import { sendSaasPaymentReceiptEmail, sendAdminSubscriptionNotification } from "@/lib/email"
+
+// const REFERRAL_REWARD    = 100
+// const CREDIT_EXPIRY_DAYS = 90
 const INTERVAL_MONTHS: Record<string, number | null> = {
     MONTHLY:     1,
     QUARTERLY:   3,
@@ -57,23 +60,32 @@ export async function POST(req: NextRequest) {
 
     const isPaid = Number(plan.price) > 0
 
-    // ── Signature verification ────────────────────────────────────────────────
+    // ── Signature verification (mandatory for all paid plans) ────────────────
     if (isPaid) {
         if (!razorpayPaymentId) {
             return NextResponse.json({ error: "Payment details missing" }, { status: 400 })
         }
-        if (razorpaySignature) {
-            let valid = false
-            if (razorpaySubscriptionId) {
-                // Subscription flow: HMAC(paymentId|subscriptionId)
-                valid = hmac(razorpayPaymentId, razorpaySubscriptionId) === razorpaySignature
-            } else if (razorpayOrderId) {
-                // Order flow: HMAC(orderId|paymentId)
-                valid = hmac(razorpayOrderId, razorpayPaymentId) === razorpaySignature
-            }
-            if (!valid) {
-                return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
-            }
+        if (!razorpaySignature) {
+            return NextResponse.json({ error: "Payment signature required" }, { status: 400 })
+        }
+        let valid = false
+        if (razorpaySubscriptionId) {
+            // Subscription flow: HMAC(paymentId|subscriptionId)
+            valid = hmac(razorpayPaymentId, razorpaySubscriptionId) === razorpaySignature
+        } else if (razorpayOrderId) {
+            // Order flow: HMAC(orderId|paymentId)
+            valid = hmac(razorpayOrderId, razorpayPaymentId) === razorpaySignature
+        }
+        if (!valid) {
+            return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
+        }
+
+        // ── Replay attack prevention: reject already-processed payment IDs ──
+        const existingPayment = await prisma.saasPayment.findFirst({
+            where: { razorpayPaymentId },
+        })
+        if (existingPayment) {
+            return NextResponse.json({ error: "Payment already processed" }, { status: 409 })
         }
     }
 
@@ -178,5 +190,62 @@ export async function POST(req: NextRequest) {
         ])
       }).catch(() => {})
   }
+    // ── Referral conversion — disabled, referral feature removed for now ─────
+    // if (isPaid) {
+    //     ;(async () => {
+    //         try {
+    //             const referral = await prisma.referral.findFirst({
+    //                 where:   { referredId: profileId, status: "PENDING" },
+    //                 include: {
+    //                     referrer: { select: { id: true, wallet: { select: { id: true, balance: true } } } },
+    //                 },
+    //             })
+    //             if (!referral) return
+    //             if (referral.expiresAt && referral.expiresAt < new Date()) {
+    //                 await prisma.referral.update({ where: { id: referral.id }, data: { status: "EXPIRED" } })
+    //                 return
+    //             }
+    //             const wallet = referral.referrer.wallet
+    //             if (!wallet) return
+    //             const newBalance   = Number(wallet.balance) + REFERRAL_REWARD
+    //             const creditExpiry = new Date(Date.now() + CREDIT_EXPIRY_DAYS * 86_400_000)
+    //             await prisma.$transaction([
+    //                 prisma.referral.update({
+    //                     where: { id: referral.id },
+    //                     data:  { status: "CONVERTED", rewardAmount: REFERRAL_REWARD, rewardCreditedAt: new Date(), triggerPaymentId: payment.id },
+    //                 }),
+    //                 prisma.wallet.update({ where: { id: wallet.id }, data: { balance: newBalance } }),
+    //                 prisma.walletTransaction.create({
+    //                     data: {
+    //                         walletId:    wallet.id,
+    //                         type:        "CREDIT_REFERRAL",
+    //                         amount:      REFERRAL_REWARD,
+    //                         balanceAfter: newBalance,
+    //                         description: "Referral reward — your referral subscribed to GymStack!",
+    //                         referenceId: referral.id,
+    //                         expiresAt:   creditExpiry,
+    //                     },
+    //                 }),
+    //                 prisma.notification.create({
+    //                     data: {
+    //                         profileId: referral.referrerId,
+    //                         title:     "🎉 Referral Reward Earned!",
+    //                         message:   `Someone you referred just subscribed to GymStack! ₹${REFERRAL_REWARD} has been added to your wallet (valid 90 days).`,
+    //                         type:      "REFERRAL",
+    //                     },
+    //                 }),
+    //             ])
+    //             sendPushToProfile(referral.referrerId, {
+    //                 title: `🎉 You earned ₹${REFERRAL_REWARD}!`,
+    //                 body:  "Someone you referred just subscribed to GymStack. Check your wallet!",
+    //                 url:   "/member/referral",
+    //                 tag:   "referral-reward",
+    //             }).catch(() => {})
+    //         } catch (err) {
+    //             console.error("[subscribe] referral conversion failed:", err)
+    //         }
+    //     })()
+    // }
+
     return NextResponse.json({ subscription, payment })
 }
