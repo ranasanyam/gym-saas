@@ -45,6 +45,7 @@ export default function MembershipPlansPage() {
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmToggleId, setConfirmToggleId] = useState<string | null>(null)
+  const [confirmDeletePlan, setConfirmDeletePlan] = useState<Plan | null>(null)
   const [form, setForm] = useState(blankForm)
   const [showInactive, setShowInactive] = useState(false)
 
@@ -128,7 +129,7 @@ export default function MembershipPlansPage() {
   }
 
   const deletePlan = async (plan: Plan) => {
-    if (!confirm(`Permanently delete "${plan.name}"? This cannot be undone.`)) return
+    setConfirmDeletePlan(null)
     setDeletingId(plan.id)
     const res = await fetch(`/api/owner/plans/${plan.id}`, { method: "DELETE" })
     if (res.ok) {
@@ -263,7 +264,7 @@ export default function MembershipPlansPage() {
               colorClass={PLAN_COLORS[i % PLAN_COLORS.length]}
               onEdit={() => openEdit(plan)}
               onToggle={() => setConfirmToggleId(plan.id)}
-              onDelete={() => deletePlan(plan)}
+              onDelete={() => setConfirmDeletePlan(plan)}
               isToggling={deletingId === plan.id}
             />
           ))}
@@ -304,6 +305,28 @@ export default function MembershipPlansPage() {
         )
       })()}
 
+      {/* Delete confirm modal */}
+      {confirmDeletePlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[hsl(220_25%_9%)] border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-white font-semibold text-base">Delete Plan?</h3>
+            <p className="text-white/50 text-sm">
+              Permanently delete <span className="text-white font-medium">"{confirmDeletePlan.name}"</span>? This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDeletePlan(null)}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white text-sm transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => deletePlan(confirmDeletePlan)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-red-500/15 border border-red-500/20 text-red-400 hover:bg-red-500/25 transition-colors">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {inactivePlans.length > 0 && (
         <div>
           <button onClick={() => setShowInactive(p => !p)}
@@ -320,7 +343,7 @@ export default function MembershipPlansPage() {
                   colorClass="from-white/5 to-transparent border-white/10"
                   onEdit={() => openEdit(plan)}
                   onToggle={() => setConfirmToggleId(plan.id)}
-                  onDelete={() => deletePlan(plan)}
+                  onDelete={() => setConfirmDeletePlan(plan)}
                   isToggling={deletingId === plan.id}
                 />
               ))}

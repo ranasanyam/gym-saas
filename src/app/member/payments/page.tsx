@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { CreditCard, CheckCircle2, XCircle, Clock, IndianRupee, Download, Loader2 } from "lucide-react"
 import { useMemberGym } from "@/contexts/MemberGymContext"
 import { NoGymState } from "@/components/member/NoGymState"
+import { useToast } from "@/hooks/use-toast"
 
 const STATUS_STYLE: Record<string, string> = {
   COMPLETED: "bg-green-500/15 text-green-400",
@@ -18,6 +19,7 @@ const STATUS_ICON: Record<string, typeof CheckCircle2> = {
 }
 
 export default function MemberPaymentsPage() {
+  const { toast } = useToast()
   const { hasGym, gymLoading }    = useMemberGym()
   const [payments, setPayments]   = useState<any[]>([])
   const [total, setTotal]         = useState(0)
@@ -62,7 +64,7 @@ export default function MemberPaymentsPage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch {
-      alert("Could not generate invoice. Please try again.")
+      toast({ variant: "destructive", title: "Could not generate invoice", description: "Please try again." })
     } finally {
       setDownloading(null)
     }

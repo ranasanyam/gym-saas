@@ -58,6 +58,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Plan not found or inactive" }, { status: 404 })
     }
 
+    // Block plan changes while an active subscription exists
+    const activeSub = await prisma.saasSubscription.findFirst({
+        where: { profileId, status: { in: ["ACTIVE", "TRIALING", "LIFETIME"] } },
+    })
+    if (activeSub) {
+        return NextResponse.json(
+            { error: "You already have an active subscription. Plan changes are not available while your subscription is active.", code: "PLAN_CHANGE_BLOCKED" },
+            { status: 409 }
+        )
+    }
+
     const isPaid = Number(plan.price) > 0
 
     // ── Signature verification (mandatory for all paid plans) ────────────────

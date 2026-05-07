@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Sparkles, Zap, CheckCircle2, Crown, Loader2, History, UtensilsCrossed, Dumbbell, ChevronRight } from "lucide-react"
+import { Sparkles, Zap, CheckCircle2, Crown, Loader2, History, UtensilsCrossed, Dumbbell, ChevronRight, Lock } from "lucide-react"
 import type { MemberAIPlan } from "@/lib/memberAISubscriptionPlans"
+import { useToast } from "@/hooks/use-toast"
 
 declare global {
   interface Window { Razorpay: any }
@@ -48,6 +49,7 @@ function loadRazorpay(): Promise<boolean> {
 }
 
 export default function MemberPlansPage() {
+  const { toast } = useToast()
   const [plans, setPlans]         = useState<MemberAIPlan[]>([])
   const [status, setStatus]       = useState<SubStatus | null>(null)
   const [history, setHistory]     = useState<HistoryItem[]>([])
@@ -76,7 +78,7 @@ export default function MemberPlansPage() {
     setPurchasing(plan.slug)
     try {
       const loaded = await loadRazorpay()
-      if (!loaded) { alert("Failed to load payment gateway."); return }
+      if (!loaded) { toast({ variant: "destructive", title: "Failed to load payment gateway." }); return }
 
       const orderRes = await fetch("/api/member/ai-subscription/create-order", {
         method:  "POST",
@@ -84,7 +86,7 @@ export default function MemberPlansPage() {
         body:    JSON.stringify({ planSlug: plan.slug }),
       })
       const order = await orderRes.json()
-      if (!orderRes.ok) { alert(order.error ?? "Failed to create order"); return }
+      if (!orderRes.ok) { toast({ variant: "destructive", title: order.error ?? "Failed to create order" }); return }
 
       await new Promise<void>((resolve, reject) => {
         const rzp = new window.Razorpay({
@@ -116,7 +118,7 @@ export default function MemberPlansPage() {
         rzp.open()
       })
     } catch (err: any) {
-      if (err?.message !== "Payment cancelled") alert(err?.message ?? "Payment failed")
+      if (err?.message !== "Payment cancelled") toast({ variant: "destructive", title: err?.message ?? "Payment failed" })
     } finally {
       setPurchasing(null)
     }
@@ -172,13 +174,22 @@ export default function MemberPlansPage() {
 
       {/* Subscription plans */}
       <div>
-        <h3 className="text-white font-semibold mb-4">
-          {sub?.hasSubscription ? "Upgrade or Renew" : "Choose a Plan"}
-        </h3>
+        <div className="mb-4">
+          <h3 className="text-white font-semibold">
+            {sub?.hasSubscription ? "Active Subscription" : "Choose a Plan"}
+          </h3>
+          {sub?.hasSubscription && (
+            <p className="text-white/35 text-xs mt-1 flex items-center gap-1.5">
+              <Lock className="w-3 h-3 shrink-0" />
+              Plan changes are not available while your subscription is active.
+            </p>
+          )}
+        </div>
         <div className="grid sm:grid-cols-3 gap-4">
           {plans.map(plan => {
             const colors = PLAN_COLORS[plan.slug] ?? PLAN_COLORS.basic
             const isCurrent = sub?.hasSubscription && sub.planSlug === plan.slug
+            const isLocked  = sub?.hasSubscription && !isCurrent
             return (
               <div key={plan.slug} className={`relative flex flex-col ${colors.bg} border ${colors.border} rounded-2xl p-5`}>
                 {plan.badge && (
@@ -205,6 +216,10 @@ export default function MemberPlansPage() {
                 {isCurrent ? (
                   <div className={`text-center text-xs font-semibold py-2 rounded-xl ${colors.badge} ${colors.text}`}>
                     Current Plan
+                  </div>
+                ) : isLocked ? (
+                  <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold bg-white/3 border border-white/8 text-white/25 cursor-not-allowed">
+                    <Lock className="w-3.5 h-3.5" /> Plan Locked
                   </div>
                 ) : (
                   <button

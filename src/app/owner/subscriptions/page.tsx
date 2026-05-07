@@ -301,38 +301,46 @@ export default function SubscriptionsPage() {
 
       {/* ── Current subscription banner ───────────────────────────────── */}
       {dbSub && (
-        <div className={`border rounded-2xl px-5 py-4 flex items-center justify-between flex-wrap gap-3 ${
-          sub.isExpired ? "bg-red-500/8 border-red-500/20" : "bg-primary/8 border-primary/20"
-        }`}>
-          <div className="flex items-center gap-3">
-            {sub.isExpired
-              ? <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-              : <Crown className="w-4 h-4 text-primary shrink-0" />
-            }
-            <div>
-              <p className="text-white text-sm font-semibold">
-                Current Plan: {dbSub?.planName}
-              </p>
-              <p className="text-white/40 text-xs mt-0.5">
-                <span className={`capitalize font-medium ${sub.isExpired ? "text-red-400" : "text-primary"}`}>
-                  {dbSub?.status?.toLowerCase()}
-                </span>
-                {dbSub.currentPeriodEnd && !sub.isExpired && (
-                  <> · Renews {new Date(dbSub.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</>
-                )}
-                {dbSub.currentPeriodEnd && sub.isExpired && (
-                  <> · Expired {new Date(dbSub.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</>
-                )}
-              </p>
-            </div>
-          </div>
-          <span className={`text-xs px-3 py-1.5 rounded-full border font-medium ${
-            sub.isExpired
-              ? "bg-red-500/15 text-red-400 border-red-500/25"
-              : "bg-primary/15 text-primary border-primary/25"
+        <div className="space-y-2">
+          <div className={`border rounded-2xl px-5 py-4 flex items-center justify-between flex-wrap gap-3 ${
+            sub.isExpired ? "bg-red-500/8 border-red-500/20" : "bg-primary/8 border-primary/20"
           }`}>
-            {sub.isExpired ? "Expired" : "Active"}
-          </span>
+            <div className="flex items-center gap-3">
+              {sub.isExpired
+                ? <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                : <Crown className="w-4 h-4 text-primary shrink-0" />
+              }
+              <div>
+                <p className="text-white text-sm font-semibold">
+                  Current Plan: {dbSub?.planName}
+                </p>
+                <p className="text-white/40 text-xs mt-0.5">
+                  <span className={`capitalize font-medium ${sub.isExpired ? "text-red-400" : "text-primary"}`}>
+                    {dbSub?.status?.toLowerCase()}
+                  </span>
+                  {dbSub.currentPeriodEnd && !sub.isExpired && (
+                    <> · Renews {new Date(dbSub.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</>
+                  )}
+                  {dbSub.currentPeriodEnd && sub.isExpired && (
+                    <> · Expired {new Date(dbSub.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</>
+                  )}
+                </p>
+              </div>
+            </div>
+            <span className={`text-xs px-3 py-1.5 rounded-full border font-medium ${
+              sub.isExpired
+                ? "bg-red-500/15 text-red-400 border-red-500/25"
+                : "bg-primary/15 text-primary border-primary/25"
+            }`}>
+              {sub.isExpired ? "Expired" : "Active"}
+            </span>
+          </div>
+          {isActiveSub && (
+            <p className="text-white/35 text-xs flex items-center gap-1.5 px-1">
+              <LockIcon className="w-3 h-3 text-white/30 shrink-0" />
+              Plan changes are not available while your subscription is active.
+            </p>
+          )}
         </div>
       )}
 
@@ -436,6 +444,7 @@ export default function SubscriptionsPage() {
           const purchaseKey      = `${tier.key}-${selectedInterval}`
           const isBuying         = purchasing === purchaseKey
           const isPopular        = tier.key === "pro"
+          const isLocked         = isActiveSub && !current
 
           return (
             <div
@@ -527,7 +536,7 @@ export default function SubscriptionsPage() {
                 </ul>
 
                 {/* Autopay badge */}
-                {!current && (
+                {!current && !isLocked && (
                   <p className="text-white/30 text-[10px] text-center -mb-1 flex items-center justify-center gap-1">
                     <Zap className="w-3 h-3 text-green-500/60" />
                     Auto-renews via UPI AutoPay / e-Mandate
@@ -536,22 +545,26 @@ export default function SubscriptionsPage() {
 
                 {/* CTA */}
                 <button
-                  onClick={() => !current && !isBuying && purchase(tier, selectedInterval)}
-                  disabled={current || isBuying}
+                  onClick={() => !current && !isBuying && !isLocked && purchase(tier, selectedInterval)}
+                  disabled={current || isBuying || isLocked}
                   className={`w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                     current
                       ? "bg-white/5 text-white/30 cursor-not-allowed"
-                      : isPopular
-                        ? "bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 shadow-lg shadow-primary/20"
-                        : tier.key === "enterprise"
-                          ? "bg-purple-500 text-white hover:opacity-90"
-                          : "bg-white/8 hover:bg-white/15 text-white border border-white/10"
+                      : isLocked
+                        ? "bg-white/3 text-white/25 cursor-not-allowed border border-white/6"
+                        : isPopular
+                          ? "bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 shadow-lg shadow-primary/20"
+                          : tier.key === "enterprise"
+                            ? "bg-purple-500 text-white hover:opacity-90"
+                            : "bg-white/8 hover:bg-white/15 text-white border border-white/10"
                   }`}
                 >
                   {isBuying ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : current ? (
                     "Current Plan"
+                  ) : isLocked ? (
+                    <><LockIcon className="w-4 h-4" /> Plan Locked</>
                   ) : (
                     <><Zap className="w-4 h-4" /> Subscribe — ₹{price.toLocaleString("en-IN")}</>
                   )}

@@ -39,6 +39,17 @@ export async function POST(req: NextRequest) {
   const plan = getTrainerPlan(planSlug)
   if (!plan) return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
 
+  // Block plan changes while an active subscription exists
+  const activeSub = await prisma.trainerSubscription.findFirst({
+    where: { profileId, status: "ACTIVE", endDate: { gt: new Date() } },
+  })
+  if (activeSub) {
+    return NextResponse.json(
+      { error: "You already have an active subscription. Plan changes are not available while your subscription is active.", code: "PLAN_CHANGE_BLOCKED" },
+      { status: 409 }
+    )
+  }
+
   if (razorpaySignature) {
     const valid = verifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)
     if (!valid) return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
