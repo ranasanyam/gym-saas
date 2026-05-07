@@ -120,12 +120,12 @@ export async function POST(req: NextRequest) {
         data: { profileId: newProfile.id, balance: 0 },
       })
 
-      // Auto-create referral code for this new user
+      // Auto-create referral code — retry up to 5 times to guarantee uniqueness
       let code = generateReferralCode(fullName)
-      // Ensure uniqueness
-      const codeExists = await tx.referralCode.findUnique({ where: { code } })
-      if (codeExists) {
-        code = `${code.slice(0, 5)}${Math.floor(100 + Math.random() * 900)}`
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const existing = await tx.referralCode.findUnique({ where: { code } })
+        if (!existing) break
+        code = generateReferralCode(fullName)
       }
       await tx.referralCode.create({
         data: { profileId: newProfile.id, code },

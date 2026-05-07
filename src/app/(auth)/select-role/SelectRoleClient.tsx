@@ -118,7 +118,7 @@ export default function SelectRoleClient() {
       >
         {/* Logo */}
         <div className="flex justify-center">
-          <img src="../../../../logo.png" alt="Logo" className="h-24 w-24" />
+          <img src="/logo.png" alt="Logo" className="h-24 w-24" />
         </div>
 
         {/* Heading */}

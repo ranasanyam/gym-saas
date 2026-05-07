@@ -29,7 +29,10 @@ const INTERVAL_MONTHS: Record<string, number> = {
 
 function verifyWebhookSignature(body: string, signature: string): boolean {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET
-    if (!secret) return true // skip verification in dev if secret not set
+    if (!secret) {
+        console.error("[webhook] RAZORPAY_WEBHOOK_SECRET is not set — rejecting all webhook calls")
+        return false
+    }
     const expected = crypto
         .createHmac("sha256", secret)
         .update(body)
