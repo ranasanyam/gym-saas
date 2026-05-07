@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { Sparkles, Zap, CheckCircle2, Crown, Loader2, History, UtensilsCrossed, Dumbbell, ChevronRight, Lock } from "lucide-react"
 import type { MemberAIPlan } from "@/lib/memberAISubscriptionPlans"
+import { useToast } from "@/hooks/use-toast"
 
 declare global {
   interface Window { Razorpay: any }
@@ -48,6 +49,7 @@ function loadRazorpay(): Promise<boolean> {
 }
 
 export default function MemberPlansPage() {
+  const { toast } = useToast()
   const [plans, setPlans]         = useState<MemberAIPlan[]>([])
   const [status, setStatus]       = useState<SubStatus | null>(null)
   const [history, setHistory]     = useState<HistoryItem[]>([])
@@ -76,7 +78,7 @@ export default function MemberPlansPage() {
     setPurchasing(plan.slug)
     try {
       const loaded = await loadRazorpay()
-      if (!loaded) { alert("Failed to load payment gateway."); return }
+      if (!loaded) { toast({ variant: "destructive", title: "Failed to load payment gateway." }); return }
 
       const orderRes = await fetch("/api/member/ai-subscription/create-order", {
         method:  "POST",
@@ -84,7 +86,7 @@ export default function MemberPlansPage() {
         body:    JSON.stringify({ planSlug: plan.slug }),
       })
       const order = await orderRes.json()
-      if (!orderRes.ok) { alert(order.error ?? "Failed to create order"); return }
+      if (!orderRes.ok) { toast({ variant: "destructive", title: order.error ?? "Failed to create order" }); return }
 
       await new Promise<void>((resolve, reject) => {
         const rzp = new window.Razorpay({
@@ -116,7 +118,7 @@ export default function MemberPlansPage() {
         rzp.open()
       })
     } catch (err: any) {
-      if (err?.message !== "Payment cancelled") alert(err?.message ?? "Payment failed")
+      if (err?.message !== "Payment cancelled") toast({ variant: "destructive", title: err?.message ?? "Payment failed" })
     } finally {
       setPurchasing(null)
     }

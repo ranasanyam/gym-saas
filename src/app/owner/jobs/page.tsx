@@ -234,6 +234,7 @@ export default function OwnerJobsPage() {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState("")
   const [deletingId, setDeletingId] = useState<string|null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string|null>(null)
 
   const load = useCallback(async () => {
     const [jobsRes, gymsRes] = await Promise.all([
@@ -331,7 +332,7 @@ export default function OwnerJobsPage() {
   }
 
   const handleDelete = async (jobId: string) => {
-    if (!confirm("Delete this job posting?")) return
+    setConfirmDeleteId(null)
     setDeletingId(jobId)
     await fetch(`/api/owner/jobs/${jobId}`, { method: "DELETE" })
     await load()
@@ -381,6 +382,26 @@ export default function OwnerJobsPage() {
           onSubmit={handleSubmit} onCancel={() => setShowForm(false)}
           saving={saving} mode={editId ? "edit" : "create"}
         />
+      )}
+
+      {/* Delete confirm modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[hsl(220_25%_9%)] border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-white font-semibold text-base">Delete Job Posting?</h3>
+            <p className="text-white/50 text-sm">This job posting will be permanently removed. This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white text-sm transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => handleDelete(confirmDeleteId)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-red-500/15 border border-red-500/20 text-red-400 hover:bg-red-500/25 transition-colors">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {!jobs.length ? (
@@ -442,7 +463,7 @@ export default function OwnerJobsPage() {
                     className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/8 transition-all">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => handleDelete(job.id)} disabled={deletingId === job.id}
+                  <button onClick={() => setConfirmDeleteId(job.id)} disabled={deletingId === job.id}
                     className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
                     {deletingId === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                   </button>

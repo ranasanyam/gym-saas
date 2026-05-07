@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { BadgeCheck, CheckCircle2, Crown, Loader2, Zap, Briefcase, Calendar, Lock } from "lucide-react"
 import type { TrainerPlan } from "@/lib/trainerSubscriptionPlans"
+import { useToast } from "@/hooks/use-toast"
 
 declare global {
   interface Window { Razorpay: any }
@@ -35,6 +36,7 @@ function loadRazorpay(): Promise<boolean> {
 }
 
 export default function TrainerSubscriptionPage() {
+  const { toast } = useToast()
   const [plans, setPlans]         = useState<TrainerPlan[]>([])
   const [status, setStatus]       = useState<SubStatus | null>(null)
   const [loading, setLoading]     = useState(true)
@@ -58,7 +60,7 @@ export default function TrainerSubscriptionPage() {
     setPurchasing(plan.slug)
     try {
       const loaded = await loadRazorpay()
-      if (!loaded) { alert("Failed to load payment gateway."); return }
+      if (!loaded) { toast({ variant: "destructive", title: "Failed to load payment gateway." }); return }
 
       const orderRes = await fetch("/api/trainer/subscription/create-order", {
         method:  "POST",
@@ -66,7 +68,7 @@ export default function TrainerSubscriptionPage() {
         body:    JSON.stringify({ planSlug: plan.slug }),
       })
       const order = await orderRes.json()
-      if (!orderRes.ok) { alert(order.error ?? "Failed to create order"); return }
+      if (!orderRes.ok) { toast({ variant: "destructive", title: order.error ?? "Failed to create order" }); return }
 
       await new Promise<void>((resolve, reject) => {
         const rzp = new window.Razorpay({
@@ -98,7 +100,7 @@ export default function TrainerSubscriptionPage() {
         rzp.open()
       })
     } catch (err: any) {
-      if (err?.message !== "Payment cancelled") alert(err?.message ?? "Payment failed")
+      if (err?.message !== "Payment cancelled") toast({ variant: "destructive", title: err?.message ?? "Payment failed" })
     } finally {
       setPurchasing(null)
     }
