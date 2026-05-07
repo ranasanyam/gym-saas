@@ -3,6 +3,7 @@ import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
 import { getTrainerPlan } from "@/lib/trainerSubscriptionPlans"
 import { sendPushToProfile } from "@/lib/push"
+import { sendSaasPaymentReceiptEmail, sendAdminSubscriptionNotification } from "@/lib/email"
 import crypto from "crypto"
 import { addDays } from "date-fns"
 
@@ -96,6 +97,32 @@ export async function POST(req: NextRequest) {
       tag:   "trainer-subscription-activated",
     }),
   ]).catch(() => {})
+
+  // ── Receipt email + admin notification (fire-and-forget) ─────────────────
+  prisma.profile.findUnique({ where: { id: profileId }, select: { fullName: true, email: true } })
+    .then(profile => {
+      if (!profile) return
+      const receiptNumber = `TR-${now.getFullYear()}-${subscription.id.slice(0, 8).toUpperCase()}`
+      return Promise.all([
+        sendSaasPaymentReceiptEmail({
+          to:                profile.email ?? "there",
+          fullName:          profile.fullName,
+          planName:          `${plan.name} Trainer Job Portal`,
+          amount:            plan.price,
+          paidAt:            now,
+          receiptNumber,
+          razorpayPaymentId: razorpayPaymentId ?? null,
+        }),
+        sendAdminSubscriptionNotification({
+          subscriberName:   profile.fullName,
+          subscriberEmail:  profile.email ?? undefined,
+          planName:         plan.name,
+          planAmount:       String(plan.price),
+          role:             "Trainer",
+          subscriptionType: "Job Portal Subscription",
+        }),
+      ])
+    }).catch(() => {})
 
   return NextResponse.json({ success: true, subscription })
 }

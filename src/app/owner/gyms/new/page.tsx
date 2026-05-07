@@ -24,6 +24,7 @@ export default function NewGymPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", pincode: "", contactNumber: "",
+    gstNumber: "", gstRegisteredName: "",
     services: [] as string[], facilities: [] as string[],
   })
 
@@ -45,7 +46,7 @@ export default function NewGymPage() {
     try {
       const res = await fetch("/api/owner/gyms", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, gymImages }),
+        body: JSON.stringify({ ...form, gymImages, gstNumber: form.gstNumber.trim() || null, gstRegisteredName: form.gstRegisteredName.trim() || null }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -121,6 +122,29 @@ export default function NewGymPage() {
           </div>
         </div>
 
+        {/* GST Details */}
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h3 className="text-white font-semibold text-sm border-b border-white/5 pb-3">GST Registration <span className="text-white/30 font-normal">(Optional)</span></h3>
+            <p className="text-white/40 text-xs pt-1 pb-2">
+              If you add your GST number, GymStack will automatically generate a proper GST tax invoice for your members when they make payments — instead of a plain receipt. This helps your members claim GST input credit.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-white/65 text-sm">GST Number (GSTIN)</Label>
+              <Input value={form.gstNumber} onChange={e => setForm(p => ({ ...p, gstNumber: e.target.value.toUpperCase() }))}
+                placeholder="e.g. 27AABCU9603R1ZX"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 font-mono text-sm uppercase" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-white/65 text-sm">Registered Business Name</Label>
+              <Input value={form.gstRegisteredName} onChange={e => setForm(p => ({ ...p, gstRegisteredName: e.target.value }))}
+                placeholder="Legal name on GST certificate"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11" />
+            </div>
+          </div>
+        </div>
         {/* Services */}
         <div className="space-y-3">
           <h3 className="text-white font-semibold text-sm border-b border-white/5 pb-3">Services Offered</h3>

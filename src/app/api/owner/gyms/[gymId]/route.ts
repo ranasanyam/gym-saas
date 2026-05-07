@@ -144,6 +144,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ gy
       state: body.state, pincode: body.pincode, contactNumber: body.contactNumber,
       services: body.services, facilities: body.facilities, isActive: body.isActive,
       ...(body.gymImages !== undefined && { gymImages: body.gymImages }),
+      ...(body.gstNumber !== undefined && { gstNumber: body.gstNumber?.trim() || null }),
+      ...(body.gstRegisteredName !== undefined && { gstRegisteredName: body.gstRegisteredName?.trim() || null }),
     },
   })
   if (gym.count === 0) return NextResponse.json({ error: "Gym not found" }, { status: 404 })

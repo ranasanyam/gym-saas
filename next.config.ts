@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
     "@prisma/adapter-pg",
     "pg",
     "bcryptjs",
+    'pdfkit'
   ],
 
   // Ensure service worker and manifest are served with correct headers

@@ -1324,7 +1324,77 @@ export async function sendAdminSubscriptionNotification({
   })
 }
 
-// ── 9. Contact form — forward query to support inbox ─────────────────────────
+// ── 9. SaaS subscription payment receipt ─────────────────────────────────────
+
+export async function sendSaasPaymentReceiptEmail({
+  to, fullName, planName, amount, paidAt, receiptNumber, razorpayPaymentId, downloadUrl,
+}: {
+  to: string; fullName: string; planName: string; amount: number
+  paidAt: Date | string; receiptNumber: string
+  razorpayPaymentId?: string | null; downloadUrl?: string
+}): Promise<boolean> {
+  const dateStr = new Date(paidAt).toLocaleDateString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+  })
+  const amountStr = Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  const html = baseTemplate(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#ffffff;">
+      Payment Confirmed! 🎉
+    </h2>
+    <p style="margin:0 0 24px;font-size:15px;color:rgba(255,255,255,0.55);line-height:1.6;">
+      Hi ${fullName}, thank you for subscribing to <strong style="color:#f97316;">${APP_NAME}</strong>.
+      Your payment has been received and your subscription is now active.
+    </p>
+
+    <div style="background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.25);
+                border-radius:12px;padding:24px;margin-bottom:24px;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);
+                text-transform:uppercase;letter-spacing:0.08em;">Payment Summary</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;margin-top:12px;">
+        <tr>
+          <td style="font-size:13px;color:rgba(255,255,255,0.45);padding:6px 0;width:160px;">Plan</td>
+          <td style="font-size:13px;color:#ffffff;font-weight:600;padding:6px 0;">${planName}</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:rgba(255,255,255,0.45);padding:6px 0;">Amount Paid</td>
+          <td style="font-size:14px;color:#10b981;font-weight:700;padding:6px 0;">₹${amountStr}</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:rgba(255,255,255,0.45);padding:6px 0;">Date</td>
+          <td style="font-size:13px;color:#ffffff;padding:6px 0;">${dateStr}</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:rgba(255,255,255,0.45);padding:6px 0;">Receipt No.</td>
+          <td style="font-size:13px;color:#f97316;font-weight:600;padding:6px 0;">${receiptNumber}</td>
+        </tr>
+        ${razorpayPaymentId ? `
+        <tr>
+          <td style="font-size:13px;color:rgba(255,255,255,0.45);padding:6px 0;">Transaction ID</td>
+          <td style="font-size:12px;color:rgba(255,255,255,0.6);padding:6px 0;word-break:break-all;">${razorpayPaymentId}</td>
+        </tr>` : ""}
+      </table>
+    </div>
+
+    ${downloadUrl ? ctaButton("Download PDF Receipt", downloadUrl) : ""}
+
+    <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.35);line-height:1.7;">
+      You can also download your receipt anytime from the
+      <strong style="color:rgba(255,255,255,0.55);">Billing</strong> section of your dashboard.<br/>
+      For any questions, contact us at
+      <a href="mailto:support@gymstack.co.in" style="color:#f97316;text-decoration:none;">support@gymstack.co.in</a>.
+    </p>
+  `)
+
+  return sendEmail({
+    to,
+    toName:  fullName,
+    subject: `Payment Confirmed — ${planName} (₹${amountStr})`,
+    html,
+  })
+}
+
+// ── 10. Contact form — forward query to support inbox ─────────────────────────
 
 export async function sendContactFormEmail({
   name, email, topic, message,

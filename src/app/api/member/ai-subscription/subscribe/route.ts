@@ -6,7 +6,7 @@ import { getPlanBySlug } from "@/lib/memberAISubscriptionPlans"
 import crypto from "crypto"
 import { addMonths } from "date-fns"
 import { sendPushToProfile } from "@/lib/push"
-import { sendAdminSubscriptionNotification } from "@/lib/email"
+import { sendAdminSubscriptionNotification, sendSaasPaymentReceiptEmail } from "@/lib/email"
 
 export const runtime = "nodejs"
 
@@ -70,16 +70,31 @@ export async function POST(req: NextRequest) {
     })
   })
 
-  // ── Admin notification (fire-and-forget) ─────────────────────────────────
+  // ── Receipt email + admin notification (fire-and-forget) ─────────────────
   prisma.profile.findUnique({ where: { id: profileId }, select: { fullName: true, email: true } })
-    .then(profile => sendAdminSubscriptionNotification({
-      subscriberName:   profile?.fullName ?? "Unknown Member",
-      subscriberEmail:  profile?.email    ?? undefined,
-      planName:         `${plan.name} AI Credits (${plan.credits} credits)`,
-      planAmount:       String(plan.price),
-      role:             "Member",
-      subscriptionType: "AI Plan Subscription",
-    }))
+    .then(profile => {
+      if (!profile) return
+      const receiptNumber = `AI-${now.getFullYear()}-${subscription.id.slice(0, 8).toUpperCase()}`
+      return Promise.all([
+        sendSaasPaymentReceiptEmail({
+          to:                profile.email ?? "there",
+          fullName:          profile.fullName,
+          planName:          `${plan.name} AI Credits (${plan.credits} credits)`,
+          amount:            plan.price,
+          paidAt:            now,
+          receiptNumber,
+          razorpayPaymentId: razorpayPaymentId ?? null,
+        }),
+        sendAdminSubscriptionNotification({
+          subscriberName:   profile.fullName,
+          subscriberEmail:  profile.email ?? undefined,
+          planName:         `${plan.name} AI Credits (${plan.credits} credits)`,
+          planAmount:       String(plan.price),
+          role:             "Member",
+          subscriptionType: "AI Plan Subscription",
+        }),
+      ])
+    })
     .catch(() => {})
 
   // Notify member about their new AI subscription
@@ -99,5 +114,6 @@ export async function POST(req: NextRequest) {
       tag:   "ai-subscription-activated",
     }),
   ]).catch(() => {})
+
   return NextResponse.json({ success: true, subscription })
 }

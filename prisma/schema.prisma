@@ -261,6 +261,9 @@ model Gym {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
+  gstNumber           String?  @map("gst_number")
+  gstRegisteredName   String?  @map("gst_registered_name")
+
   averageRating   Decimal  @default(0.00) @map("average_rating") @db.Decimal(3, 2)
   totalReviews    Int      @default(0) @map("total_reviews")
 

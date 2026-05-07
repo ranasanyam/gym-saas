@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, address, city, state, pincode, contactNumber, services, facilities, gymImages } = body
+    const { name, address, city, state, pincode, contactNumber, services, facilities, gymImages, gstNumber, gstRegisteredName } = body
     if (!name?.trim()) return NextResponse.json({ error: "Gym name is required" }, { status: 400 })
 
     const gym = await prisma.gym.create({
@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
         services: services ?? [],
         facilities: facilities ?? [],
         gymImages: gymImages ?? [],
+        gstNumber: gstNumber?.trim() || null,
+        gstRegisteredName: gstRegisteredName?.trim() || null,
       },
     })
         // Fire-and-forget congratulations email to the owner

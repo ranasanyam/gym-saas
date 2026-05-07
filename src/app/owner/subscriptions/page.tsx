@@ -11,7 +11,7 @@ import {
   Infinity, Shield, Clock, Building2, UserCheck, Bell,
   ClipboardList, AlertTriangle, BanknoteArrowDown,
   Calendar, Headphones, Zap, Rocket,
-  IndianRupee,
+  IndianRupee, Download,
   LockIcon,
   BrainCircuitIcon,
 } from "lucide-react"
@@ -153,6 +153,8 @@ export default function SubscriptionsPage() {
   const [dbSub,      setDbSub]      = useState<DbSubscription | null>(null)
   const [loading,    setLoading]    = useState(true)
   const [purchasing, setPurchasing] = useState<string | null>(null)
+  const [billingHistory, setBillingHistory] = useState<any[]>([])
+  const [downloading, setDownloading] = useState<string | null>(null)
 
   // Per-tier duration selection (defaults to 6 months)
   const [durations, setDurations] = useState<Record<string, DurationInterval>>({
@@ -165,9 +167,11 @@ export default function SubscriptionsPage() {
     Promise.all([
       fetch("/api/subscriptions/plans").then(r => r.json()),
       fetch("/api/owner/subscription").then(r => r.json()),
-    ]).then(([p, s]) => {
+      fetch("/api/saas/payments").then(r => r.json()),
+    ]).then(([p, s, h]) => {
       setDbPlans(Array.isArray(p) ? p : [])
       setDbSub(s.subscription ?? null)
+      setBillingHistory(Array.isArray(h) ? h : [])
     }).finally(() => setLoading(false))
   }, [])
 
@@ -250,6 +254,29 @@ export default function SubscriptionsPage() {
     } catch (err: any) {
       toast({ variant: "destructive", title: err.message ?? "Payment failed" })
       setPurchasing(null)
+    }
+  }
+  
+  const downloadReceipt = async (paymentId: string) => {
+    setDownloading(paymentId)
+    try {
+      const res = await fetch(`/api/saas/receipt/${paymentId}`)
+      if (!res.ok) throw new Error("Failed to generate receipt")
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement("a")
+      a.href     = url
+      const cd   = res.headers.get("content-disposition") ?? ""
+      const name = cd.match(/filename="(.+?)"/)?.[1] ?? `GymStack_Receipt_${paymentId.slice(0, 8)}.pdf`
+      a.download = name
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      toast({ variant: "destructive", title: "Could not generate receipt. Please try again." })
+    } finally {
+      setDownloading(null)
     }
   }
 
@@ -535,6 +562,52 @@ export default function SubscriptionsPage() {
         })}
       </div>
 
+      {/* ── Billing History ──────────────────────────────────────────── */}
+      {billingHistory.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-white font-semibold text-sm">Billing History</h3>
+          <div className="bg-[hsl(220_25%_9%)] border border-white/6 rounded-2xl overflow-hidden">
+            <div className="grid grid-cols-4 px-5 py-3 border-b border-white/5 text-xs text-white/35 uppercase tracking-wider gap-3">
+              <span>Plan</span><span>Amount</span><span>Date</span><span>Receipt</span>
+            </div>
+            <div className="divide-y divide-white/4">
+              {billingHistory.map((p: any) => {
+                const isDownloading = downloading === p.id
+                return (
+                  <div key={p.id} className="grid grid-cols-4 px-5 py-4 items-center gap-3">
+                    <div>
+                      <p className="text-white text-sm font-medium">
+                        {p.subscription?.saasPlan?.name ?? "GymStack Plan"}
+                        {p.subscription?.saasPlan?.interval && (
+                          <span className="text-white/35 font-normal text-xs ml-2 capitalize">
+                            ({p.subscription.saasPlan.interval.replace("_", " ").toLowerCase()})
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-white/35 text-xs mt-0.5">Receipt #{p.id.slice(0, 8).toUpperCase()}</p>
+                    </div>
+                    <p className="text-white font-semibold text-sm">
+                      ₹{Number(p.amount ?? 0).toLocaleString("en-IN")}
+                    </p>
+                    <p className="text-white/50 text-xs whitespace-nowrap">
+                      {new Date(p.createdAt).toLocaleDateString("en-IN", { dateStyle: "medium" })}
+                    </p>
+                    <button
+                      onClick={() => downloadReceipt(p.id)}
+                      disabled={isDownloading}
+                      title="Download GymStack Receipt"
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 text-white/60 hover:text-white hover:bg-white/8 hover:border-white/15 transition-all disabled:opacity-50"
+                    >
+                      {isDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                      PDF
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── Trust badges ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
         {[

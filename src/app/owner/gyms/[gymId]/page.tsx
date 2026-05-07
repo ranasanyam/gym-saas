@@ -26,6 +26,7 @@ interface Gym {
   id: string; name: string; address: string | null; city: string | null; state: string | null
   pincode: string | null; contactNumber: string | null; isActive: boolean; timezone: string
   services: string[]; facilities: string[]; gymImages: string[]
+  gstNumber: string | null; gstRegisteredName: string | null;
   _count: { members: number; trainers: number }
   membershipPlans: Plan[]
 }
@@ -346,12 +347,43 @@ export default function GymDetailPage() {
                     <Input value={editForm[field] ?? ""} onChange={e => setEditForm((p: any) => ({ ...p, [field]: e.target.value }))} className="bg-white/5 border-white/10 text-white focus:border-primary focus-visible:ring-0 h-9 text-sm" />
                   </div>
                 ))}
+                                {/* GST fields */}
+                <div className="pt-3 border-t border-white/5 space-y-3">
+                  <p className="text-white/40 text-xs">GST Registration <span className="text-white/25">(Optional — enables GST invoices for members)</span></p>
+                  <div className="space-y-1">
+                    <Label className="text-white/50 text-xs">GST Number (GSTIN)</Label>
+                    <Input value={editForm.gstNumber ?? ""} onChange={e => setEditForm((p: any) => ({ ...p, gstNumber: e.target.value.toUpperCase() }))}
+                      placeholder="e.g. 27AABCU9603R1ZX"
+                      className="bg-white/5 border-white/10 text-white focus:border-primary focus-visible:ring-0 h-9 text-sm font-mono uppercase placeholder:normal-case" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-white/50 text-xs">Registered Business Name</Label>
+                    <Input value={editForm.gstRegisteredName ?? ""} onChange={e => setEditForm((p: any) => ({ ...p, gstRegisteredName: e.target.value }))}
+                      placeholder="Legal name on GST certificate"
+                      className="bg-white/5 border-white/10 text-white focus:border-primary focus-visible:ring-0 h-9 text-sm" />
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
                 {[["Address",gym.address],["City",gym.city],["State",gym.state],["Pincode",gym.pincode],["Contact",gym.contactNumber],["Timezone",gym.timezone]].map(([l,v]) => v ? (
                   <div key={l as string} className="grid grid-cols-2 gap-2"><span className="text-white/35 text-sm">{l}</span><span className="text-white font-medium text-sm">{v}</span></div>
                 ) : null)}
+                                {(gym.gstNumber || gym.gstRegisteredName) && (
+                  <div className="pt-3 border-t border-white/5 space-y-3">
+                    <p className="text-white/30 text-xs uppercase tracking-wider">GST Registration</p>
+                    {gym.gstNumber && <div className="grid grid-cols-2 gap-2"><span className="text-white/35 text-sm">GSTIN</span><span className="text-white font-mono font-medium text-sm">{gym.gstNumber}</span></div>}
+                    {gym.gstRegisteredName && <div className="grid grid-cols-2 gap-2"><span className="text-white/35 text-sm">Reg. Name</span><span className="text-white font-medium text-sm">{gym.gstRegisteredName}</span></div>}
+                    <p className="text-green-400/70 text-xs">✓ GST invoices will be generated for member payments</p>
+                  </div>
+                )}
+                {!gym.gstNumber && (
+                  <div className="pt-3 border-t border-white/5">
+                    <button onClick={() => setEditing(true)} className="text-white/30 hover:text-primary text-xs flex items-center gap-1.5 transition-colors">
+                      <Edit className="w-3 h-3" /> Add GST number to enable GST invoices
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

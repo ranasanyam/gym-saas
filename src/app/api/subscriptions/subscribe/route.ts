@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
 import { addMonths } from "date-fns"
 import { sendPushToProfile } from "@/lib/push"
+import { sendSaasPaymentReceiptEmail, sendAdminSubscriptionNotification } from "@/lib/email"
 const INTERVAL_MONTHS: Record<string, number | null> = {
     MONTHLY:     1,
     QUARTERLY:   3,
@@ -147,5 +148,35 @@ export async function POST(req: NextRequest) {
       tag:   "saas-subscription-activated",
     }),
   ]).catch(() => {})
+  
+  // ── Receipt email + admin notification (fire-and-forget, paid plans only) ──
+  if (isPaid) {
+    const appUrl = process.env.NEXTAUTH_URL ?? "https://gymstack.co.in"
+    const receiptNumber = `GS-${now.getFullYear()}-${payment.id.slice(0, 8).toUpperCase()}`
+    prisma.profile.findUnique({ where: { id: profileId }, select: { fullName: true, email: true } })
+      .then(profile => {
+        if (!profile) return
+        return Promise.all([
+          sendSaasPaymentReceiptEmail({
+            to:               profile.email ?? "there",
+            fullName:         profile.fullName,
+            planName:         plan.name,
+            amount:           Number(plan.price),
+            paidAt:           now,
+            receiptNumber,
+            razorpayPaymentId: razorpayPaymentId ?? null,
+            downloadUrl:      `${appUrl}/api/saas/receipt/${payment.id}`,
+          }),
+          sendAdminSubscriptionNotification({
+            subscriberName:   profile.fullName,
+            subscriberEmail:  profile.email ?? undefined,
+            planName:         plan.name,
+            planAmount:       String(Number(plan.price)),
+            role:             "Owner",
+            subscriptionType: "Platform Subscription",
+          }),
+        ])
+      }).catch(() => {})
+  }
     return NextResponse.json({ subscription, payment })
 }
