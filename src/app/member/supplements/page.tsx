@@ -2,7 +2,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { ShoppingBag, Search, Package, Info
+import { ShoppingBag, Search, Package, Info, Bell, CheckCircle2, Loader2
   } from "lucide-react"
 import { IndianRupee } from "lucide-react"
 import { useMemberGym } from "@/contexts/MemberGymContext"
@@ -35,6 +35,8 @@ export default function MemberSupplementsPage() {
   const [search, setSearch]           = useState("")
   const [activeCategory, setCategory] = useState("")
   const [query, setQuery]             = useState("")
+    const [requesting, setRequesting]   = useState<Record<string, boolean>>({})
+  const [requested, setRequested]     = useState<Record<string, boolean>>({})
 
   const load = useCallback((s: string, c: string) => {
     setLoading(true)
@@ -68,6 +70,22 @@ export default function MemberSupplementsPage() {
 
   const allCategories = ["All", ...categories]
 
+  
+  const handleRequest = async (supplementId: string) => {
+    if (requesting[supplementId] || requested[supplementId]) return
+    setRequesting(prev => ({ ...prev, [supplementId]: true }))
+    try {
+      await fetch("/api/member/supplements/request", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ supplementId }),
+      })
+      setRequested(prev => ({ ...prev, [supplementId]: true }))
+    } finally {
+      setRequesting(prev => ({ ...prev, [supplementId]: false }))
+    }
+  }
+
   if (gymLoading) return (
     <div className="max-w-4xl space-y-6 animate-pulse">
       <div className="h-8 w-48 bg-white/5 rounded" />
@@ -95,7 +113,7 @@ export default function MemberSupplementsPage() {
       <div className="flex items-start gap-3 bg-primary/8 border border-primary/20 rounded-2xl px-5 py-4">
         <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
         <p className="text-primary/80 text-sm">
-          This is a browse-only view. To purchase a supplement, ask your trainer or the front desk.
+          Tap <strong>Request to Buy</strong> on any supplement to notify your gym owner instantly.
         </p>
       </div>
 
@@ -208,6 +226,25 @@ export default function MemberSupplementsPage() {
               {s.gym?.name && (
                 <p className="text-white/25 text-[10px] border-t border-white/5 pt-2.5">{s.gym.name}</p>
               )}
+              
+              {/* Request to Buy */}
+              <button
+                onClick={() => handleRequest(s.id)}
+                disabled={requesting[s.id] || requested[s.id]}
+                className={`mt-1 w-full flex items-center justify-center gap-1.5 rounded-xl h-8 text-xs font-semibold transition-all ${
+                  requested[s.id]
+                    ? "bg-green-500/10 text-green-400 border border-green-500/20 cursor-default"
+                    : "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 disabled:opacity-50"
+                }`}
+              >
+                {requesting[s.id] ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : requested[s.id] ? (
+                  <><CheckCircle2 className="w-3.5 h-3.5" /> Requested</>
+                ) : (
+                  <><Bell className="w-3.5 h-3.5" /> Request to Buy</>
+                )}
+              </button>
             </div>
           ))}
         </div>
