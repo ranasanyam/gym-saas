@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
+import Razorpay from "razorpay"
 
 // Maps our plan intervals to Razorpay subscription periods
 const INTERVAL_MAP: Record<string, { period: string; interval: number }> = {
@@ -50,7 +51,6 @@ export async function POST(req: NextRequest) {
     const amountPaise = Math.round(Number(plan.price) * 100)
 
     try {
-        const Razorpay = (await import("razorpay")).default
         const rzp = new Razorpay({
             key_id:     process.env.RAZORPAY_KEY_ID,
             key_secret: process.env.RAZORPAY_KEY_SECRET,

@@ -4,14 +4,13 @@ import { resolveProfileId } from "@/lib/mobileAuth"
 import { getPlanBySlug } from "@/lib/memberAISubscriptionPlans"
 import Razorpay from "razorpay"
 
-const razorpay = new Razorpay({
-  key_id:     process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-})
-
 export const runtime = "nodejs"
 
 export async function POST(req: NextRequest) {
+  const razorpay = new Razorpay({
+    key_id:     process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+  })
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
