@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { getPlanBySlug } from "@/lib/memberAISubscriptionPlans"
+import { prisma } from "@/lib/prisma"
 import Razorpay from "razorpay"
 
 export const runtime = "nodejs"
@@ -22,6 +23,17 @@ export async function POST(req: NextRequest) {
 
   const plan = getPlanBySlug(planSlug)
   if (!plan) return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
+
+  // Block plan changes while an active subscription exists
+  const activeSub = await prisma.memberAISubscription.findFirst({
+    where: { profileId, isActive: true, expiryDate: { gt: new Date() } },
+  })
+  if (activeSub) {
+    return NextResponse.json(
+      { error: "You already have an active subscription. Plan changes are not available while your subscription is active.", code: "PLAN_CHANGE_BLOCKED" },
+      { status: 409 }
+    )
+  }
 
   let order
   try {
