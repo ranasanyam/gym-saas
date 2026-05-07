@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { BadgeCheck, CheckCircle2, Crown, Loader2, Zap, Briefcase, Calendar } from "lucide-react"
+import { BadgeCheck, CheckCircle2, Crown, Loader2, Zap, Briefcase, Calendar, Lock } from "lucide-react"
 import type { TrainerPlan } from "@/lib/trainerSubscriptionPlans"
 
 declare global {
@@ -125,7 +125,7 @@ export default function TrainerSubscriptionPage() {
 
       {/* Active subscription card */}
       {status?.isActive && (
-        <div className="bg-gradient-to-r from-primary/10 to-orange-500/5 border border-primary/25 rounded-2xl p-5">
+        <div className="bg-linear-to-r from-primary/10 to-orange-500/5 border border-primary/25 rounded-2xl p-5">
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -169,13 +169,22 @@ export default function TrainerSubscriptionPage() {
 
       {/* Plans grid */}
       <div>
-        <h3 className="text-white font-semibold mb-4">
-          {status?.isActive ? "Extend or Upgrade" : "Choose a Plan"}
-        </h3>
+        <div className="mb-4">
+          <h3 className="text-white font-semibold">
+            {status?.isActive ? "Active Subscription" : "Choose a Plan"}
+          </h3>
+          {status?.isActive && (
+            <p className="text-white/35 text-xs mt-1 flex items-center gap-1.5">
+              <Lock className="w-3 h-3 shrink-0" />
+              Plan changes are not available while your subscription is active.
+            </p>
+          )}
+        </div>
         <div className="grid sm:grid-cols-3 gap-4">
           {plans.map(plan => {
-            const colors   = PLAN_COLORS[plan.slug] ?? PLAN_COLORS.monthly
+            const colors    = PLAN_COLORS[plan.slug] ?? PLAN_COLORS.monthly
             const isCurrent = status?.isActive && status.planSlug === plan.slug
+            const isLocked  = status?.isActive && !isCurrent
             return (
               <div key={plan.slug} className={`relative flex flex-col ${colors.bg} border ${colors.border} rounded-2xl p-5`}>
                 {plan.badge && (
@@ -201,6 +210,10 @@ export default function TrainerSubscriptionPage() {
                 {isCurrent ? (
                   <div className={`text-center text-xs font-semibold py-2 rounded-xl ${colors.badge} ${colors.text}`}>
                     Current Plan
+                  </div>
+                ) : isLocked ? (
+                  <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold bg-white/3 border border-white/8 text-white/25 cursor-not-allowed">
+                    <Lock className="w-3.5 h-3.5" /> Plan Locked
                   </div>
                 ) : (
                   <button
