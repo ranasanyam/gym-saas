@@ -77,28 +77,57 @@ export async function POST(req: NextRequest) {
   })
 
   if (assignedToMemberId) {
+    // Single member — in-app + push
     const member = await prisma.gymMember.findUnique({
-      where: { id: assignedToMemberId },
+      where:  { id: assignedToMemberId },
       select: { profileId: true },
     })
     if (member) {
       await Promise.allSettled([
         prisma.notification.create({
-        data: {
-          gymId: trainer.gymId,
-          profileId: member.profileId,
+          data: {
+            gymId:     trainer.gymId,
+            profileId: member.profileId,
+            title:   "🥗 New Diet Plan",
+            message: `Your trainer assigned you a new diet plan: "${title}"`,
+            type:    "PLAN_UPDATE",
+          },
+        }),
+        sendPushToProfile(member.profileId, {
           title: "🥗 New Diet Plan",
-          message: `Your trainer assigned you a new diet plan: "${title}"`,
-          type: "PLAN_UPDATE",
-        },
-      }),
-              sendPushToProfile(member.profileId, {
-          title: "🥗 New Diet Plan Assigned",
           body:  `Your trainer assigned you a new diet plan: "${title}"`,
           url:   "/member/diet",
           tag:   "diet-plan-assigned",
         }),
-      ])
+      ]).catch(() => {})
+    }
+  } else if (isGlobal) {
+    // All active members of trainer's gym
+    const members = await prisma.gymMember.findMany({
+      where:  { gymId: trainer.gymId, status: "ACTIVE" },
+      select: { profileId: true },
+    })
+    if (members.length) {
+      await Promise.allSettled([
+        prisma.notification.createMany({
+          data: members.map(m => ({
+            gymId:     trainer.gymId,
+            profileId: m.profileId,
+            title:   "🥗 New Diet Plan",
+            message: `Your trainer shared a new diet plan with all members: "${title}"`,
+            type:    "PLAN_UPDATE",
+          })),
+          skipDuplicates: true,
+        }),
+        ...members.map(m =>
+          sendPushToProfile(m.profileId, {
+            title: "🥗 New Diet Plan",
+            body:  `Your trainer shared a new diet plan with all members: "${title}"`,
+            url:   "/member/diet",
+            tag:   "diet-plan-global",
+          })
+        ),
+      ]).catch(() => {})
     }
   }
 

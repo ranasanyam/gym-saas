@@ -18,7 +18,8 @@
       "Skill(claude-api:*)",
       "Bash(Get-ChildItem -Path \"d:\\\\Projects\\\\gym-saas\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
-      "Bash(Remove-Item -Force \"d:\\\\Projects\\\\gym-saas\\\\src\\\\app\\\\api\\\\billing\\\\subscribe\\\\route.ts\" \"d:\\\\Projects\\\\gym-saas\\\\src\\\\app\\\\api\\\\billing\\\\create-order\\\\route.ts\" \"d:\\\\Projects\\\\gym-saas\\\\src\\\\app\\\\api\\\\billing\\\\plans\\\\route.ts\" \"d:\\\\Projects\\\\gym-saas\\\\src\\\\app\\\\api\\\\debug\\\\push\\\\route.ts\" \"d:\\\\Projects\\\\gym-saas\\\\src\\\\lib\\\\serverAuth.ts\")"
+      "Bash(Remove-Item -Force \"d:\\\\Projects\\\\gym-saas\\\\src\\\\app\\\\api\\\\billing\\\\subscribe\\\\route.ts\" \"d:\\\\Projects\\\\gym-saas\\\\src\\\\app\\\\api\\\\billing\\\\create-order\\\\route.ts\" \"d:\\\\Projects\\\\gym-saas\\\\src\\\\app\\\\api\\\\billing\\\\plans\\\\route.ts\" \"d:\\\\Projects\\\\gym-saas\\\\src\\\\app\\\\api\\\\debug\\\\push\\\\route.ts\" \"d:\\\\Projects\\\\gym-saas\\\\src\\\\lib\\\\serverAuth.ts\")",
+      "Bash(Test-Path \"d:/Projects/gym-saas/.env.local\")"
     ]
   }
 }

@@ -1,4 +1,3 @@
-// src/app/(auth)/reset-password/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -22,41 +21,46 @@ function getStrength(p: string): number {
 }
 
 const strengthLabel = ["Too short", "Weak", "Fair", "Good", "Strong"]
-const strengthColor = ["bg-white/10", "bg-red-500", "bg-yellow-500", "bg-primary", "bg-green-500"]
+const strengthColor  = ["bg-white/10", "bg-red-500", "bg-yellow-500", "bg-primary", "bg-green-500"]
 
 function ResetPasswordContent() {
-  const router = useRouter()
+  const router       = useRouter()
   const searchParams = useSearchParams()
-  const { toast } = useToast()
-  const token = searchParams.get("token")
+  const { toast }    = useToast()
+  const token        = searchParams.get("token")
 
-  const [password, setPassword] = useState("")
-  const [confirm, setConfirm] = useState("")
+  const [password, setPassword]         = useState("")
+  const [confirm, setConfirm]           = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [showConfirm, setShowConfirm]   = useState(false)
+  const [loading, setLoading]           = useState(false)
+  const [success, setSuccess]           = useState(false)
 
-  const strength = getStrength(password)
-  const mismatch = confirm.length > 0 && password !== confirm
+  const strength  = getStrength(password)
+  const mismatch  = confirm.length > 0 && password !== confirm
   const canSubmit = password.length >= 8 && !mismatch
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!canSubmit) return
     setLoading(true)
     try {
       const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
+        body:    JSON.stringify({ resetToken: token, newPassword: password }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Failed to reset password")
+      if (!res.ok) {
+        const msg =
+          data.error === "invalid_token"  ? "This reset session has expired or already been used. Please start over." :
+          data.error === "weak_password"  ? "Password must be at least 8 characters." :
+                                            data.error ?? "Failed to reset password"
+        throw new Error(msg)
+      }
       setSuccess(true)
-      // Don't auto-redirect — user clicks the button when ready
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Reset failed", description: err.message ?? "Please request a new reset link." })
+      toast({ variant: "destructive", title: "Reset failed", description: err.message })
     } finally {
       setLoading(false)
     }
@@ -64,16 +68,20 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <AuthLayout title="Invalid link" subtitle="This reset link is invalid or has expired">
+      <AuthLayout title="Session expired" subtitle="This reset session is invalid or has expired">
         <div className="space-y-6">
           <div className="flex justify-center py-2">
             <div className="w-16 h-16 rounded-full bg-red-500/15 flex items-center justify-center">
               <AlertCircle className="w-8 h-8 text-red-400" />
             </div>
           </div>
-          <p className="text-center text-white/60 text-sm">Reset links expire after 1 hour. Please request a new one.</p>
+          <p className="text-center text-white/60 text-sm">
+            Reset sessions expire after 15 minutes. Please request a new code.
+          </p>
           <Link href="/forgot-password">
-            <Button className="w-full bg-gradient-primary hover:opacity-90 text-white font-semibold h-11">Request new link</Button>
+            <Button className="w-full bg-gradient-primary hover:opacity-90 text-white font-semibold h-11">
+              Request new code
+            </Button>
           </Link>
         </div>
       </AuthLayout>
@@ -91,7 +99,9 @@ function ResetPasswordContent() {
               <CheckCircle className="w-8 h-8 text-primary" />
             </motion.div>
           </div>
-          <p className="text-center text-white/55 text-sm">You can now sign in with your new password.</p>
+          <p className="text-center text-white/55 text-sm">
+            You can now sign in with your new password.
+          </p>
           <Button onClick={() => router.push("/login")}
             className="w-full bg-gradient-primary hover:opacity-90 text-white font-semibold h-11">
             Go to sign in
@@ -111,7 +121,7 @@ function ResetPasswordContent() {
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
             <Input id="password" type={showPassword ? "text" : "password"} placeholder="Min. 8 characters"
-              value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password"
+              value={password} onChange={e => setPassword(e.target.value)} required autoComplete="new-password"
               className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 pl-10 pr-11" />
             <button type="button" onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
@@ -136,9 +146,10 @@ function ResetPasswordContent() {
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
             <Input id="confirm" type={showConfirm ? "text" : "password"} placeholder="Repeat your password"
-              value={confirm} onChange={(e) => setConfirm(e.target.value)} required autoComplete="new-password"
+              value={confirm} onChange={e => setConfirm(e.target.value)} required autoComplete="new-password"
               className={`bg-white/5 text-white placeholder:text-white/25 focus-visible:ring-0 h-11 pl-10 pr-11 transition-colors ${
-                mismatch ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-primary"}`} />
+                mismatch ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-primary"
+              }`} />
             <button type="button" onClick={() => setShowConfirm(!showConfirm)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
               {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -161,7 +172,6 @@ function ResetPasswordContent() {
 }
 
 import { Suspense } from "react"
-import { Loader2 as SpinnerIcon } from "lucide-react"
 
 export default function ResetPasswordPage() {
   return (

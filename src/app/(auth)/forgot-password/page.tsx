@@ -1,109 +1,185 @@
-
-// src/app/(auth)/forgot-password/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, Loader2, Mail, CheckCircle, UserPlus, Chrome } from "lucide-react"
+import { ArrowLeft, Loader2, Mail, UserPlus, ShieldCheck, RotateCcw } from "lucide-react"
 import { AuthLayout } from "@/components/auth/AuthLayout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
-type PageState = "form" | "sent" | "no_account" | "oauth_account"
+type PageState = "form" | "otp" | "no_account" | "oauth_account"
+
+const OTP_EXPIRY_SECONDS = 10 * 60
+const RESEND_COOLDOWN_SECONDS = 60
 
 export default function ForgotPasswordPage() {
+  const router = useRouter()
   const { toast } = useToast()
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [pageState, setPageState] = useState<PageState>("form")
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [email, setEmail]           = useState("")
+  const [loading, setLoading]       = useState(false)
+  const [pageState, setPageState]   = useState<PageState>("form")
+
+  // OTP step
+  const [otp, setOtp]               = useState(["", "", "", "", "", ""])
+  const [otpError, setOtpError]     = useState("")
+  const [verifying, setVerifying]   = useState(false)
+  const [resending, setResending]   = useState(false)
+  const [countdown, setCountdown]   = useState(OTP_EXPIRY_SECONDS)
+  const [resendCD, setResendCD]     = useState(RESEND_COOLDOWN_SECONDS)
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // OTP expiry countdown
+  useEffect(() => {
+    if (pageState !== "otp") return
+    setCountdown(OTP_EXPIRY_SECONDS)
+    const t = setInterval(() => setCountdown(s => (s <= 1 ? (clearInterval(t), 0) : s - 1)), 1000)
+    return () => clearInterval(t)
+  }, [pageState])
+
+  // Resend cooldown
+  useEffect(() => {
+    if (pageState !== "otp") return
+    setResendCD(RESEND_COOLDOWN_SECONDS)
+    const t = setInterval(() => setResendCD(s => (s <= 1 ? (clearInterval(t), 0) : s - 1)), 1000)
+    return () => clearInterval(t)
+  }, [pageState])
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
+
+  const sendOtp = useCallback(async (targetEmail: string): Promise<boolean> => {
+    const res = await fetch("/api/auth/forgot-password-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: targetEmail }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      if (data.error === "no_account")   { setPageState("no_account");   return false }
+      if (data.error === "oauth_account"){ setPageState("oauth_account"); return false }
+      throw new Error(data.error)
+    }
+    return true
+  }, [])
+
+  const handleEmailSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        // Known error codes — show dedicated screens instead of a generic toast
-        if (data.error === "no_account") { setPageState("no_account"); return }
-        if (data.error === "oauth_account") { setPageState("oauth_account"); return }
-        throw new Error(data.error)
+      const ok = await sendOtp(email.trim().toLowerCase())
+      if (ok) {
+        setOtp(["", "", "", "", "", ""])
+        setOtpError("")
+        setPageState("otp")
+        setTimeout(() => inputRefs.current[0]?.focus(), 100)
       }
-
-      setPageState("sent")
     } catch {
-      toast({
-        variant: "destructive",
-        title: "Something went wrong",
-        description: "Failed to send reset email. Please try again.",
-      })
+      toast({ variant: "destructive", title: "Failed to send code", description: "Please try again." })
     } finally {
       setLoading(false)
     }
   }
 
-  const reset = () => { setPageState("form"); setEmail("") }
+  const handleOtpChange = (index: number, value: string) => {
+    // Support paste of full 6-digit code into any box
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, "").slice(0, 6)
+      if (digits.length === 6) {
+        setOtp(digits.split(""))
+        setOtpError("")
+        inputRefs.current[5]?.focus()
+        return
+      }
+    }
+    if (!/^\d?$/.test(value)) return
+    const next = [...otp]
+    next[index] = value
+    setOtp(next)
+    setOtpError("")
+    if (value && index < 5) inputRefs.current[index + 1]?.focus()
+  }
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    }
+    if (e.key === "Enter") handleVerify()
+  }
+
+  const handleVerify = async () => {
+    const code = otp.join("")
+    if (code.length !== 6)  { setOtpError("Enter the 6-digit code from your email."); return }
+    if (countdown === 0)    { setOtpError("Code has expired — request a new one."); return }
+    setVerifying(true)
+    setOtpError("")
+    try {
+      const res = await fetch("/api/auth/verify-reset-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), otp: code }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setOtpError("Invalid or expired code. Please try again.")
+        setOtp(["", "", "", "", "", ""])
+        setTimeout(() => inputRefs.current[0]?.focus(), 50)
+        return
+      }
+      router.push(`/reset-password?token=${encodeURIComponent(data.resetToken)}`)
+    } catch {
+      setOtpError("Something went wrong. Please try again.")
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  const handleResend = async () => {
+    if (resendCD > 0 || resending) return
+    setResending(true)
+    try {
+      const ok = await sendOtp(email.trim().toLowerCase())
+      if (ok) {
+        setOtp(["", "", "", "", "", ""])
+        setOtpError("")
+        toast({ variant: "success", title: "New code sent!", description: "Check your inbox." })
+        setTimeout(() => inputRefs.current[0]?.focus(), 100)
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Failed to resend code. Please try again." })
+    } finally {
+      setResending(false)
+    }
+  }
+
+  const reset = () => {
+    setPageState("form")
+    setEmail("")
+    setOtp(["", "", "", "", "", ""])
+    setOtpError("")
+  }
+
+  const titles: Record<PageState, string> = {
+    form:          "Forgot your password?",
+    otp:           "Enter verification code",
+    no_account:    "No account found",
+    oauth_account: "Use Google to sign in",
+  }
+  const subtitles: Record<PageState, string> = {
+    form:          "We'll send a 6-digit code to your email",
+    otp:           `Code sent to ${email}`,
+    no_account:    "We couldn't find an account with that email",
+    oauth_account: "This email is linked to a Google account",
+  }
 
   return (
-    <AuthLayout
-      title={
-        pageState === "sent"         ? "Check your inbox"        :
-        pageState === "no_account"   ? "No account found"        :
-        pageState === "oauth_account"? "Use Google to sign in"   :
-                                       "Forgot your password?"
-      }
-      subtitle={
-        pageState === "sent"         ? "We sent reset instructions to your email" :
-        pageState === "no_account"   ? "We couldn't find an account with that email" :
-        pageState === "oauth_account"? "This email is linked to a Google account" :
-                                       "No worries — we will send you a reset link"
-      }
-    >
+    <AuthLayout title={titles[pageState]} subtitle={subtitles[pageState]}>
       <AnimatePresence mode="wait">
 
-        {/* ── Email sent ── */}
-        {pageState === "sent" && (
-          <motion.div key="sent" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }} className="space-y-6">
-            <div className="flex justify-center py-2">
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 220, damping: 18 }}
-                className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-primary" />
-              </motion.div>
-            </div>
-            <div className="text-center space-y-2">
-              <p className="text-white/65 text-sm leading-relaxed">
-                A reset link has been sent to{" "}
-                <span className="text-white font-medium">{email}</span>.
-                It expires in 1 hour.
-              </p>
-              <p className="text-white/35 text-xs">Didn&apos;t receive it? Check your spam folder.</p>
-            </div>
-            <div className="space-y-3">
-              <Button variant="outline" onClick={reset}
-                className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10 h-11 text-sm">
-                Try a different email
-              </Button>
-              <Link href="/login">
-                <Button variant="ghost" className="w-full text-white/45 hover:bg-white/10 h-11 text-sm">
-                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to sign in
-                </Button>
-              </Link>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── No account found ── */}
+        {/* ── No account ── */}
         {pageState === "no_account" && (
           <motion.div key="no_account" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }} className="space-y-6">
@@ -119,9 +195,7 @@ export default function ForgotPasswordPage() {
                 There&apos;s no GymStack account linked to{" "}
                 <span className="text-white font-medium">{email}</span>.
               </p>
-              <p className="text-white/40 text-xs">
-                Double-check the email or create a new account.
-              </p>
+              <p className="text-white/40 text-xs">Double-check the email or create a new account.</p>
             </div>
             <div className="space-y-3">
               <Link href="/signup">
@@ -155,8 +229,8 @@ export default function ForgotPasswordPage() {
             </div>
             <div className="text-center space-y-2">
               <p className="text-white/65 text-sm leading-relaxed">
-                <span className="text-white font-medium">{email}</span> is registered
-                via Google. Use the Google button to sign in — no password needed.
+                <span className="text-white font-medium">{email}</span> is registered via Google.
+                Use the Google button to sign in — no password needed.
               </p>
             </div>
             <div className="space-y-3">
@@ -173,23 +247,104 @@ export default function ForgotPasswordPage() {
           </motion.div>
         )}
 
-        {/* ── Form ── */}
+        {/* ── OTP step ── */}
+        {pageState === "otp" && (
+          <motion.div key="otp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }} className="space-y-6">
+
+            {/* Shield icon */}
+            <div className="flex justify-center py-1">
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center">
+                <ShieldCheck className="w-7 h-7 text-primary" />
+              </motion.div>
+            </div>
+
+            {/* 6-box OTP input */}
+            <div className="flex gap-2.5 justify-center">
+              {otp.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={el => { inputRefs.current[i] = el }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={digit}
+                  onChange={e => handleOtpChange(i, e.target.value)}
+                  onKeyDown={e => handleOtpKeyDown(i, e)}
+                  onFocus={e => e.target.select()}
+                  className={`
+                    w-11 h-13 text-center text-xl font-bold rounded-xl border bg-white/5 text-white
+                    outline-none transition-all duration-150 caret-transparent
+                    ${digit ? "border-primary bg-primary/10" : "border-white/15"}
+                    ${otpError ? "border-red-500/60" : "focus:border-primary"}
+                  `}
+                />
+              ))}
+            </div>
+
+            {/* Inline error */}
+            {otpError && (
+              <p className="text-red-400 text-xs text-center -mt-2">{otpError}</p>
+            )}
+
+            {/* Expiry countdown */}
+            <div className="text-center">
+              {countdown > 0 ? (
+                <p className="text-white/35 text-xs">
+                  Code expires in{" "}
+                  <span className={`font-mono font-semibold ${countdown < 60 ? "text-red-400" : "text-white/55"}`}>
+                    {fmt(countdown)}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-red-400 text-xs font-medium">Code has expired</p>
+              )}
+            </div>
+
+            {/* Verify button */}
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+              <Button onClick={handleVerify} disabled={verifying || otp.join("").length !== 6}
+                className="w-full bg-gradient-primary hover:opacity-90 text-white font-semibold h-11 disabled:opacity-35">
+                {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify code"}
+              </Button>
+            </motion.div>
+
+            {/* Resend + back */}
+            <div className="flex items-center justify-between text-sm">
+              <button onClick={handleResend} disabled={resendCD > 0 || resending}
+                className="flex items-center gap-1.5 text-white/40 hover:text-white/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-xs">
+                {resending
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <RotateCcw className="w-3.5 h-3.5" />
+                }
+                {resendCD > 0 ? `Resend in ${resendCD}s` : "Resend code"}
+              </button>
+              <button onClick={reset} className="text-white/40 hover:text-white/70 transition-colors text-xs">
+                Change email
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Email form ── */}
         {pageState === "form" && (
           <motion.form key="form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }} onSubmit={handleSubmit} className="space-y-5">
+            exit={{ opacity: 0, y: -10 }} onSubmit={handleEmailSubmit} className="space-y-5">
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-white/65 text-sm">Email address</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
                 <Input id="email" type="email" placeholder="you@example.com" value={email}
-                  onChange={(e) => setEmail(e.target.value)} required autoComplete="email"
+                  onChange={e => setEmail(e.target.value)} required autoComplete="email"
                   className="bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-primary focus-visible:ring-0 h-11 pl-10" />
               </div>
             </div>
             <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
               <Button type="submit" disabled={loading}
                 className="w-full bg-gradient-primary hover:opacity-90 text-white font-semibold h-11 transition-opacity">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send reset link"}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send code"}
               </Button>
             </motion.div>
             <Link href="/login">
