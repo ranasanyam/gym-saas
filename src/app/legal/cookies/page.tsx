@@ -39,10 +39,10 @@ export default function CookiePolicyPage() {
       `}</style>
 
       <h1 style={{ fontFamily: "Syne, sans-serif" }}>Cookie Policy</h1>
-      <p className="meta">Last updated: March 31, 2025</p>
+      <p className="meta">Last updated: May 11, 2026</p>
 
       <div className="notice">
-        This Cookie Policy explains what cookies GymStack uses, why, and how you can control them. Cookies are small text files placed on your device to make our platform work properly and improve your experience.
+       This Cookie Policy explains what cookies GymStack uses on the web, and what data is stored on your device when you use the GymStack mobile app. Cookies are small text files placed on your device to make our platform work properly and improve your experience.
       </div>
 
       <h2>1. What Are Cookies?</h2>
@@ -81,11 +81,19 @@ export default function CookiePolicyPage() {
         <li><strong style={{ color: "#4ade80" }}>Analytics</strong> — Help us understand how users interact with GymStack so we can improve the product. These are optional and anonymised where possible.</li>
       </ul>
 
-      <h2>4. Third-Party Cookies</h2>
+      <h2>3a. Mobile App On-Device Storage</h2>
+      <p>The GymStack mobile app does not use HTTP cookies. Instead it uses secure on-device storage:</p>
+      <ul>
+        <li><strong style={{ color: "#fff" }}>Auth tokens (Expo SecureStore)</strong> — JWT access and refresh tokens are stored in hardware-backed secure storage (iOS Keychain / Android Keystore). These keep you signed in. Cleared on sign-out.</li>
+        <li><strong style={{ color: "#fff" }}>Profile cache (AsyncStorage)</strong> — a local copy of your profile (name, role, avatar URL) to render the UI before the network responds. Cleared on sign-out.</li>
+        <li><strong style={{ color: "#fff" }}>Push notification token</strong> — your Expo push token is stored on our server (not on-device) to deliver push notifications. You can revoke this by disabling notifications in your device settings.</li>
+      </ul>
+      <h2>4. Third-Party Cookies &amp; Services</h2>
       <p>We may use third-party services that set their own cookies:</p>
       <ul>
         <li><strong style={{ color: "#fff" }}>Google Analytics</strong> — tracks anonymised page views and user journeys. Governed by Google&apos;s Privacy Policy.</li>
         <li><strong style={{ color: "#fff" }}>Razorpay</strong> — may set cookies on payment pages to detect fraud and manage secure checkout sessions.</li>
+        <li><strong style={{ color: "#fff" }}>Expo (mobile)</strong> — push notification tokens are transmitted to Expo&apos;s infrastructure. Governed by Expo&apos;s Privacy Policy.</li>
       </ul>
       <p>We do not control third-party cookies. Please review the respective privacy policies of these providers.</p>
 
@@ -108,7 +116,7 @@ export default function CookiePolicyPage() {
       <p>We may update this Cookie Policy when we add or remove cookies. We&apos;ll notify you of material changes via email or an in-app notice.</p>
 
       <h2>7. Contact</h2>
-      <p>Questions about our cookie use? Email us at <a href="mailto:privacy@gymstack.app">privacy@gymstack.app</a> or visit our <a href="/legal/contact">Contact page</a>.</p>
+      <p>Questions about our cookie use? Email us at <a href="mailto:privacy@gymstack.co.in">privacy@gymstack.co.in</a> or visit our <a href="/legal/contact">Contact page</a>.</p>
     </article>
   )
 }
