@@ -22,17 +22,17 @@ export default function TermsOfServicePage() {
       `}</style>
 
       <h1 style={{ fontFamily: "Syne, sans-serif" }}>Terms of Service</h1>
-      <p className="meta">Last updated: March 31, 2025</p>
+      <p className="meta">Last updated: May 11, 2026</p>
 
       <div className="notice">
-        Please read these Terms of Service carefully before using GymStack. By accessing or using the platform, you agree to be bound by these terms. If you do not agree, do not use GymStack.
+        Please read these Terms of Service carefully before using GymStack. By accessing or using the platform or mobile app, you agree to be bound by these terms. If you do not agree, do not use GymStack.
       </div>
 
       <h2>1. Acceptance of Terms</h2>
-      <p>These Terms of Service (&quot;Terms&quot;) form a legally binding agreement between you and GymStack (&quot;GymStack&quot;, &quot;we&quot;, &quot;us&quot;). By registering for an account or using any part of our platform, you confirm that you are at least 18 years old and have the legal authority to enter into this agreement.</p>
+      <p>These Terms of Service (&quot;Terms&quot;) form a legally binding agreement between you and GymStack (&quot;GymStack&quot;, &quot;we&quot;, &quot;us&quot;). By registering for an account or using any part of our platform or mobile app, you confirm that you are at least 18 years old and have the legal authority to enter into this agreement.</p>
 
       <h2>2. Description of Service</h2>
-      <p>GymStack is a Software-as-a-Service (SaaS) gym management platform that enables gym owners to manage members, trainers, attendance, payments, workout plans, diet plans, and analytics. Access is provided on a subscription basis.</p>
+      <p>GymStack is a Software-as-a-Service (SaaS) gym management platform available via a web application and a mobile app. It enables gym owners to manage members, trainers, attendance, payments, workout and diet plans, supplements, lockers, and expenses. Members can track their workouts, nutrition, and body metrics, and generate AI-powered personalised plans. Trainers can manage assigned members, create workout and diet plans, and access job postings. Access is provided on a subscription basis.</p>
 
       <h2>3. Account Registration</h2>
       <ul>
@@ -44,11 +44,20 @@ export default function TermsOfServicePage() {
 
       <h2>4. Subscriptions and Payments</h2>
       <ul>
-        <li>GymStack offers tiered subscription plans. Current pricing is displayed on our pricing page.</li>
+        <li>GymStack offers tiered subscription plans for gym owners. Current pricing is displayed on our pricing page.</li>
         <li>Subscriptions are billed in advance on a monthly or annual basis.</li>
         <li>All payments are processed securely through Razorpay. By subscribing, you agree to Razorpay&apos;s terms.</li>
         <li>Subscription fees are non-refundable except as required by applicable law or as explicitly stated in our refund policy.</li>
         <li>We reserve the right to change pricing with 30 days&apos; notice. Continued use after the notice period constitutes acceptance.</li>
+      </ul>
+
+      <h2>4a. AI Plan Credits</h2>
+      <ul>
+        <li>Members can purchase AI plan credit packages (Basic, Standard, or Premium) to generate personalised workout and diet plans using Google Gemini AI.</li>
+        <li>Credits are consumed upon each plan generation and are non-refundable once used.</li>
+        <li>Generated plans include a 2-hour free edit window. Edits requested after this window consume an additional credit.</li>
+        <li>Plan history is retained so members can review previously generated plans at any time without consuming additional credits.</li>
+        <li>GymStack does not warrant that AI-generated plans are medically appropriate for any individual. Always consult a qualified fitness or medical professional before starting a new fitness or nutrition programme.</li>
       </ul>
 
       <h2>5. Acceptable Use</h2>
@@ -87,7 +96,7 @@ export default function TermsOfServicePage() {
       <p>We may modify these Terms at any time. We will provide at least 14 days&apos; notice for material changes. Continued use after the effective date constitutes acceptance.</p>
 
       <h2>14. Contact</h2>
-      <p>Questions about these Terms? Contact us at <a href="mailto:legal@gymstack.app">legal@gymstack.app</a> or visit our <a href="/legal/contact">Contact page</a>.</p>
+      <p>Questions about these Terms? Contact us at <a href="mailto:legal@gymstack.co.in">legal@gymstack.co.in</a> or visit our <a href="/legal/contact">Contact page</a>.</p>
     </article>
   )
 }
