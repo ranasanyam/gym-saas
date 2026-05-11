@@ -12,7 +12,7 @@ import {
   ClipboardList, AlertTriangle, BanknoteArrowDown,
   Calendar, Headphones, Zap, Rocket,
   IndianRupee, Download,
-  LockIcon, CreditCard,
+  LockIcon, CreditCard, ArrowUpCircle, X,
   BrainCircuitIcon,
 } from "lucide-react"
 
@@ -155,6 +155,7 @@ export default function SubscriptionsPage() {
   const [purchasing, setPurchasing] = useState<string | null>(null)
   const [billingHistory, setBillingHistory] = useState<any[]>([])
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [upgradeModal, setUpgradeModal] = useState<{ tier: PlanTier; interval: DurationInterval; price: number } | null>(null)
 
   // Per-tier duration selection (defaults to 6 months)
   const [durations, setDurations] = useState<Record<string, DurationInterval>>({
@@ -347,8 +348,8 @@ export default function SubscriptionsPage() {
           </div>
           {isActiveSub && (
             <p className="text-white/35 text-xs flex items-center gap-1.5 px-1">
-              <LockIcon className="w-3 h-3 text-white/30 shrink-0" />
-              Plan changes are not available while your subscription is active.
+              <ArrowUpCircle className="w-3 h-3 text-primary/50 shrink-0" />
+              You can upgrade to a higher plan. Downgrades are not available while your subscription is active.
             </p>
           )}
         </div>
@@ -554,29 +555,43 @@ export default function SubscriptionsPage() {
                 )}
 
                 {/* CTA */}
-                <button
-                  onClick={() => !current && !isBuying && !isDowngrade(tier) && purchase(tier, selectedInterval)}
-                  disabled={current || isBuying || isDowngrade(tier)}
-                  className={`w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                    current || isDowngrade(tier)
-                      ? "bg-white/5 text-white/30 cursor-not-allowed"
-                      : isPopular
-                        ? "bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 shadow-lg shadow-primary/20"
-                        : tier.key === "enterprise"
-                          ? "bg-purple-500 text-white hover:opacity-90"
-                          : "bg-white/8 hover:bg-white/15 text-white border border-white/10"
-                  }`}
-                >
-                  {isBuying ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : current ? (
-                    "Current Plan"
-                  ) : isDowngrade(tier) ? (
-                    "Not Available"
-                  ) : (
-                    <><CreditCard className="w-4 h-4" /> Subscribe — ₹{price.toLocaleString("en-IN")}</>
-                  )}
-                </button>
+                {(() => {
+                  const isUpgrade = isActiveSub && !current && !isDowngrade(tier)
+                  return (
+                    <button
+                      onClick={() => {
+                        if (current || isBuying || isDowngrade(tier)) return
+                        if (isUpgrade) {
+                          setUpgradeModal({ tier, interval: selectedInterval, price })
+                        } else {
+                          purchase(tier, selectedInterval)
+                        }
+                      }}
+                      disabled={current || isBuying || isDowngrade(tier)}
+                      className={`w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                        current || isDowngrade(tier)
+                          ? "bg-white/5 text-white/30 cursor-not-allowed"
+                          : isPopular
+                            ? "bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 shadow-lg shadow-primary/20"
+                            : tier.key === "enterprise"
+                              ? "bg-purple-500 text-white hover:opacity-90"
+                              : "bg-white/8 hover:bg-white/15 text-white border border-white/10"
+                      }`}
+                    >
+                      {isBuying ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : current ? (
+                        "Current Plan"
+                      ) : isDowngrade(tier) ? (
+                        "Not Available"
+                      ) : isUpgrade ? (
+                        <><ArrowUpCircle className="w-4 h-4" /> Upgrade — ₹{price.toLocaleString("en-IN")}</>
+                      ) : (
+                        <><CreditCard className="w-4 h-4" /> Subscribe — ₹{price.toLocaleString("en-IN")}</>
+                      )}
+                    </button>
+                  )
+                })()}
               </div>
             </div>
           )
@@ -629,6 +644,47 @@ export default function SubscriptionsPage() {
           </div>
         </div>
       )}
+      {/* ── Upgrade confirmation modal ────────────────────────────────── */}
+      {upgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[hsl(220_25%_9%)] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ArrowUpCircle className="w-5 h-5 text-primary shrink-0" />
+                <h3 className="text-white font-bold text-lg">Upgrade Plan</h3>
+              </div>
+              <button onClick={() => setUpgradeModal(null)} className="text-white/40 hover:text-white/70 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-white/60 text-sm mb-2">
+              You&apos;re upgrading to <span className="text-white font-semibold">{upgradeModal.tier.name} Plan</span>.
+            </p>
+            <p className="text-white/40 text-xs mb-5">
+              Your current subscription will be cancelled immediately and a new {upgradeModal.tier.name} plan will start. You&apos;ll be charged ₹{upgradeModal.price.toLocaleString("en-IN")} for the full period.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setUpgradeModal(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-white/5 hover:bg-white/10 text-white/60 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const { tier, interval } = upgradeModal
+                  setUpgradeModal(null)
+                  purchase(tier, interval)
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 transition-all"
+              >
+                Confirm Upgrade
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Trust badges ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
         {[

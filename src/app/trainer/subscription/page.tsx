@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { BadgeCheck, CheckCircle2, Crown, Loader2, Zap, Briefcase, Calendar, Lock } from "lucide-react"
+import { BadgeCheck, CheckCircle2, Crown, Loader2, Zap, Briefcase, Calendar, ArrowUpCircle, X } from "lucide-react"
 import type { TrainerPlan } from "@/lib/trainerSubscriptionPlans"
 import { useToast } from "@/hooks/use-toast"
 
@@ -39,8 +39,9 @@ export default function TrainerSubscriptionPage() {
   const { toast } = useToast()
   const [plans, setPlans]         = useState<TrainerPlan[]>([])
   const [status, setStatus]       = useState<SubStatus | null>(null)
-  const [loading, setLoading]     = useState(true)
-  const [purchasing, setPurchasing] = useState<string | null>(null)
+  const [loading, setLoading]       = useState(true)
+  const [purchasing, setPurchasing]   = useState<string | null>(null)
+  const [upgradeModal, setUpgradeModal] = useState<{ plan: TrainerPlan } | null>(null)
 
   const load = useCallback(async () => {
     const [plansRes, statusRes] = await Promise.all([
@@ -179,8 +180,8 @@ export default function TrainerSubscriptionPage() {
           </h3>
           {status?.isActive && (
             <p className="text-white/35 text-xs mt-1 flex items-center gap-1.5">
-              <Lock className="w-3 h-3 shrink-0" />
-              Plan changes are not available while your subscription is active.
+              <ArrowUpCircle className="w-3 h-3 shrink-0 text-primary/50" />
+              You can upgrade to a longer plan. Downgrades are not available while your subscription is active.
             </p>
           )}
         </div>
@@ -221,13 +222,15 @@ export default function TrainerSubscriptionPage() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => handlePurchase(plan)}
+                    onClick={() => status?.isActive ? setUpgradeModal({ plan }) : handlePurchase(plan)}
                     disabled={purchasing === plan.slug}
                     className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 ${colors.bg} hover:brightness-125 border ${colors.border} ${colors.text}`}
                   >
                     {purchasing === plan.slug
                       ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <><Zap className="w-4 h-4" /> Subscribe</>
+                      : status?.isActive
+                        ? <><ArrowUpCircle className="w-4 h-4" /> Upgrade</>
+                        : <><Zap className="w-4 h-4" /> Subscribe</>
                     }
                   </button>
                 )}
@@ -236,6 +239,43 @@ export default function TrainerSubscriptionPage() {
           })}
         </div>
       </div>
+
+      {/* Upgrade confirmation modal */}
+      {upgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[hsl(220_25%_9%)] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ArrowUpCircle className="w-5 h-5 text-primary shrink-0" />
+                <h3 className="text-white font-bold text-lg">Upgrade Plan</h3>
+              </div>
+              <button onClick={() => setUpgradeModal(null)} className="text-white/40 hover:text-white/70 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-white/60 text-sm mb-2">
+              You&apos;re upgrading to the <span className="text-white font-semibold">{upgradeModal.plan.name}</span> plan ({upgradeModal.plan.durationDays} days).
+            </p>
+            <p className="text-white/40 text-xs mb-5">
+              Your current subscription will be cancelled immediately and the new plan starts today. You&apos;ll be charged ₹{upgradeModal.plan.price.toLocaleString("en-IN")}.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setUpgradeModal(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-white/5 hover:bg-white/10 text-white/60 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { const { plan } = upgradeModal; setUpgradeModal(null); handlePurchase(plan) }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 transition-all"
+              >
+                Confirm Upgrade
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
