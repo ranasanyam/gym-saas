@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveProfileId } from "@/lib/mobileAuth"
 import { prisma } from "@/lib/prisma"
-
+import { sendPushToProfile } from "@/lib/push"
 export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -76,22 +76,58 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  // Notify member if assigned
   if (assignedToMemberId) {
+    // Single member — in-app + push
     const member = await prisma.gymMember.findUnique({
-      where: { id: assignedToMemberId },
+      where:  { id: assignedToMemberId },
       select: { profileId: true },
     })
     if (member) {
-      await prisma.notification.create({
-        data: {
-          gymId: trainer.gymId,
-          profileId: member.profileId,
+      await Promise.allSettled([
+        prisma.notification.create({
+          data: {
+            gymId:     trainer.gymId,
+            profileId: member.profileId,
+            title:   "💪 New Workout Plan",
+            message: `Your trainer assigned you a new workout plan: "${title}"`,
+            type:    "PLAN_UPDATE",
+          },
+        }),
+        sendPushToProfile(member.profileId, {
           title: "💪 New Workout Plan",
-          message: `Your trainer assigned you a new workout plan: "${title}"`,
-          type: "PLAN_UPDATE",
-        },
-      })
+          body:  `Your trainer assigned you a new workout plan: "${title}"`,
+          url:   "/member/workouts",
+          tag:   "workout-plan-assigned",
+        }),
+      ]).catch(() => {})
+    }
+  } else if (isGlobal) {
+    // All active members of trainer's gym
+    const members = await prisma.gymMember.findMany({
+      where:  { gymId: trainer.gymId, status: "ACTIVE" },
+      select: { profileId: true },
+    })
+    if (members.length) {
+      await Promise.allSettled([
+        prisma.notification.createMany({
+          data: members.map(m => ({
+            gymId:     trainer.gymId,
+            profileId: m.profileId,
+            title:   "💪 New Workout Plan",
+            message: `Your trainer shared a new workout plan with all members: "${title}"`,
+            type:    "PLAN_UPDATE",
+          })),
+          skipDuplicates: true,
+        }),
+        ...members.map(m =>
+          sendPushToProfile(m.profileId, {
+            title: "💪 New Workout Plan",
+            body:  `Your trainer shared a new workout plan with all members: "${title}"`,
+            url:   "/member/workouts",
+            tag:   "workout-plan-global",
+          })
+        ),
+      ]).catch(() => {})
     }
   }
 

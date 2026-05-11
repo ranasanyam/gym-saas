@@ -4,7 +4,7 @@ import { resolveProfileId } from "@/lib/mobileAuth"
 import { requireActivePlan } from "@/lib/requireActivePlan"
 import { prisma } from "@/lib/prisma"
 import { getOwnerSubscription, checkFeature } from "@/lib/subscription"
-
+import { sendPushToProfile } from "@/lib/push"
 export async function GET(req: NextRequest) {
   const profileId = await resolveProfileId(req)
   if (!profileId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -88,5 +88,63 @@ export async function POST(req: NextRequest) {
       isActive: true
     },
   })
+
+    const planTitle = title || "Workout Plan"
+
+  if (assignedToMemberId) {
+    // Single member — notify them
+    const member = await prisma.gymMember.findUnique({
+      where:  { id: assignedToMemberId },
+      select: { profileId: true },
+    })
+    if (member) {
+      await Promise.allSettled([
+        prisma.notification.create({
+          data: {
+            gymId,
+            profileId: member.profileId,
+            title:   "💪 New Workout Plan",
+            message: `Your gym assigned you a new workout plan: "${planTitle}"`,
+            type:    "PLAN_UPDATE",
+          },
+        }),
+        sendPushToProfile(member.profileId, {
+          title: "💪 New Workout Plan",
+          body:  `Your gym assigned you a new workout plan: "${planTitle}"`,
+          url:   "/member/workouts",
+          tag:   "workout-plan-assigned",
+        }),
+      ]).catch(() => {})
+    }
+  } else if (isGlobal) {
+    // All active gym members
+    const members = await prisma.gymMember.findMany({
+      where:  { gymId, status: "ACTIVE" },
+      select: { profileId: true },
+    })
+    if (members.length) {
+      await Promise.allSettled([
+        prisma.notification.createMany({
+          data: members.map(m => ({
+            gymId,
+            profileId: m.profileId,
+            title:   "💪 New Workout Plan",
+            message: `Your gym shared a new workout plan with all members: "${planTitle}"`,
+            type:    "PLAN_UPDATE",
+          })),
+          skipDuplicates: true,
+        }),
+        ...members.map(m =>
+          sendPushToProfile(m.profileId, {
+            title: "💪 New Workout Plan",
+            body:  `Your gym shared a new workout plan with all members: "${planTitle}"`,
+            url:   "/member/workouts",
+            tag:   "workout-plan-global",
+          })
+        ),
+      ]).catch(() => {})
+    }
+  }
+  
   return NextResponse.json(plan, { status: 201 })
 }
