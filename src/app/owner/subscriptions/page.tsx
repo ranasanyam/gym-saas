@@ -12,7 +12,7 @@ import {
   ClipboardList, AlertTriangle, BanknoteArrowDown,
   Calendar, Headphones, Zap, Rocket,
   IndianRupee, Download,
-  LockIcon,
+  LockIcon, CreditCard,
   BrainCircuitIcon,
 } from "lucide-react"
 
@@ -189,6 +189,16 @@ export default function SubscriptionsPage() {
 
   const isCurrent = (tier: PlanTier) =>
     isActiveSub && activePlanKey?.includes(tier.key)
+
+
+    const TIER_ORDER: Record<string, number> = { basic: 1, pro: 2, enterprise: 3 }
+  const currentTierOrder = isActiveSub
+    ? (TIER_ORDER[TIERS.find(t => activePlanKey?.includes(t.key))?.key ?? ""] ?? 0)
+    : 0
+  const isDowngrade = (tier: PlanTier) =>
+    isActiveSub && (TIER_ORDER[tier.key] ?? 0) < currentTierOrder
+
+
 
   const purchase = async (tier: PlanTier, interval: DurationInterval) => {
     const dbPlan = findDbPlan(tier.key, interval)
@@ -545,28 +555,26 @@ export default function SubscriptionsPage() {
 
                 {/* CTA */}
                 <button
-                  onClick={() => !current && !isBuying && !isLocked && purchase(tier, selectedInterval)}
-                  disabled={current || isBuying || isLocked}
+                  onClick={() => !current && !isBuying && !isDowngrade(tier) && purchase(tier, selectedInterval)}
+                  disabled={current || isBuying || isDowngrade(tier)}
                   className={`w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                    current
+                    current || isDowngrade(tier)
                       ? "bg-white/5 text-white/30 cursor-not-allowed"
-                      : isLocked
-                        ? "bg-white/3 text-white/25 cursor-not-allowed border border-white/6"
-                        : isPopular
-                          ? "bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 shadow-lg shadow-primary/20"
-                          : tier.key === "enterprise"
-                            ? "bg-purple-500 text-white hover:opacity-90"
-                            : "bg-white/8 hover:bg-white/15 text-white border border-white/10"
+                      : isPopular
+                        ? "bg-linear-to-r from-primary to-orange-400 text-white hover:opacity-90 shadow-lg shadow-primary/20"
+                        : tier.key === "enterprise"
+                          ? "bg-purple-500 text-white hover:opacity-90"
+                          : "bg-white/8 hover:bg-white/15 text-white border border-white/10"
                   }`}
                 >
                   {isBuying ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : current ? (
                     "Current Plan"
-                  ) : isLocked ? (
-                    <><LockIcon className="w-4 h-4" /> Plan Locked</>
+                  ) : isDowngrade(tier) ? (
+                    "Not Available"
                   ) : (
-                    <><Zap className="w-4 h-4" /> Subscribe — ₹{price.toLocaleString("en-IN")}</>
+                    <><CreditCard className="w-4 h-4" /> Subscribe — ₹{price.toLocaleString("en-IN")}</>
                   )}
                 </button>
               </div>
