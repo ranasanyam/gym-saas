@@ -23,15 +23,21 @@ export async function POST(req: NextRequest) {
   const plan = getTrainerPlan(planSlug)
   if (!plan) return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
 
-  // Block plan changes while an active subscription exists
+  // Block downgrades; allow upgrades to longer-duration plans
+  const PLAN_ORDER: Record<string, number> = { monthly: 1, quarterly: 2, yearly: 3 }
   const activeSub = await prisma.trainerSubscription.findFirst({
     where: { profileId, status: "ACTIVE", endDate: { gt: new Date() } },
   })
   if (activeSub) {
-    return NextResponse.json(
-      { error: "You already have an active subscription. Plan changes are not available while your subscription is active.", code: "PLAN_CHANGE_BLOCKED" },
-      { status: 409 }
-    )
+    const currentTier = PLAN_ORDER[activeSub.planSlug] ?? 0
+    const newTier     = PLAN_ORDER[plan.slug] ?? 0
+    if (newTier <= currentTier) {
+      return NextResponse.json(
+        { error: "Downgrades are not available. You can only upgrade to a longer plan.", code: "PLAN_CHANGE_BLOCKED" },
+        { status: 409 }
+      )
+    }
+    // Upgrade allowed — subscribe endpoint will cancel the old sub
   }
 
   let order
