@@ -40,15 +40,21 @@ export async function POST(req: NextRequest) {
   const plan = getPlanBySlug(planSlug)
   if (!plan) return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
 
-  // Block plan changes while an active subscription exists
+  // Block downgrades; allow upgrades to higher-tier plans
+  const PLAN_ORDER: Record<string, number> = { basic: 1, standard: 2, premium: 3 }
   const activeSub = await prisma.memberAISubscription.findFirst({
     where: { profileId, isActive: true, expiryDate: { gt: new Date() } },
   })
   if (activeSub) {
-    return NextResponse.json(
-      { error: "You already have an active subscription. Plan changes are not available while your subscription is active.", code: "PLAN_CHANGE_BLOCKED" },
-      { status: 409 }
-    )
+    const currentTier = PLAN_ORDER[activeSub.planSlug] ?? 0
+    const newTier     = PLAN_ORDER[plan.slug] ?? 0
+    if (newTier <= currentTier) {
+      return NextResponse.json(
+        { error: "Downgrades are not available. You can only upgrade to a higher plan.", code: "PLAN_CHANGE_BLOCKED" },
+        { status: 409 }
+      )
+    }
+    // Upgrade allowed — transaction below will deactivate the old sub
   }
 
   if (razorpaySignature) {

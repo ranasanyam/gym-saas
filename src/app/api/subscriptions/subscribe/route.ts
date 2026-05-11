@@ -32,6 +32,14 @@ const INTERVAL_MONTHS: Record<string, number | null> = {
 
 export const runtime = "nodejs"
 
+function getPlanTier(planName: string): number {
+    const n = planName.toLowerCase()
+    if (n.includes("enterprise")) return 3
+    if (n.includes("pro"))        return 2
+    if (n.includes("basic"))      return 1
+    return 0
+}
+
 function hmac(a: string, b: string): string {
     return crypto
         .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
@@ -58,15 +66,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Plan not found or inactive" }, { status: 404 })
     }
 
-    // Block plan changes while an active subscription exists
+    // Block downgrades and LIFETIME changes; allow upgrades
     const activeSub = await prisma.saasSubscription.findFirst({
-        where: { profileId, status: { in: ["ACTIVE", "TRIALING", "LIFETIME"] } },
+        where:   { profileId, status: { in: ["ACTIVE", "TRIALING", "LIFETIME"] } },
+        include: { saasPlan: { select: { name: true } } },
     })
     if (activeSub) {
-        return NextResponse.json(
-            { error: "You already have an active subscription. Plan changes are not available while your subscription is active.", code: "PLAN_CHANGE_BLOCKED" },
-            { status: 409 }
-        )
+        if (activeSub.status === "LIFETIME") {
+            return NextResponse.json(
+                { error: "Lifetime plan changes are not available.", code: "PLAN_CHANGE_BLOCKED" },
+                { status: 409 }
+            )
+        }
+        const currentTier = getPlanTier(activeSub.saasPlan.name)
+        const newTier     = getPlanTier(plan.name)
+        if (newTier <= currentTier) {
+            return NextResponse.json(
+                { error: "Downgrades are not available. You can only upgrade to a higher plan.", code: "PLAN_CHANGE_BLOCKED" },
+                { status: 409 }
+            )
+        }
+        // Upgrade allowed — transaction below will cancel the old sub
     }
 
     const isPaid = Number(plan.price) > 0
