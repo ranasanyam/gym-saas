@@ -114,6 +114,8 @@ export default function TrainerSubscriptionPage() {
       </div>
     </div>
   )
+  const PLAN_ORDER: Record<string, number> = { monthly: 1, quarterly: 2, yearly: 3 }
+  const currentPlanOrder = status?.isActive ? (PLAN_ORDER[status.planSlug ?? ""] ?? 0) : 0
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -185,8 +187,8 @@ export default function TrainerSubscriptionPage() {
         <div className="grid sm:grid-cols-3 gap-4">
           {plans.map(plan => {
             const colors    = PLAN_COLORS[plan.slug] ?? PLAN_COLORS.monthly
-            const isCurrent = status?.isActive && status.planSlug === plan.slug
-            const isLocked  = status?.isActive && !isCurrent
+            const isCurrent  = status?.isActive && status.planSlug === plan.slug
+            const isDowngrade = status?.isActive && (PLAN_ORDER[plan.slug] ?? 0) < currentPlanOrder
             return (
               <div key={plan.slug} className={`relative flex flex-col ${colors.bg} border ${colors.border} rounded-2xl p-5`}>
                 {plan.badge && (
@@ -213,9 +215,9 @@ export default function TrainerSubscriptionPage() {
                   <div className={`text-center text-xs font-semibold py-2 rounded-xl ${colors.badge} ${colors.text}`}>
                     Current Plan
                   </div>
-                ) : isLocked ? (
-                  <div className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold bg-white/3 border border-white/8 text-white/25 cursor-not-allowed">
-                    <Lock className="w-3.5 h-3.5" /> Plan Locked
+                ) : isDowngrade ? (
+                  <div className="text-center text-xs font-semibold py-2 rounded-xl bg-white/5 text-white/25 cursor-not-allowed">
+                    Not Available
                   </div>
                 ) : (
                   <button
