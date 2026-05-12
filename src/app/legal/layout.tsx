@@ -9,9 +9,10 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
       <nav className="border-b border-white/5 sticky top-0 z-50 backdrop-blur-md" style={{ background: "rgba(8,12,18,0.85)" }}>
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#f97316,#ea580c)" }}>
+            {/* <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#f97316,#ea580c)" }}>
               <Dumbbell className="w-4 h-4 text-white" />
-            </div>
+            </div> */}
+            <img src="../../../logo.png" alt="Logo" className="w-10 h-10" />
             <span className="font-bold text-white text-lg" style={{ fontFamily: "Syne, sans-serif" }}>GymStack</span>
           </Link>
           <Link href="/" className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors">
